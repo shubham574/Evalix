@@ -1,6 +1,6 @@
-# Contributing to InterviewAce
+# Contributing to Evalix
 
-First off, thank you for considering contributing to InterviewAce! It's people like you that make open-source such a great community.
+First off, thank you for considering contributing to Evalix! It's people like you that make open-source such a great community.
 
 ## Development Setup
 

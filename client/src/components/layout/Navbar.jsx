@@ -46,7 +46,7 @@ const Navbar = ({ toggleSidebar, sidebarOpen }) => {
         
         <Link to="/" className="flex items-center space-x-2 sm:hidden">
           <span className="text-lg font-bold tracking-tight text-text-primary">
-            InterviewAce
+            Evalix
           </span>
         </Link>
       </div>

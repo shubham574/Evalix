@@ -1,4 +1,4 @@
-# robots.txt for InterviewAce (https://interview-ai-ten-psi.vercel.app)
+# robots.txt for Evalix (https://interview-ai-ten-psi.vercel.app)
 # Optimized for Googlebot, Bingbot, and modern web search crawlers
 
 User-agent: *

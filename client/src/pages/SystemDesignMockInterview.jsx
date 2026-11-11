@@ -39,7 +39,7 @@ const faqs = [
     a: "You pick a design problem (e.g., TinyURL, Uber, Netflix, WhatsApp). AI interviewer Shristi leads the discussion: starting with functional & non-functional requirements, back-of-the-envelope calculations, high-level architecture diagramming concepts, deep dives into bottlenecks, and trade-off defense."
   },
   {
-    q: "Does InterviewAce evaluate high-level (HLD) or low-level design (LLD)?",
+    q: "Does Evalix evaluate high-level (HLD) or low-level design (LLD)?",
     a: "Both! For HLD rounds, we evaluate distributed architecture, caching, databases, and microservices. For LLD rounds, we evaluate object-oriented design patterns, concurrency controls, SOLID principles, and schema normalization."
   },
   {
@@ -67,7 +67,7 @@ const SystemDesignMockInterview = () => {
         "url": "https://interview-ai-ten-psi.vercel.app/system-design-mock-interview",
         "publisher": {
           "@type": "Organization",
-          "name": "InterviewAce",
+          "name": "Evalix",
           "url": "https://interview-ai-ten-psi.vercel.app/"
         }
       },
@@ -99,7 +99,7 @@ const SystemDesignMockInterview = () => {
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            InterviewAce
+            Evalix
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
@@ -285,7 +285,7 @@ const SystemDesignMockInterview = () => {
       {/* Footer */}
       <footer className="border-t border-border-subtle py-8 text-center text-sm text-text-secondary">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>© {new Date().getFullYear()} InterviewAce. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Evalix. All rights reserved.</span>
           <div className="flex gap-6">
             <Link to="/" className="hover:text-text-primary">Home</Link>
             <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">React Prep</Link>

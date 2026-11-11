@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-07-09
 
 ### Added
-- Initial release of InterviewAce.
+- Initial release of Evalix.
 - User authentication via Clerk.
 - AI-powered mock interviews using Google Gemini.
 - Resume parsing feature for tailored questions.

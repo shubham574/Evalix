@@ -52,7 +52,7 @@ const Preloader = ({ onComplete }) => {
     },
   };
 
-  const brandName = "InterviewAce";
+  const brandName = "Evalix";
 
   return (
     <AnimatePresence>

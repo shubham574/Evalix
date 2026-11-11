@@ -19,9 +19,9 @@ const SEOHead = ({
   structuredData,
 }) => {
   useEffect(() => {
-    const baseTitle = 'InterviewAce — AI Technical Interview Preparation Platform';
+    const baseTitle = 'Evalix — AI Technical Interview Preparation Platform';
     const finalTitle = title 
-      ? (title.includes('InterviewAce') ? title : `${title} | ${baseTitle}`)
+      ? (title.includes('Evalix') ? title : `${title} | ${baseTitle}`)
       : baseTitle;
     document.title = finalTitle;
 
@@ -73,7 +73,7 @@ const SEOHead = ({
     setMeta('og:type', ogType, true);
     setMeta('og:url', href, true);
     setMeta('og:image', finalOgImage, true);
-    setMeta('og:site_name', 'InterviewAce', true);
+    setMeta('og:site_name', 'Evalix', true);
     setMeta('og:locale', 'en_US', true);
 
     // Twitter Card

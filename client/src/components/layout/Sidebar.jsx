@@ -52,7 +52,7 @@ const Sidebar = ({ isOpen, setSidebarOpen }) => {
         <div className="h-16 flex items-center px-6 border-b border-border-subtle mb-4 hidden lg:flex">
           <Link to="/" className="flex items-center space-x-2">
             <span className="text-xl font-bold tracking-tight text-text-primary">
-              InterviewAce
+              Evalix
             </span>
           </Link>
         </div>

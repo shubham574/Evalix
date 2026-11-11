@@ -36,11 +36,11 @@ const sampleResumeSnippets = [
 const faqs = [
   {
     q: "How does AI generate interview questions from my resume?",
-    a: "InterviewAce uses Google Gemini 1.5 to parse your uploaded PDF resume. It identifies listed tech stacks, quantifiable achievements, and architectural claims, then formulates deep technical and behavioral drill-down questions exactly like an engineering hiring manager."
+    a: "Evalix uses Google Gemini 1.5 to parse your uploaded PDF resume. It identifies listed tech stacks, quantifiable achievements, and architectural claims, then formulates deep technical and behavioral drill-down questions exactly like an engineering hiring manager."
   },
   {
     q: "Can I provide a specific job description along with my resume?",
-    a: "Yes! You can paste the target Job Description (JD). InterviewAce performs an ATS gap analysis, identifies missing competencies, and prioritizes questions tailored to match the specific job requirements."
+    a: "Yes! You can paste the target Job Description (JD). Evalix performs an ATS gap analysis, identifies missing competencies, and prioritizes questions tailored to match the specific job requirements."
   },
   {
     q: "Will the questions test both technical details and behavioral STAR stories?",
@@ -67,7 +67,7 @@ const ResumeQuestions = () => {
         "url": "https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions",
         "publisher": {
           "@type": "Organization",
-          "name": "InterviewAce",
+          "name": "Evalix",
           "url": "https://interview-ai-ten-psi.vercel.app/"
         }
       },
@@ -99,7 +99,7 @@ const ResumeQuestions = () => {
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            InterviewAce
+            Evalix
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
@@ -143,10 +143,10 @@ const ResumeQuestions = () => {
         <section aria-labelledby="pillars-heading" className="space-y-10">
           <div className="text-center max-w-2xl mx-auto">
             <h2 id="pillars-heading" className="text-3xl font-bold font-display text-text-primary mb-3">
-              How InterviewAce Analyzes Your Resume
+              How Evalix Analyzes Your Resume
             </h2>
             <p className="text-text-secondary">
-              Hiring managers inspect your resume for specific claims, metrics, and technical depth. InterviewAce replicates their evaluation methodology.
+              Hiring managers inspect your resume for specific claims, metrics, and technical depth. Evalix replicates their evaluation methodology.
             </p>
           </div>
 
@@ -289,7 +289,7 @@ const ResumeQuestions = () => {
       {/* Footer */}
       <footer className="border-t border-border-subtle py-8 text-center text-sm text-text-secondary">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>© {new Date().getFullYear()} InterviewAce. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Evalix. All rights reserved.</span>
           <div className="flex gap-6">
             <Link to="/" className="hover:text-text-primary">Home</Link>
             <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">React Prep</Link>

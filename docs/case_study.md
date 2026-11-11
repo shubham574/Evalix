@@ -1,10 +1,10 @@
-# Case Study: InterviewAce
+# Case Study: Evalix
 
 ## The Problem
 Technical interviews are a massive bottleneck for software engineers. While platforms like LeetCode exist for algorithms, behavioral and architectural interviews are difficult to practice without a human partner. Candidates often struggle with structuring their answers or fail to realize when their explanations lack depth. Existing solutions are either too expensive (hiring a real coach) or too rigid (pre-recorded video questions).
 
 ## The Solution
-**InterviewAce** is an AI-powered technical interview companion. By leveraging Large Language Models (LLMs), the platform provides a dynamic, conversational interview experience. It doesn't just ask generic questions; it parses a candidate's uploaded resume to ask highly specific questions about their past projects, tech stack, and experiences, mimicking a real-world engineering manager.
+**Evalix** is an AI-powered technical interview companion. By leveraging Large Language Models (LLMs), the platform provides a dynamic, conversational interview experience. It doesn't just ask generic questions; it parses a candidate's uploaded resume to ask highly specific questions about their past projects, tech stack, and experiences, mimicking a real-world engineering manager.
 
 ## Key Technical Decisions
 

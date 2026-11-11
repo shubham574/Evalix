@@ -12,12 +12,12 @@
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://interview-ai-ten-psi.vercel.app/og-image.png</image:loc>
-      <image:title>InterviewAce — AI Technical Interview Preparation Platform</image:title>
+      <image:title>Evalix — AI Technical Interview Preparation Platform</image:title>
       <image:caption>Practice real-time technical mock interviews with AI interviewer Shristi</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://interview-ai-ten-psi.vercel.app/landing-preview.png</image:loc>
-      <image:title>InterviewAce Platform Interface</image:title>
+      <image:title>Evalix Platform Interface</image:title>
       <image:caption>Interactive technical mock interview and MCQ assessment test generation</image:caption>
     </image:image>
   </url>

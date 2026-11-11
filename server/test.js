@@ -2,7 +2,7 @@ const assert = require('assert');
 const { transcribeAudio, generateSpeech } = require('./controllers/transcription.controller');
 
 async function runTests() {
-  console.log('--- Running InterviewAce Server Test Suite ---');
+  console.log('--- Running Evalix Server Test Suite ---');
 
   // Test 1: Basic environment check
   console.log('[Test 1] Node environment assertion check...');
@@ -58,7 +58,7 @@ async function runTests() {
     send: () => {},
   };
   const mockReqFallback = {
-    body: { text: 'Hello, welcome to InterviewAce!' },
+    body: { text: 'Hello, welcome to Evalix!' },
     headers: {}, // No key provided
   };
 

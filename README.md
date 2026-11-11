@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="./client/public/landing-preview.png" alt="InterviewAce Landing Page Preview" width="800" />
+  <img src="./client/public/landing-preview.png" alt="Evalix Landing Page Preview" width="800" />
 
-  # InterviewAce
+  # Evalix
   **Your AI-Powered Technical Interview Companion**
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -14,7 +14,7 @@
 ---
 
 ## 🚀 The Pitch
-Technical interviews are stressful, unpredictable, and difficult to prepare for alone. **InterviewAce** solves this by providing a highly realistic, AI-driven mock interview environment. Upload your resume, and our system (powered by Google Gemini) instantly parses your experience to generate tailored, challenging technical questions. Practice in real-time, get immediate constructive feedback, and track your performance trends over time.
+Technical interviews are stressful, unpredictable, and difficult to prepare for alone. **Evalix** solves this by providing a highly realistic, AI-driven mock interview environment. Upload your resume, and our system (powered by Google Gemini) instantly parses your experience to generate tailored, challenging technical questions. Practice in real-time, get immediate constructive feedback, and track your performance trends over time.
 
 It's not just another generic quiz app; it's a personalized interview coach built on a robust, modern, full-stack architecture.
 
@@ -29,7 +29,7 @@ It's not just another generic quiz app; it's a personalized interview coach buil
 - **Search-Engine Indexed Public Tracks:** Dedicated guides and simulators for [React Developers](https://interview-ai-ten-psi.vercel.app/mock-interview-for-react-developers), [Resume-Based Defense](https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions), [System Design](https://interview-ai-ten-psi.vercel.app/system-design-mock-interview), and [Campus Placement for Freshers](https://interview-ai-ten-psi.vercel.app/mock-interview-for-freshers).
 
 ## 💻 Tech Stack
-InterviewAce uses a modern, strictly separated client/server architecture.
+Evalix uses a modern, strictly separated client/server architecture.
 
 | Layer | Technology | Why we chose it |
 |-------|------------|-----------------|

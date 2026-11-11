@@ -356,8 +356,8 @@ const Landing = () => {
       
       <div className="min-h-screen bg-bg-canvas text-text-primary font-body overflow-x-clip">
         <SEOHead 
-          title="InterviewAce — AI Mock Interview & Technical Prep Platform"
-          description="Ace your software engineering interviews with InterviewAce. Practice realistic AI voice mock interviews, resume-tailored questions, and timed coding assessments."
+          title="Evalix — AI Mock Interview & Technical Prep Platform"
+          description="Ace your software engineering interviews with Evalix. Practice realistic AI voice mock interviews, resume-tailored questions, and timed coding assessments."
           keywords={[
             'AI mock interview', 'technical interview prep', 'software engineer mock interview',
             'voice interview practice', 'resume ATS analyzer', 'coding assessment simulator',
@@ -372,7 +372,7 @@ const Landing = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2 group shrink-0">
             <span className="text-xl font-bold tracking-tight text-text-primary">
-              InterviewAce
+              Evalix
             </span>
           </Link>
 
@@ -541,7 +541,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-3xl mx-auto mb-20">
             <h2 className="text-3xl md:text-5xl font-bold font-display text-text-primary mb-4">
-              How InterviewAce works
+              How Evalix works
             </h2>
           </div>
 
@@ -754,7 +754,7 @@ const Landing = () => {
             <div className="flex flex-col">
               <Link to="/" className="flex items-center space-x-2 mb-4 p-2 -ml-2 rounded-lg hover:bg-bg-elevated transition-colors w-fit">
                 <span className="text-xl font-bold tracking-tight text-text-primary font-display">
-                  InterviewAce
+                  Evalix
                 </span>
               </Link>
               <p className="text-sm text-text-secondary mb-6 max-w-sm leading-relaxed">
@@ -833,7 +833,7 @@ const Landing = () => {
 
           {/* Bottom Bar */}
           <div className="border-t border-border-subtle py-6 md:py-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <p className="text-sm text-text-secondary">© {new Date().getFullYear()} InterviewAce. All rights reserved.</p>
+            <p className="text-sm text-text-secondary">© {new Date().getFullYear()} Evalix. All rights reserved.</p>
             <p className="text-[12px] text-text-secondary font-mono">
               Built with React, Express, MongoDB & Gemini
             </p>
@@ -849,13 +849,13 @@ const Landing = () => {
 
 const ComparisonSection = () => {
   const comparisonRows = [
-    { feature: "Instant 24/7 Availability", interviewAce: true, leetcode: true, humanCoaching: false },
-    { feature: "Live Conversational Voice Simulation", interviewAce: true, leetcode: false, humanCoaching: true },
-    { feature: "Questions Tailored to Your Specific Resume", interviewAce: true, leetcode: false, humanCoaching: "Partial" },
-    { feature: "Adaptive Difficulty (Easy, Med, Hard)", interviewAce: true, leetcode: true, humanCoaching: "Varies" },
-    { feature: "System Design & Behavioral Evaluation", interviewAce: true, leetcode: false, humanCoaching: true },
-    { feature: "Instant Quantitative Rubric Scoring", interviewAce: true, leetcode: "Pass/Fail Only", humanCoaching: false },
-    { feature: "Cost per Session", interviewAce: "Free Tier Available", leetcode: "$35/mo Premium", humanCoaching: "$150-$250 / hr" },
+    { feature: "Instant 24/7 Availability", evalix: true, leetcode: true, humanCoaching: false },
+    { feature: "Live Conversational Voice Simulation", evalix: true, leetcode: false, humanCoaching: true },
+    { feature: "Questions Tailored to Your Specific Resume", evalix: true, leetcode: false, humanCoaching: "Partial" },
+    { feature: "Adaptive Difficulty (Easy, Med, Hard)", evalix: true, leetcode: true, humanCoaching: "Varies" },
+    { feature: "System Design & Behavioral Evaluation", evalix: true, leetcode: false, humanCoaching: true },
+    { feature: "Instant Quantitative Rubric Scoring", evalix: true, leetcode: "Pass/Fail Only", humanCoaching: false },
+    { feature: "Cost per Session", evalix: "Free Tier Available", leetcode: "$35/mo Premium", humanCoaching: "$150-$250 / hr" },
   ];
 
   return (
@@ -866,10 +866,10 @@ const ComparisonSection = () => {
             <span className="text-xs font-mono text-accent-glow uppercase tracking-widest">Platform Comparison</span>
           </div>
           <h2 id="comparison-heading" className="text-3xl md:text-5xl font-bold font-display text-text-primary mb-4">
-            Why Engineers Choose InterviewAce
+            Why Engineers Choose Evalix
           </h2>
           <p className="text-text-secondary text-lg">
-            Compare InterviewAce to traditional static coding platforms and expensive human coaching.
+            Compare Evalix to traditional static coding platforms and expensive human coaching.
           </p>
         </div>
 
@@ -879,7 +879,7 @@ const ComparisonSection = () => {
               <thead>
                 <tr className="border-b border-border-subtle bg-bg-elevated/50">
                   <th className="py-5 px-6 font-semibold text-text-primary text-base">Preparation Feature</th>
-                  <th className="py-5 px-6 font-bold text-accent-glow text-base bg-accent-primary/10">InterviewAce AI</th>
+                  <th className="py-5 px-6 font-bold text-accent-glow text-base bg-accent-primary/10">Evalix AI</th>
                   <th className="py-5 px-6 font-semibold text-text-secondary text-base">Static LeetCode</th>
                   <th className="py-5 px-6 font-semibold text-text-secondary text-base">Human Coaching</th>
                 </tr>
@@ -889,10 +889,10 @@ const ComparisonSection = () => {
                   <tr key={idx} className="hover:bg-bg-elevated/30 transition-colors">
                     <td className="py-4 px-6 font-medium text-text-primary">{row.feature}</td>
                     <td className="py-4 px-6 font-semibold text-text-primary bg-accent-primary/5">
-                      {typeof row.interviewAce === 'boolean' ? (
-                        row.interviewAce ? <span className="inline-flex items-center text-success gap-1.5"><FiCheckCircle size={16} /> Yes</span> : <span className="text-text-secondary">No</span>
+                      {typeof row.evalix === 'boolean' ? (
+                        row.evalix ? <span className="inline-flex items-center text-success gap-1.5"><FiCheckCircle size={16} /> Yes</span> : <span className="text-text-secondary">No</span>
                       ) : (
-                        <span className="text-accent-primary font-bold">{row.interviewAce}</span>
+                        <span className="text-accent-primary font-bold">{row.evalix}</span>
                       )}
                     </td>
                     <td className="py-4 px-6 text-text-secondary">
@@ -918,28 +918,28 @@ const ComparisonSection = () => {
 
 const faqs = [
   {
-    q: "How does an AI mock interview work on InterviewAce?",
-    a: "InterviewAce simulates a real hiring manager interview using Google Gemini 1.5 Flash. You can converse via real-time voice or interactive chat. The AI asks technical and behavioral questions, evaluates your spoken or written answers, asks follow-up drill-down questions, and provides an immediate score with suggestions for improvement."
+    q: "How does an AI mock interview work on Evalix?",
+    a: "Evalix simulates a real hiring manager interview using Google Gemini 1.5 Flash. You can converse via real-time voice or interactive chat. The AI asks technical and behavioral questions, evaluates your spoken or written answers, asks follow-up drill-down questions, and provides an immediate score with suggestions for improvement."
   },
   {
-    q: "Can InterviewAce generate interview questions from my resume and job description?",
-    a: "Yes. When you upload your PDF resume along with your target job description, InterviewAce extracts your skill stack and identifies potential gaps. It then generates personalized, role-specific questions tailored specifically to your projects and experience."
+    q: "Can Evalix generate interview questions from my resume and job description?",
+    a: "Yes. When you upload your PDF resume along with your target job description, Evalix extracts your skill stack and identifies potential gaps. It then generates personalized, role-specific questions tailored specifically to your projects and experience."
   },
   {
-    q: "Is InterviewAce free to use for technical interview practice?",
-    a: "Yes, InterviewAce offers a free tier that allows candidates to sign up and immediately start practicing with full-length mock interviews, resume scans, and timed multiple-choice assessments."
+    q: "Is Evalix free to use for technical interview practice?",
+    a: "Yes, Evalix offers a free tier that allows candidates to sign up and immediately start practicing with full-length mock interviews, resume scans, and timed multiple-choice assessments."
   },
   {
     q: "How realistic is the AI voice interview simulation?",
-    a: "InterviewAce pairs multimodal Gemini audio transcription with low-latency Speech-to-Text and Text-to-Speech synthesis (with native browser Web Speech API fallback) to deliver conversational, lifelike voice exchanges with sub-50ms processing latency."
+    a: "Evalix pairs multimodal Gemini audio transcription with low-latency Speech-to-Text and Text-to-Speech synthesis (with native browser Web Speech API fallback) to deliver conversational, lifelike voice exchanges with sub-50ms processing latency."
   },
   {
     q: "What tech stacks and developer roles are supported?",
-    a: "InterviewAce supports Frontend (React, Vue, TypeScript, Next.js), Backend (Node.js, Express, Python, Java, Go), Full Stack, DevOps, System Design, and Data Structures & Algorithms (DSA)."
+    a: "Evalix supports Frontend (React, Vue, TypeScript, Next.js), Backend (Node.js, Express, Python, Java, Go), Full Stack, DevOps, System Design, and Data Structures & Algorithms (DSA)."
   },
   {
     q: "How does AI scoring compare to a human mock interviewer?",
-    a: "InterviewAce evaluates answers across four objective vectors: Technical Accuracy, Depth & Edge Cases, Communication Clarity, and Structure (e.g. STAR method). Candidates receive itemized rubrics and actionable model answers without the scheduling friction or high hourly cost of human coaching platforms."
+    a: "Evalix evaluates answers across four objective vectors: Technical Accuracy, Depth & Edge Cases, Communication Clarity, and Structure (e.g. STAR method). Candidates receive itemized rubrics and actionable model answers without the scheduling friction or high hourly cost of human coaching platforms."
   }
 ];
 

@@ -1,10 +1,10 @@
-# Architecture Document: InterviewAce
+# Architecture Document: Evalix
 
-This document provides a high-level overview of the InterviewAce system architecture, design decisions, and data flow.
+This document provides a high-level overview of the Evalix system architecture, design decisions, and data flow.
 
 ## 1. System Overview
 
-InterviewAce is a Single Page Application (SPA) communicating with a RESTful Node.js backend. The system is designed to be highly decoupled, allowing independent scaling of the client, server, and database.
+Evalix is a Single Page Application (SPA) communicating with a RESTful Node.js backend. The system is designed to be highly decoupled, allowing independent scaling of the client, server, and database.
 
 ```mermaid
 graph TD

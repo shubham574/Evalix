@@ -41,11 +41,11 @@ const faqs = [
   },
   {
     q: "Can I practice speaking my answers aloud?",
-    a: "Yes! InterviewAce supports real-time voice interviews. You speak naturally into your microphone, Google Gemini transcribes your response, and Shristi responds verbally with feedback and follow-ups."
+    a: "Yes! Evalix supports real-time voice interviews. You speak naturally into your microphone, Google Gemini transcribes your response, and Shristi responds verbally with feedback and follow-ups."
   },
   {
     q: "Is this React mock interview free?",
-    a: "Yes, InterviewAce provides a free tier allowing you to practice mock interviews, generate assessment questions, and analyze your frontend developer resume immediately."
+    a: "Yes, Evalix provides a free tier allowing you to practice mock interviews, generate assessment questions, and analyze your frontend developer resume immediately."
   }
 ];
 
@@ -64,7 +64,7 @@ const ReactMockInterview = () => {
         "url": "https://interview-ai-ten-psi.vercel.app/mock-interview-for-react-developers",
         "publisher": {
           "@type": "Organization",
-          "name": "InterviewAce",
+          "name": "Evalix",
           "url": "https://interview-ai-ten-psi.vercel.app/"
         }
       },
@@ -96,7 +96,7 @@ const ReactMockInterview = () => {
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            InterviewAce
+            Evalix
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
@@ -143,7 +143,7 @@ const ReactMockInterview = () => {
               What Hiring Managers Test in React Interviews
             </h2>
             <p className="text-text-secondary">
-              InterviewAce evaluates your knowledge across core React pillars requested by FAANG and top tech companies.
+              Evalix evaluates your knowledge across core React pillars requested by FAANG and top tech companies.
             </p>
           </div>
 
@@ -274,7 +274,7 @@ const ReactMockInterview = () => {
       {/* Footer */}
       <footer className="border-t border-border-subtle py-8 text-center text-sm text-text-secondary">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>© {new Date().getFullYear()} InterviewAce. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Evalix. All rights reserved.</span>
           <div className="flex gap-6">
             <Link to="/" className="hover:text-text-primary">Home</Link>
             <Link to="/resume-based-interview-questions" className="hover:text-text-primary">Resume Questions</Link>

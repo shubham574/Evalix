@@ -31,20 +31,20 @@ const fresherQuestions = [
 
 const faqs = [
   {
-    q: "Is InterviewAce suitable for freshers and college campus placements?",
-    a: "Yes! InterviewAce is specifically calibrated to help college graduates and freshers practice core computer science fundamentals (DSA, OOP, DBMS, OS, Networking) as well as explaining college projects and behavioral questions with confidence."
+    q: "Is Evalix suitable for freshers and college campus placements?",
+    a: "Yes! Evalix is specifically calibrated to help college graduates and freshers practice core computer science fundamentals (DSA, OOP, DBMS, OS, Networking) as well as explaining college projects and behavioral questions with confidence."
   },
   {
     q: "I get nervous speaking during interviews. How does Shristi help?",
-    a: "InterviewAce provides a zero-judgment, private practice environment. You can repeat interview questions as many times as you need, get speech clarity scores, and learn how to structure your answers before facing real recruiters."
+    a: "Evalix provides a zero-judgment, private practice environment. You can repeat interview questions as many times as you need, get speech clarity scores, and learn how to structure your answers before facing real recruiters."
   },
   {
     q: "Can I practice coding assessment MCQs for company placement tests?",
-    a: "Yes. In addition to conversational voice mock interviews, InterviewAce includes an instant MCQ Assessment Generator covering CS fundamentals, language concepts (Java, Python, C++, JavaScript), and logic puzzles typical of campus placement online rounds."
+    a: "Yes. In addition to conversational voice mock interviews, Evalix includes an instant MCQ Assessment Generator covering CS fundamentals, language concepts (Java, Python, C++, JavaScript), and logic puzzles typical of campus placement online rounds."
   },
   {
     q: "Do I have to pay anything to start practicing?",
-    a: "No, InterviewAce has a free tier that gives freshers immediate access to mock interviews, resume scanning, and assessment tests without a credit card."
+    a: "No, Evalix has a free tier that gives freshers immediate access to mock interviews, resume scanning, and assessment tests without a credit card."
   }
 ];
 
@@ -63,7 +63,7 @@ const FreshersMockInterview = () => {
         "url": "https://interview-ai-ten-psi.vercel.app/mock-interview-for-freshers",
         "publisher": {
           "@type": "Organization",
-          "name": "InterviewAce",
+          "name": "Evalix",
           "url": "https://interview-ai-ten-psi.vercel.app/"
         }
       },
@@ -95,7 +95,7 @@ const FreshersMockInterview = () => {
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            InterviewAce
+            Evalix
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
@@ -273,7 +273,7 @@ const FreshersMockInterview = () => {
       {/* Footer */}
       <footer className="border-t border-border-subtle py-8 text-center text-sm text-text-secondary">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>© {new Date().getFullYear()} InterviewAce. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Evalix. All rights reserved.</span>
           <div className="flex gap-6">
             <Link to="/" className="hover:text-text-primary">Home</Link>
             <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">React Prep</Link>
