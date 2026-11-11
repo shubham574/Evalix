@@ -252,10 +252,10 @@ const useShristi = ({ getToken }) => {
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        // 3.5s timeout for TTS request so the interview flow is never stalled
+        // 8s timeout for TTS request (ElevenLabs) so the interview flow is never stalled
         const timeoutId = setTimeout(() => {
           controller.abort();
-        }, 3500);
+        }, 8000);
 
         const response = await api.post(
           API.TTS,

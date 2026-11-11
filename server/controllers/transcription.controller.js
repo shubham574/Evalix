@@ -2,6 +2,11 @@ const { GoogleGenAI } = require('@google/genai');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { GEMINI_API_KEY, LIVE_INTERVIEW_GEMINI_API_KEY } = require('../config/env');
+const {
+  resolveElevenLabsKey,
+  textToSpeech: elevenLabsTextToSpeech,
+  speechToText: elevenLabsSpeechToText,
+} = require('../services/elevenlabs.service');
 
 /**
  * Resolve which Gemini API key to use:
@@ -119,7 +124,38 @@ const normalizeAudioMimeType = (mimetype = '', originalname = '') => {
   return 'audio/webm';
 };
 
-// @desc    Transcribe audio using Google Gemini multimodal capabilities
+/**
+ * Clean up transcripts: strip markdown/quotes and hallucinated silence tokens
+ */
+const sanitizeTranscript = (raw = '') => {
+  let transcript = (raw || '').trim();
+
+  // Strip wrapping markdown code blocks if returned
+  transcript = transcript.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
+
+  // Strip wrapping quotes if the model wrapped the response in quotes
+  if (
+    transcript.length >= 2 &&
+    ((transcript.startsWith('"') && transcript.endsWith('"')) ||
+      (transcript.startsWith("'") && transcript.endsWith("'")))
+  ) {
+    transcript = transcript.slice(1, -1).trim();
+  }
+
+  // Sanitize hallucinated empty/silence tokens
+  if (
+    /^(\[.*\]|\(.*\)|<.*>|\*.*\*)$/.test(transcript) ||
+    /^(no speech detected|silence|none|inaudible|unintelligible|no speech|no audio|blank|empty|static|ambient noise|no audible speech|no speech was heard)\.?$/i.test(transcript) ||
+    /^(there is no speech|no speech was detected|no audio detected|i cannot hear any speech|please provide the audio|the audio contains no speech|the audio is silent|i cannot hear anything|there is no audible speech)/i.test(transcript) ||
+    /^(i'm sorry|i am sorry).*?(no speech|no audio|cannot hear|no sound)/i.test(transcript)
+  ) {
+    transcript = '';
+  }
+
+  return transcript;
+};
+
+// @desc    Transcribe audio using ElevenLabs Scribe (fallback: Google Gemini multimodal)
 // @route   POST /api/transcribe
 // @access  Private
 exports.transcribeAudio = asyncHandler(async (req, res, next) => {
@@ -127,9 +163,10 @@ exports.transcribeAudio = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, 'No audio file provided'));
   }
 
+  const elevenLabsKey = resolveElevenLabsKey(req);
   const apiKey = resolveApiKey(req);
-  if (!apiKey) {
-    return next(new ApiError(500, 'Gemini API key not configured for transcription'));
+  if (!elevenLabsKey && !apiKey) {
+    return next(new ApiError(500, 'ElevenLabs or Gemini API key not configured for transcription'));
   }
 
   // Ultra-small buffers (< 50 bytes) cannot contain audible speech
@@ -137,8 +174,27 @@ exports.transcribeAudio = asyncHandler(async (req, res, next) => {
     return res.status(200).json({ success: true, transcript: '' });
   }
 
+  const mimeType = normalizeAudioMimeType(req.file.mimetype, req.file.originalname);
+
+  // Primary: ElevenLabs Scribe speech-to-text
+  if (elevenLabsKey) {
+    try {
+      const ext = mimeType.split('/')[1] || 'webm';
+      const transcript = await elevenLabsSpeechToText(req.file.buffer, elevenLabsKey, {
+        mimeType: mimeType === 'audio/mp3' ? 'audio/mpeg' : mimeType,
+        filename: req.file.originalname || `audio.${ext}`,
+      });
+      return res.status(200).json({ success: true, transcript: sanitizeTranscript(transcript) });
+    } catch (elErr) {
+      console.warn('ElevenLabs STT failed:', elErr?.message || elErr);
+      if (!apiKey) {
+        return next(new ApiError(502, `Failed to transcribe audio: ${elErr?.message || elErr}`));
+      }
+      console.warn('Falling back to Gemini transcription...');
+    }
+  }
+
   try {
-    const mimeType = normalizeAudioMimeType(req.file.mimetype, req.file.originalname);
     const audioBase64 = req.file.buffer.toString('base64');
     const ai = new GoogleGenAI({ apiKey });
 
@@ -211,29 +267,7 @@ exports.transcribeAudio = asyncHandler(async (req, res, next) => {
       return next(new ApiError(502, `Failed to transcribe audio: ${lastMsg}`));
     }
 
-    // Strip wrapping markdown code blocks if returned
-    transcript = transcript.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
-
-    // Strip wrapping quotes if the model wrapped the response in quotes
-    if (
-      transcript.length >= 2 &&
-      ((transcript.startsWith('"') && transcript.endsWith('"')) ||
-        (transcript.startsWith("'") && transcript.endsWith("'")))
-    ) {
-      transcript = transcript.slice(1, -1).trim();
-    }
-
-    // Sanitize hallucinated empty/silence tokens
-    if (
-      /^(\[.*\]|\(.*\)|<.*>|\*.*\*)$/.test(transcript) ||
-      /^(no speech detected|silence|none|inaudible|unintelligible|no speech|no audio|blank|empty|static|ambient noise|no audible speech|no speech was heard)\.?$/i.test(transcript) ||
-      /^(there is no speech|no speech was detected|no audio detected|i cannot hear any speech|please provide the audio|the audio contains no speech|the audio is silent|i cannot hear anything|there is no audible speech)/i.test(transcript) ||
-      /^(i'm sorry|i am sorry).*?(no speech|no audio|cannot hear|no sound)/i.test(transcript)
-    ) {
-      transcript = '';
-    }
-
-    res.status(200).json({ success: true, transcript });
+    res.status(200).json({ success: true, transcript: sanitizeTranscript(transcript) });
   } catch (err) {
     const catchMsg = err?.message || String(err);
     console.error('Gemini transcription failed:', catchMsg);
@@ -241,7 +275,7 @@ exports.transcribeAudio = asyncHandler(async (req, res, next) => {
   }
 });
 
-// @desc    Generate speech using Gemini TTS (with graceful fallback signaling)
+// @desc    Generate speech using ElevenLabs TTS (fallback: Gemini TTS, then browser speech synthesis)
 // @route   POST /api/transcribe/tts
 // @access  Public / Private
 exports.generateSpeech = asyncHandler(async (req, res, next) => {
@@ -250,11 +284,30 @@ exports.generateSpeech = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, 'No text provided'));
   }
 
+  const elevenLabsKey = resolveElevenLabsKey(req);
   const apiKey = resolveApiKey(req);
+
+  // Primary: ElevenLabs TTS
+  if (elevenLabsKey) {
+    const elText = text.replace(/[*_#`~>]/g, '').replace(/\n+/g, ' ').trim();
+    if (elText) {
+      try {
+        const { buffer, mimeType } = await elevenLabsTextToSpeech(elText, elevenLabsKey);
+        if (buffer && buffer.length > 100) {
+          res.set('Content-Type', mimeType);
+          return res.send(buffer);
+        }
+        console.warn('ElevenLabs TTS returned empty audio.');
+      } catch (elErr) {
+        console.warn('ElevenLabs TTS failed:', elErr?.message || elErr);
+      }
+    }
+  }
+
   if (!apiKey) {
     return res.status(503).json({
       fallback: true,
-      message: 'Gemini API key not configured, falling back to browser speech synthesis.',
+      message: 'No TTS provider available, falling back to browser speech synthesis.',
     });
   }
 
@@ -349,3 +402,4 @@ exports.generateSpeech = asyncHandler(async (req, res, next) => {
 exports.normalizeAudioMimeType = normalizeAudioMimeType;
 exports.pcmToWav = pcmToWav;
 exports.resolveApiKey = resolveApiKey;
+exports.sanitizeTranscript = sanitizeTranscript;

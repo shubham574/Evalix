@@ -65,8 +65,10 @@ async function runTests() {
   // Temporarily unset keys to verify clean fallback behavior
   const savedKey = process.env.GEMINI_API_KEY;
   const savedLiveKey = process.env.LIVE_INTERVIEW_GEMINI_API_KEY;
+  const savedElevenKey = process.env.ELEVENLABS_API_KEY;
   delete process.env.GEMINI_API_KEY;
   delete process.env.LIVE_INTERVIEW_GEMINI_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
 
   try {
     await generateSpeech(mockReqFallback, mockResFallback, () => {});
@@ -76,6 +78,7 @@ async function runTests() {
   } finally {
     if (savedKey) process.env.GEMINI_API_KEY = savedKey;
     if (savedLiveKey) process.env.LIVE_INTERVIEW_GEMINI_API_KEY = savedLiveKey;
+    if (savedElevenKey) process.env.ELEVENLABS_API_KEY = savedElevenKey;
   }
 
   // Test 5: transcribeAudio fails with 500 when Gemini API key is missing
@@ -87,6 +90,7 @@ async function runTests() {
   };
   delete process.env.GEMINI_API_KEY;
   delete process.env.LIVE_INTERVIEW_GEMINI_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
   try {
     await transcribeAudio(mockReqWithFileNoKey, mockRes, (err) => {
       transcribeKeyErr = err;
@@ -98,6 +102,7 @@ async function runTests() {
   } finally {
     if (savedKey) process.env.GEMINI_API_KEY = savedKey;
     if (savedLiveKey) process.env.LIVE_INTERVIEW_GEMINI_API_KEY = savedLiveKey;
+    if (savedElevenKey) process.env.ELEVENLABS_API_KEY = savedElevenKey;
   }
 
   // Test 6: Verify pcmToWav generates standard RIFF/WAVE header
