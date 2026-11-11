@@ -180,11 +180,18 @@ exports.transcribeAudio = asyncHandler(async (req, res, next) => {
   if (elevenLabsKey) {
     try {
       const ext = mimeType.split('/')[1] || 'webm';
-      const transcript = await elevenLabsSpeechToText(req.file.buffer, elevenLabsKey, {
+      const rawTranscript = await elevenLabsSpeechToText(req.file.buffer, elevenLabsKey, {
         mimeType: mimeType === 'audio/mp3' ? 'audio/mpeg' : mimeType,
         filename: req.file.originalname || `audio.${ext}`,
       });
-      return res.status(200).json({ success: true, transcript: sanitizeTranscript(transcript) });
+      const cleaned = sanitizeTranscript(rawTranscript);
+      if (cleaned) {
+        return res.status(200).json({ success: true, transcript: cleaned });
+      }
+      if (!apiKey) {
+        return res.status(200).json({ success: true, transcript: '' });
+      }
+      console.warn('ElevenLabs STT returned empty transcript, trying Gemini fallback...');
     } catch (elErr) {
       console.warn('ElevenLabs STT failed:', elErr?.message || elErr);
       if (!apiKey) {

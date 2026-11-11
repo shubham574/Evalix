@@ -318,9 +318,11 @@ const useShristi = ({ getToken }) => {
   return { speak, stopSpeaking, isSpeaking, isMuted, toggleMute };
 };
 
-// ─── Voice Recorder Hook (Gemini STT) ─────────────────────────────────────────
+// ─── Voice Recorder Hook (ElevenLabs Scribe + Gemini + Browser Web Speech Fallback) ─
 const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
   const mediaRecorderRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const browserTranscriptRef = useRef('');
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -332,11 +334,67 @@ const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
     onTranscriptRef.current = onTranscriptComplete;
   }, [onTranscriptComplete]);
 
+  const stopBrowserRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch (e) { /* ignore */ }
+      recognitionRef.current = null;
+    }
+  }, []);
+
   const startRecording = useCallback(async () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      return;
+    }
     setError(null);
+    browserTranscriptRef.current = '';
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       streamRef.current = stream;
+
+      // Start parallel browser SpeechRecognition as a zero-latency fallback
+      const SpeechRecognitionAPI =
+        typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+      if (SpeechRecognitionAPI) {
+        try {
+          stopBrowserRecognition();
+          const recognition = new SpeechRecognitionAPI();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+          let finalParts = '';
+          recognition.onresult = (event) => {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const piece = event.results[i][0]?.transcript || '';
+              if (event.results[i].isFinal) {
+                finalParts += `${piece} `;
+              } else {
+                interim += piece;
+              }
+            }
+            browserTranscriptRef.current = `${finalParts}${interim}`.trim();
+          };
+          recognition.onerror = () => {};
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch (e) { /* ignore browser speech recognition init errors */ }
+      }
+
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
@@ -352,9 +410,17 @@ const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
       };
 
       recorder.onstop = async () => {
+        stopBrowserRecognition();
         streamRef.current?.getTracks().forEach((t) => t.stop());
+        const fallbackText = (browserTranscriptRef.current || '').trim();
         const blob = new Blob(chunksRef.current, { type: cleanType });
+
         if (!blob || blob.size < 50) {
+          if (fallbackText) {
+            onTranscriptRef.current?.(fallbackText);
+            setIsTranscribing(false);
+            return;
+          }
           toast('No audible speech detected. Please speak louder into your microphone, or use the text mode toggle to type.', {
             icon: '🎙️',
             duration: 4000,
@@ -376,8 +442,9 @@ const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
             headers,
           });
 
-          if (data?.transcript?.trim()) {
-            onTranscriptRef.current?.(data.transcript.trim());
+          const finalTranscript = data?.transcript?.trim() || fallbackText;
+          if (finalTranscript) {
+            onTranscriptRef.current?.(finalTranscript);
           } else {
             toast('No audible speech detected. Please speak louder into your microphone, or use the "Type Answer Instead" toggle to type.', {
               icon: '🎙️',
@@ -386,7 +453,11 @@ const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
           }
         } catch (err) {
           console.error('Transcription error:', err);
-          toast.error(err.response?.data?.error || 'Transcription failed. Please speak louder or switch to typing.');
+          if (fallbackText) {
+            onTranscriptRef.current?.(fallbackText);
+          } else {
+            toast.error(err.response?.data?.error || 'Transcription failed. Please speak louder or switch to typing.');
+          }
         } finally {
           setIsTranscribing(false);
         }
@@ -399,30 +470,29 @@ const useVoiceRecorder = ({ onTranscriptComplete, getToken }) => {
       if (err.name === 'NotAllowedError') setError('Microphone access denied. Please allow microphone permissions.');
       else setError(`Could not start recording: ${err.message}`);
     }
-  }, [getToken]);
+  }, [getToken, stopBrowserRecognition]);
 
   const stopRecording = useCallback(() => {
+    stopBrowserRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
-        if (mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.requestData();
-        }
         mediaRecorderRef.current.stop();
       } catch (e) {
         console.warn('Error stopping MediaRecorder:', e);
       }
     }
     setIsRecording(false);
-  }, []);
+  }, [stopBrowserRecognition]);
 
   useEffect(() => {
     return () => {
+      stopBrowserRecognition();
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         try { mediaRecorderRef.current.stop(); } catch (e) {}
       }
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [stopBrowserRecognition]);
 
   const toggleRecording = useCallback(() => {
     if (isRecording) stopRecording(); else startRecording();

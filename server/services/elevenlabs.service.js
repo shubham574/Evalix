@@ -81,9 +81,12 @@ const textToSpeech = async (text, apiKey, { voiceId } = {}) => {
 /**
  * Transcribe an audio buffer. Returns the transcript string.
  */
-const speechToText = async (audioBuffer, apiKey, { mimeType = 'audio/webm', filename = 'audio.webm' } = {}) => {
+const speechToText = async (audioBuffer, apiKey, { mimeType = 'audio/webm', filename = 'audio.webm', languageCode = 'en' } = {}) => {
   const form = new FormData();
   form.append('model_id', STT_MODEL_ID);
+  if (languageCode) {
+    form.append('language_code', languageCode);
+  }
   form.append('tag_audio_events', 'false');
   form.append('file', new Blob([audioBuffer], { type: mimeType }), filename);
 
