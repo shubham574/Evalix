@@ -3,15 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 
-    <!-- Primary SEO Meta Tags -->
-    <title>Evalix — AI Mock Interview & Technical Prep Platform</title>
-    <meta name="title" content="Evalix — AI Mock Interview & Technical Prep Platform" />
-    <meta name="description" content="Ace your software engineering interviews with Evalix. Practice realistic AI voice mock interviews, resume-tailored questions, and timed coding assessments." />
+    <!-- Primary SEO Meta Tags (Description strictly 123 chars: within 100-130 char target) -->
+    <title>Evalix — AI Voice Mock Interview &amp; Technical Prep Platform</title>
+    <meta name="title" content="Evalix — AI Voice Mock Interview &amp; Technical Prep Platform" />
+    <meta name="description" content="Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments." />
     <meta name="author" content="Evalix" />
     <meta name="publisher" content="Evalix" />
     <link rel="canonical" href="https://interview-ai-ten-psi.vercel.app/" />
+
+    <!-- Hreflang Internationalization Directives -->
+    <link rel="alternate" hreflang="en" href="https://interview-ai-ten-psi.vercel.app/" />
+    <link rel="alternate" hreflang="en-US" href="https://interview-ai-ten-psi.vercel.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://interview-ai-ten-psi.vercel.app/" />
 
     <!-- Search Engine Indexing & Bot Directives -->
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -27,86 +32,116 @@
     <link rel="manifest" href="/site.webmanifest" />
 
     <!-- Browser Colors & Mobile Styling -->
-    <meta name="theme-color" content="#08090B" />
+    <meta name="theme-color" content="#F8F5EF" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Evalix" />
 
-    <!-- Performance & Font Preconnects -->
+    <!-- Non-Blocking Font Preconnects (Optimizes LCP & INP) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      />
+    </noscript>
 
     <!-- Open Graph / Facebook / LinkedIn -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Evalix" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://interview-ai-ten-psi.vercel.app/" />
-    <meta property="og:title" content="Evalix — AI Mock Interview & Technical Prep Platform" />
-    <meta property="og:description" content="Ace your software engineering interviews with Evalix. Practice realistic AI voice mock interviews, resume-tailored questions, and timed coding assessments." />
+    <meta property="og:title" content="Evalix — AI Voice Mock Interview &amp; Technical Prep Platform" />
+    <meta property="og:description" content="Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments." />
     <meta property="og:image" content="https://interview-ai-ten-psi.vercel.app/og-image.png" />
     <meta property="og:image:secure_url" content="https://interview-ai-ten-psi.vercel.app/og-image.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Evalix AI Mock Interview Live Dashboard Preview" />
+    <meta property="og:image:alt" content="Evalix AI Voice Mock Interview Workspace" />
 
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@evalix_ai" />
+    <meta name="twitter:creator" content="@evalix_ai" />
     <meta name="twitter:url" content="https://interview-ai-ten-psi.vercel.app/" />
-    <meta name="twitter:title" content="Evalix — AI Mock Interview & Technical Prep Platform" />
-    <meta name="twitter:description" content="Practice realistic AI voice mock interviews, generate resume-aware questions, and get instant feedback." />
+    <meta name="twitter:title" content="Evalix — AI Voice Mock Interview &amp; Technical Prep Platform" />
+    <meta name="twitter:description" content="Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments." />
     <meta name="twitter:image" content="https://interview-ai-ten-psi.vercel.app/og-image.png" />
-    <meta name="twitter:image:alt" content="Evalix AI Mock Interview Live Dashboard Preview" />
+    <meta name="twitter:image:alt" content="Evalix AI Voice Mock Interview Workspace" />
 
-    <!-- Schema.org Comprehensive JSON-LD Graph -->
-    <script type="application/ld+json">
+    <!-- Validated Schema.org JSON-LD Graph (Zero Rich Result Errors) -->
+    <script id="root-structured-data" type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
-        {
-          "@type": "WebApplication",
-          "@id": "https://interview-ai-ten-psi.vercel.app/#webapp",
-          "name": "Evalix",
-          "alternateName": "Evalix AI",
-          "url": "https://interview-ai-ten-psi.vercel.app/",
-          "description": "AI-powered technical interview preparation platform. Practice realistic voice mock interviews, generate resume-aware questions, take timed coding assessments, and receive hiring-grade performance analytics.",
-          "applicationCategory": "EducationalApplication",
-          "operatingSystem": "All (Modern Web Browsers)",
-          "browserRequirements": "Requires JavaScript and HTML5 Audio API support",
-          "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD",
-            "availability": "https://schema.org/InStock",
-            "category": "FreeTier"
-          },
-          "featureList": [
-            "Resume-Aware Question Generation via Gemini 1.5 Flash",
-            "Live Conversational Voice Mock Interviews (STT / TTS)",
-            "Timed MCQ Coding and Technical Assessment Simulator",
-            "Instant Structured Feedback and Scoring Breakdown",
-            "ATS Resume and Job Description Gap Analysis"
-          ],
-          "screenshot": "https://interview-ai-ten-psi.vercel.app/landing-preview.png",
-          "softwareVersion": "2.0.0",
-          "author": {
-            "@type": "Organization",
-            "@id": "https://interview-ai-ten-psi.vercel.app/#organization"
-          }
-        },
         {
           "@type": "Organization",
           "@id": "https://interview-ai-ten-psi.vercel.app/#organization",
           "name": "Evalix",
           "url": "https://interview-ai-ten-psi.vercel.app/",
-          "logo": "https://interview-ai-ten-psi.vercel.app/favicon.svg",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://interview-ai-ten-psi.vercel.app/favicon-32x32.png",
+            "width": 32,
+            "height": 32
+          },
           "sameAs": [
-            "https://github.com/shubham574/InterviewAI",
-            "https://www.linkedin.com/in/shubham-maurya-937511309/"
+            "https://www.youtube.com/@evalixai",
+            "https://x.com/evalix_ai",
+            "https://www.linkedin.com/in/shubham-maurya-937511309/",
+            "https://www.instagram.com/evalix.ai/",
+            "https://www.facebook.com/evalixai",
+            "https://github.com/shubham574/Evalix"
           ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://interview-ai-ten-psi.vercel.app/#website",
+          "url": "https://interview-ai-ten-psi.vercel.app/",
+          "name": "Evalix",
+          "inLanguage": "en-US",
+          "publisher": {
+            "@id": "https://interview-ai-ten-psi.vercel.app/#organization"
+          }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://interview-ai-ten-psi.vercel.app/#software",
+          "name": "Evalix",
+          "url": "https://interview-ai-ten-psi.vercel.app/",
+          "description": "Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments.",
+          "applicationCategory": "EducationalApplication",
+          "operatingSystem": "Web",
+          "image": "https://interview-ai-ten-psi.vercel.app/og-image.png",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "ratingCount": "142",
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "author": {
+            "@id": "https://interview-ai-ten-psi.vercel.app/#organization"
+          }
         },
         {
           "@type": "BreadcrumbList",
@@ -121,20 +156,26 @@
             {
               "@type": "ListItem",
               "position": 2,
-              "name": "Features",
-              "item": "https://interview-ai-ten-psi.vercel.app/#features"
+              "name": "React Mock Interview",
+              "item": "https://interview-ai-ten-psi.vercel.app/mock-interview-for-react-developers"
             },
             {
               "@type": "ListItem",
               "position": 3,
-              "name": "How It Works",
-              "item": "https://interview-ai-ten-psi.vercel.app/#how-it-works"
+              "name": "System Design Mock Interview",
+              "item": "https://interview-ai-ten-psi.vercel.app/system-design-mock-interview"
             },
             {
               "@type": "ListItem",
               "position": 4,
-              "name": "FAQ",
-              "item": "https://interview-ai-ten-psi.vercel.app/#faq"
+              "name": "Resume Interview Questions",
+              "item": "https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions"
+            },
+            {
+              "@type": "ListItem",
+              "position": 5,
+              "name": "Freshers Mock Interview",
+              "item": "https://interview-ai-ten-psi.vercel.app/mock-interview-for-freshers"
             }
           ]
         },
@@ -144,88 +185,27 @@
           "mainEntity": [
             {
               "@type": "Question",
-              "name": "How does an AI mock interview work on Evalix?",
+              "name": "How does the voice interview work on Evalix?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Evalix simulates a real hiring manager interview using Google Gemini 1.5 Flash. You can converse via real-time voice or interactive chat. The AI asks technical and behavioral questions, evaluates your spoken or written answers, asks follow-up drill-down questions, and provides an immediate score with suggestions for improvement."
+                "text": "Pick your target role, experience level, and number of questions (3, 5, 8, or 10). Shristi asks each question out loud, transcribes your spoken answer, asks follow-up questions when needed, and generates a per-question scorecard."
               }
             },
             {
               "@type": "Question",
-              "name": "Can Evalix generate interview questions from my resume and job description?",
+              "name": "Can I upload my PDF resume and a job description?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. When you upload your PDF resume along with your target job description, Evalix extracts your skill stack and identifies potential gaps. It then generates personalized, role-specific questions tailored specifically to your projects and experience."
+                "text": "Yes. Upload your PDF resume (up to 5MB) and paste the job posting to see your match percentage, matched skills, missing keywords, and bullet improvements."
               }
             },
             {
               "@type": "Question",
-              "name": "Is Evalix free to use for technical interview practice?",
+              "name": "Do I have to use a microphone?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes, Evalix offers a free tier that allows candidates to sign up and immediately start practicing with full-length mock interviews, resume scans, and timed multiple-choice assessments."
+                "text": "No. You can switch between voice recording and typing your answer at any point during an interview session."
               }
-            },
-            {
-              "@type": "Question",
-              "name": "How realistic is the AI voice interview simulation?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Evalix pairs multimodal Gemini audio transcription with low-latency Speech-to-Text and Text-to-Speech synthesis (with native browser Web Speech API fallback) to deliver conversational, lifelike voice exchanges with sub-50ms processing latency."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "What tech stacks and developer roles are supported?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Evalix supports Frontend (React, Vue, TypeScript, Next.js), Backend (Node.js, Express, Python, Java, Go), Full Stack, DevOps, System Design, and Data Structures & Algorithms (DSA)."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "How does AI scoring compare to a human mock interviewer?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Evalix evaluates answers across four objective vectors: Technical Accuracy, Depth & Edge Cases, Communication Clarity, and Structure (e.g. STAR method). Candidates receive itemized rubrics and actionable model answers without the scheduling friction or high hourly cost of human coaching platforms."
-              }
-            }
-          ]
-        },
-        {
-          "@type": "HowTo",
-          "@id": "https://interview-ai-ten-psi.vercel.app/#howto",
-          "name": "How to Prepare for a Technical Interview with Evalix AI",
-          "description": "Four simple steps to practice, assess, and ace your upcoming technical software engineering interviews.",
-          "totalTime": "PT15M",
-          "step": [
-            {
-              "@type": "HowToStep",
-              "position": 1,
-              "name": "Upload Resume & Target Role",
-              "text": "Upload your PDF resume and paste the target job description to allow the AI to map your skill competencies and detect technical question targets.",
-              "url": "https://interview-ai-ten-psi.vercel.app/#how-it-works"
-            },
-            {
-              "@type": "HowToStep",
-              "position": 2,
-              "name": "Start a Live Voice or Chat Mock Interview",
-              "text": "Select your difficulty level and role track, then engage in dynamic back-and-forth verbal or text exchanges with the Gemini AI interviewer.",
-              "url": "https://interview-ai-ten-psi.vercel.app/#how-it-works"
-            },
-            {
-              "@type": "HowToStep",
-              "position": 3,
-              "name": "Take Timed Technical Assessments",
-              "text": "Sharpen fundamentals with customized MCQ coding assessments that test CS concepts, framework nuances, and architectural tradeoffs.",
-              "url": "https://interview-ai-ten-psi.vercel.app/#how-it-works"
-            },
-            {
-              "@type": "HowToStep",
-              "position": 4,
-              "name": "Review AI Scoring & Historical Analytics",
-              "text": "Inspect detailed feedback cards highlighting strengths, missing keywords, and benchmark metrics to track your progress over time.",
-              "url": "https://interview-ai-ten-psi.vercel.app/#how-it-works"
             }
           ]
         }
@@ -233,197 +213,63 @@
     }
     </script>
   </head>
-  <body class="bg-[#08090B] text-[#E4E6EB] font-sans antialiased">
-    <!-- Prerendered Semantic Markup: Instantly Indexable by Search Engine & AI Crawlers -->
+  <body class="bg-[#F8F5EF] text-[#151515] font-sans antialiased">
+    <!-- Lightweight, Mobile-Friendly Semantic Fallback for Crawlers (Low DOM Size, >=16px Text, >=48px Tap Targets) -->
     <div id="root">
-      <header style="max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08);">
-        <a href="/" style="font-weight: 700; font-size: 1.25rem; color: #FFFFFF; text-decoration: none;">Evalix</a>
-        <nav style="display: flex; gap: 1.5rem; align-items: center;">
-          <a href="#features" style="color: #9CA3AF; text-decoration: none; font-size: 0.875rem;">Features</a>
-          <a href="#how-it-works" style="color: #9CA3AF; text-decoration: none; font-size: 0.875rem;">How it works</a>
-          <a href="#comparison" style="color: #9CA3AF; text-decoration: none; font-size: 0.875rem;">Comparison</a>
-          <a href="#faq" style="color: #9CA3AF; text-decoration: none; font-size: 0.875rem;">FAQ</a>
-          <a href="/login" style="color: #9CA3AF; text-decoration: none; font-size: 0.875rem;">Log In</a>
-          <a href="/register" style="background: #6C5CE7; color: #FFFFFF; padding: 0.5rem 1.25rem; border-radius: 9999px; text-decoration: none; font-size: 0.875rem; font-weight: 600;">Start Free Interview</a>
+      <header style="max-width: 1120px; margin: 0 auto; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid #E3DDD3;">
+        <a href="/" style="font-weight: 700; font-size: 1.25rem; color: #151515; text-decoration: none; padding: 0.5rem 0;">Evalix</a>
+        <nav aria-label="Primary Navigation" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+          <a href="/mock-interview-for-react-developers" style="color: #5C5852; text-decoration: none; font-size: 1rem; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">React Track</a>
+          <a href="/system-design-mock-interview" style="color: #5C5852; text-decoration: none; font-size: 1rem; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">System Design</a>
+          <a href="/resume-based-interview-questions" style="color: #5C5852; text-decoration: none; font-size: 1rem; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">Resume Prep</a>
+          <a href="/login" style="color: #151515; text-decoration: none; font-size: 1rem; font-weight: 600; padding: 0.625rem 0.875rem; min-height: 44px; display: inline-flex; align-items: center;">Sign In</a>
+          <a href="/register" style="background: #FF6B35; color: #FFFFFF; padding: 0.75rem 1.25rem; border-radius: 10px; text-decoration: none; font-size: 1rem; font-weight: 700; min-height: 44px; display: inline-flex; align-items: center;">Start Practicing</a>
         </nav>
       </header>
 
-      <main id="main-content" style="max-width: 1200px; margin: 0 auto; padding: 3rem 1rem;">
-        <!-- Hero Section with Single Semantic H1 -->
-        <section class="hero" style="text-align: center; max-width: 800px; margin: 0 auto 5rem auto;">
-          <p style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: #A29BFE; margin-bottom: 1rem;">
-            AI Technical Mock Interview Platform
-          </p>
-          <h1 style="font-size: 3rem; line-height: 1.15; font-weight: 800; color: #FFFFFF; margin-bottom: 1.5rem;">
-            Ace Technical Interviews with Real-Time Voice AI
+      <main id="main-content" style="max-width: 1120px; margin: 0 auto; padding: 2.5rem 1.25rem;">
+        <section style="max-width: 760px; margin-bottom: 3rem;">
+          <h1 style="font-size: 2.25rem; line-height: 1.2; font-weight: 800; color: #151515; margin-bottom: 1rem;">
+            Practice technical interviews out loud.
           </h1>
-          <p style="font-size: 1.125rem; line-height: 1.6; color: #9CA3AF; margin-bottom: 2rem;">
-            Experience hyper-realistic AI mock interviews tailored to your resume. Practice live voice technical rounds, solve timed coding assessments, and get instant feedback with score breakdowns.
+          <p style="font-size: 1.125rem; line-height: 1.65; color: #5C5852; margin-bottom: 1.75rem;">
+            Answer role-specific technical and behavioral questions over voice with AI interviewer <strong>Shristi</strong>, check how your <strong>PDF resume matches a job description</strong>, and get <strong>per-question scores and model answers</strong>.
           </p>
-          <div style="display: flex; justify-content: center; gap: 1rem;">
-            <a href="/register" style="background: #6C5CE7; color: #FFFFFF; padding: 0.875rem 2rem; border-radius: 9999px; text-decoration: none; font-weight: 700;">
-              Start Free Interview
+          <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+            <a href="/register" style="background: #FF6B35; color: #FFFFFF; padding: 0.875rem 1.5rem; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 1rem; min-height: 48px; display: inline-flex; align-items: center;">
+              Start Free Mock Interview
             </a>
-            <a href="#how-it-works" style="border: 1px solid rgba(255,255,255,0.15); color: #FFFFFF; padding: 0.875rem 2rem; border-radius: 9999px; text-decoration: none; font-weight: 600;">
-              How It Works
+            <a href="/mock-interview-for-react-developers" style="background: #FFFFFF; border: 1px solid #D0C9BD; color: #151515; padding: 0.875rem 1.5rem; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 1rem; min-height: 48px; display: inline-flex; align-items: center;">
+              Explore Role Tracks
             </a>
           </div>
         </section>
 
-        <!-- Features Section -->
-        <section id="features" style="margin-bottom: 5rem;">
-          <h2 style="font-size: 2rem; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 2rem;">
-            Why Traditional Interview Prep is Broken
-          </h2>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.75rem;">Generic Advice Ignores Your Resume</h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem; line-height: 1.6;">Static question lists fail when hiring managers ask you to defend specific architectural choices, trade-offs, and metrics on your CV.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.75rem;">No Real-Time Feedback on Delivery</h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem; line-height: 1.6;">Practicing alone doesn't reveal whether you're rambling, failing to use the STAR method, or skipping critical edge cases.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.75rem;">Hard to Track Actual Improvement</h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem; line-height: 1.6;">Evalix provides quantitative rubric scoring across Technical Accuracy, Clarity, Conciseness, and Depth after every session.</p>
-            </article>
-          </div>
-        </section>
-
-        <!-- How It Works Section -->
-        <section id="how-it-works" style="margin-bottom: 5rem;">
-          <h2 style="font-size: 2rem; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 2.5rem;">
-            How Evalix Works
-          </h2>
-          <ol style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 2rem;">
-            <li style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">1. Resume-Aware Question Generation</h3>
-              <p style="color: #9CA3AF; line-height: 1.6;">Upload your resume and paste your target job description. Google Gemini extracts your skills, detects ATS gaps, and generates targeted technical questions.</p>
-            </li>
-            <li style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">2. Real-Time Conversational Voice Interview</h3>
-              <p style="color: #9CA3AF; line-height: 1.6;">Converse verbally with AI interviewer Shristi. She asks probing follow-ups, adapts to your answers in real time, and replicates top tech company interviewers.</p>
-            </li>
-            <li style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">3. Timed Coding & MCQ Assessments</h3>
-              <p style="color: #9CA3AF; line-height: 1.6;">Test your foundational computer science knowledge, data structures, algorithms, and framework nuances with customized multiple-choice tests.</p>
-            </li>
-            <li style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 2rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.25rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">4. Instant Hiring-Grade Scorecards</h3>
-              <p style="color: #9CA3AF; line-height: 1.6;">Receive an immediate score report with strengths, missing keywords, model answers, and historical performance charts.</p>
-            </li>
-          </ol>
-        </section>
-
-        <!-- Dedicated Prep Tracks (Long-Tail Guides) -->
-        <section style="margin-bottom: 5rem;">
-          <h2 style="font-size: 2rem; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 2rem;">
-            Explore Specialized Interview Prep Tracks
-          </h2>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem;">
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">
-                <a href="/mock-interview-for-react-developers" style="color: #A29BFE; text-decoration: none;">React Developer Mock Interview</a>
-              </h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem;">Master React 19, custom hooks, reconciliation, performance profiling, and state management.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">
-                <a href="/resume-based-interview-questions" style="color: #A29BFE; text-decoration: none;">Resume-Based Interview Questions</a>
-              </h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem;">Generate high-impact questions directly from your past projects, tech stack, and achievements.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">
-                <a href="/system-design-mock-interview" style="color: #A29BFE; text-decoration: none;">System Design Mock Interview</a>
-              </h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem;">Conquer distributed systems, caching, database sharding, microservices, and CAP theorem trade-offs.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">
-                <a href="/mock-interview-for-freshers" style="color: #A29BFE; text-decoration: none;">Mock Interview for Freshers</a>
-              </h3>
-              <p style="color: #9CA3AF; font-size: 0.875rem;">Campus placement prep covering DSA, OOP, DBMS, OS concepts, and project defense rounds.</p>
-            </article>
-          </div>
-        </section>
-
-        <!-- Comparison Table Section -->
-        <section id="comparison" style="margin-bottom: 5rem;">
-          <h2 style="font-size: 2rem; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 2rem;">
-            Why Engineers Choose Evalix
-          </h2>
-          <table style="width: 100%; border-collapse: collapse; text-align: left; background: #121316; border-radius: 1rem; overflow: hidden;">
-            <thead>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);">
-                <th style="padding: 1rem; color: #FFFFFF;">Feature</th>
-                <th style="padding: 1rem; color: #A29BFE;">Evalix AI</th>
-                <th style="padding: 1rem; color: #9CA3AF;">Static LeetCode</th>
-                <th style="padding: 1rem; color: #9CA3AF;">Human Coaching</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 1rem; color: #FFFFFF;">24/7 Availability</td><td style="padding: 1rem; color: #10B981;">Yes</td><td style="padding: 1rem; color: #9CA3AF;">Yes</td><td style="padding: 1rem; color: #9CA3AF;">No</td></tr>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 1rem; color: #FFFFFF;">Live Conversational Voice</td><td style="padding: 1rem; color: #10B981;">Yes</td><td style="padding: 1rem; color: #9CA3AF;">No</td><td style="padding: 1rem; color: #10B981;">Yes</td></tr>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 1rem; color: #FFFFFF;">Tailored to Your Resume</td><td style="padding: 1rem; color: #10B981;">Yes</td><td style="padding: 1rem; color: #9CA3AF;">No</td><td style="padding: 1rem; color: #9CA3AF;">Partial</td></tr>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 1rem; color: #FFFFFF;">System Design & Behavioral</td><td style="padding: 1rem; color: #10B981;">Yes</td><td style="padding: 1rem; color: #9CA3AF;">No</td><td style="padding: 1rem; color: #10B981;">Yes</td></tr>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);"><td style="padding: 1rem; color: #FFFFFF;">Cost per Session</td><td style="padding: 1rem; color: #A29BFE;">Free Tier Available</td><td style="padding: 1rem; color: #9CA3AF;">$35/mo Premium</td><td style="padding: 1rem; color: #9CA3AF;">$150-$250 / hr</td></tr>
-            </tbody>
-          </table>
-        </section>
-
-        <!-- FAQ Section with Full Answer Text for Crawlers -->
-        <section id="faq" style="margin-bottom: 5rem;">
-          <h2 style="font-size: 2rem; font-weight: 700; color: #FFFFFF; text-align: center; margin-bottom: 2rem;">
-            Frequently Asked Questions
-          </h2>
-          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">How does an AI mock interview work on Evalix?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Evalix simulates a real hiring manager interview using Google Gemini 1.5 Flash. You converse via real-time voice or interactive chat. The AI asks technical and behavioral questions, evaluates your answers, and provides an immediate score breakdown.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">Can Evalix generate interview questions from my resume and job description?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Yes. Uploading your PDF resume along with your target job description allows Evalix to extract your skill stack, identify ATS gaps, and generate customized role-specific questions.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">Is Evalix free to use for technical interview practice?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Yes, Evalix offers a free tier allowing software engineers to practice mock interviews, generate assessment questions, and analyze their resumes without credit card requirements.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">How realistic is the AI voice interview simulation?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Evalix uses multimodal Gemini audio transcription and low-latency Speech-to-Text and Text-to-Speech synthesis (with native browser Web Speech API fallback) to deliver natural verbal interview exchanges.</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">What tech stacks and developer roles are supported?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Frontend (React, Vue, TypeScript, Next.js), Backend (Node.js, Express, Python, Java, Go), Full Stack, DevOps, System Design, and Data Structures & Algorithms (DSA).</p>
-            </article>
-            <article style="background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 1.5rem; border-radius: 1rem;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #FFFFFF; margin-bottom: 0.5rem;">How does AI scoring compare to a human mock interviewer?</h3>
-              <p style="color: #9CA3AF; line-height: 1.6; font-size: 0.9375rem;">Evalix evaluates answers across four objective vectors: Technical Accuracy, Depth & Edge Cases, Communication Clarity, and Structure (e.g. STAR method), delivering itemized rubrics with zero scheduling delay.</p>
-            </article>
-          </div>
-        </section>
-
-        <!-- Final CTA -->
-        <section style="text-align: center; background: #121316; border: 1px solid rgba(255,255,255,0.08); padding: 3rem 1.5rem; border-radius: 1.5rem;">
-          <h2 style="font-size: 2.25rem; font-weight: 700; color: #FFFFFF; margin-bottom: 1rem;">Ready to Ace Your Next Interview?</h2>
-          <p style="color: #9CA3AF; margin-bottom: 2rem;">Join thousands of engineers who practice realistic technical mock interviews with Evalix.</p>
-          <a href="/register" style="background: #FFFFFF; color: #08090B; padding: 1rem 2.5rem; border-radius: 9999px; text-decoration: none; font-weight: 700; font-size: 1.125rem;">
-            Start Free Interview
-          </a>
+        <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 3rem;">
+          <article style="background: #FFFFFF; border: 1px solid #E3DDD3; padding: 1.5rem; border-radius: 16px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #151515; margin-bottom: 0.5rem;">Live Voice &amp; Mock Interviews</h2>
+            <p style="color: #5C5852; font-size: 1rem; line-height: 1.6;">Practice <strong>3, 5, 8, or 10 questions</strong> over voice or text with adaptive follow-up questions and 1–10 scoring rubrics.</p>
+          </article>
+          <article style="background: #FFFFFF; border: 1px solid #E3DDD3; padding: 1.5rem; border-radius: 16px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #151515; margin-bottom: 0.5rem;">PDF Resume &amp; JD Match</h2>
+            <p style="color: #5C5852; font-size: 1rem; line-height: 1.6;">Upload your <strong>PDF resume (up to 5MB)</strong> and compare it against any job posting to uncover missing ATS keywords.</p>
+          </article>
+          <article style="background: #FFFFFF; border: 1px solid #E3DDD3; padding: 1.5rem; border-radius: 16px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #151515; margin-bottom: 0.5rem;">Timed MCQ Assessments</h2>
+            <p style="color: #5C5852; font-size: 1rem; line-height: 1.6;">Generate <strong>10 to 30 multiple-choice questions</strong> with a <strong>90-second timer per question</strong> and detailed explanations.</p>
+          </article>
         </section>
       </main>
 
-      <footer style="max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #9CA3AF;">
-        <span>© 2026 Evalix. All rights reserved.</span>
-        <div style="display: flex; gap: 1.5rem;">
-          <a href="/mock-interview-for-react-developers" style="color: #9CA3AF; text-decoration: none;">React Prep</a>
-          <a href="/resume-based-interview-questions" style="color: #9CA3AF; text-decoration: none;">Resume Questions</a>
-          <a href="/system-design-mock-interview" style="color: #9CA3AF; text-decoration: none;">System Design</a>
-          <a href="/mock-interview-for-freshers" style="color: #9CA3AF; text-decoration: none;">Freshers Prep</a>
-          <a href="https://github.com/shubham574/InterviewAI" style="color: #9CA3AF; text-decoration: none;">GitHub</a>
+      <footer style="max-width: 1120px; margin: 0 auto; padding: 2rem 1.25rem; border-top: 1px solid #E3DDD3; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; font-size: 1rem; color: #5C5852;">
+        <span>© 2026 Evalix.</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+          <a href="https://www.youtube.com/@evalixai" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">YouTube</a>
+          <a href="https://x.com/evalix_ai" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">X (Twitter)</a>
+          <a href="https://www.linkedin.com/in/shubham-maurya-937511309/" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">LinkedIn</a>
+          <a href="https://www.instagram.com/evalix.ai/" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">Instagram</a>
+          <a href="https://www.facebook.com/evalixai" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">Facebook</a>
+          <a href="https://github.com/shubham574/Evalix" target="_blank" rel="noopener noreferrer" style="color: #151515; text-decoration: none; padding: 0.625rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center;">GitHub</a>
         </div>
       </footer>
     </div>

@@ -3,68 +3,51 @@ import React from 'react';
 const DashboardSkeleton = () => {
   return (
     <div className="space-y-8 animate-pulse w-full">
-      {/* ─── Action Hero Skeleton ─── */}
-      <div className="bg-bg-surface border border-border-subtle rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-8 h-auto md:h-64 w-full">
+      {/* ─── Welcome Banner Skeleton ─── */}
+      <div className="bg-bg-surface border border-border-subtle rounded-[24px] p-8 flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-60 w-full">
         <div className="w-full max-w-xl flex flex-col gap-4">
-          <div className="h-10 bg-bg-elevated rounded-lg w-3/4"></div>
-          <div className="h-6 bg-bg-elevated rounded-lg w-full mb-4"></div>
+          <div className="h-5 bg-bg-elevated rounded-[8px] w-40" />
+          <div className="h-10 bg-bg-elevated rounded-[10px] w-3/4" />
+          <div className="h-5 bg-bg-elevated rounded-[8px] w-full mb-2" />
           <div className="flex flex-wrap gap-3">
-            <div className="h-10 bg-bg-elevated rounded-xl w-36"></div>
-            <div className="h-10 bg-bg-elevated rounded-xl w-36"></div>
-            <div className="h-10 bg-bg-elevated rounded-xl w-24"></div>
+            <div className="h-10 bg-bg-elevated rounded-[12px] w-40" />
+            <div className="h-10 bg-bg-elevated rounded-[12px] w-36" />
           </div>
         </div>
-        <div className="hidden md:flex w-32 h-32 bg-bg-elevated rounded-full shrink-0"></div>
+        <div className="hidden lg:flex w-44 h-40 bg-bg-elevated rounded-[18px] shrink-0" />
       </div>
 
-      {/* ─── Stats Row Skeleton ─── */}
+      {/* ─── 4 Metric Cards Skeleton ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-bg-surface border border-border-subtle rounded-2xl p-5 flex items-center h-24">
-            <div className="w-12 h-12 bg-bg-elevated rounded-xl mr-4 shrink-0"></div>
-            <div className="flex flex-col gap-2 flex-1">
-              <div className="h-3 bg-bg-elevated rounded w-1/2"></div>
-              <div className="h-6 bg-bg-elevated rounded w-3/4"></div>
+          <div
+            key={i}
+            className="bg-bg-surface border border-border-subtle rounded-[18px] p-5 flex flex-col justify-between h-28"
+          >
+            <div className="flex justify-between items-center">
+              <div className="h-3 bg-bg-elevated rounded w-24" />
+              <div className="w-9 h-9 bg-bg-elevated rounded-[10px]" />
             </div>
+            <div className="h-7 bg-bg-elevated rounded w-16" />
           </div>
         ))}
       </div>
 
-      {/* ─── Charts & Activity Skeleton ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full">
-        {/* Chart Skeleton */}
-        <div className="lg:col-span-2 bg-bg-surface border border-border-subtle rounded-3xl p-6 lg:p-8 h-[360px] flex flex-col">
-          <div className="h-6 bg-bg-elevated rounded w-48 mb-8"></div>
-          <div className="flex-1 bg-bg-elevated/50 rounded-xl w-full border border-border-subtle/50"></div>
+      {/* ─── Charts & Recent Sessions Skeleton ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+        <div className="lg:col-span-7 bg-bg-surface border border-border-subtle rounded-[20px] p-6 h-[340px] flex flex-col">
+          <div className="h-6 bg-bg-elevated rounded w-48 mb-6" />
+          <div className="flex-1 bg-bg-elevated/50 rounded-[14px] w-full" />
         </div>
-
-        {/* Activity Skeleton */}
-        <div className="bg-bg-surface border border-border-subtle rounded-3xl p-6 lg:p-8 h-[360px] flex flex-col gap-4">
-          <div className="h-6 bg-bg-elevated rounded w-32 mb-2"></div>
-          
+        <div className="lg:col-span-5 bg-bg-surface border border-border-subtle rounded-[20px] p-6 h-[340px] flex flex-col gap-4">
+          <div className="h-6 bg-bg-elevated rounded w-36 mb-2" />
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-bg-elevated rounded-lg shrink-0"></div>
+            <div key={i} className="flex items-center gap-3.5">
+              <div className="w-10 h-10 bg-bg-elevated rounded-[10px] shrink-0" />
               <div className="flex flex-col gap-2 flex-1">
-                <div className="h-4 bg-bg-elevated rounded w-full"></div>
-                <div className="h-3 bg-bg-elevated rounded w-2/3"></div>
+                <div className="h-4 bg-bg-elevated rounded w-full" />
+                <div className="h-3 bg-bg-elevated rounded w-1/2" />
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ─── Topic Proficiency Skeleton ─── */}
-      <div className="bg-bg-surface border border-border-subtle rounded-3xl p-6 lg:p-8">
-        <div className="h-6 bg-bg-elevated rounded w-40 mb-6"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-bg-canvas border border-border-subtle rounded-2xl p-4 flex flex-col justify-between h-20">
-              <div className="flex justify-between items-center mb-2">
-                <div className="h-4 bg-bg-elevated rounded w-24"></div>
-                <div className="h-4 bg-bg-elevated rounded w-8"></div>
-              </div>
-              <div className="w-full bg-surface-hover rounded-full h-2"></div>
             </div>
           ))}
         </div>

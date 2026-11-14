@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import CustomCursor from './components/ui/CustomCursor';
+import Loader from './components/ui/Loader';
 
 // Pages
 const Landing = React.lazy(() => import('./pages/Landing'));
@@ -27,7 +27,6 @@ const ResumeQuestions = React.lazy(() => import('./pages/ResumeQuestions'));
 const SystemDesignMockInterview = React.lazy(() => import('./pages/SystemDesignMockInterview'));
 const FreshersMockInterview = React.lazy(() => import('./pages/FreshersMockInterview'));
 
-// ... (keep queryClient)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -43,13 +42,21 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <CustomCursor />
-          <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-          <React.Suspense fallback={
-            <div className="flex items-center justify-center min-h-screen bg-bg-canvas">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-primary"></div>
-            </div>
-          }>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#151515',
+                color: '#F8F5EF',
+                borderRadius: '14px',
+                border: '2px solid #2E2E2E',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '14px',
+              },
+            }}
+          />
+          <React.Suspense fallback={<Loader fullScreen text="Loading Evalix Arena..." />}>
             <Routes>
               {/* Public Marketing & SEO Landing Routes */}
               <Route path="/" element={<Landing />} />
@@ -61,7 +68,13 @@ function App() {
               <Route path="/register/*" element={<Register />} />
 
               {/* Protected Routes inside Layout */}
-              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/job-analysis" element={<JobAnalysis />} />
                 <Route path="/mcq-generator" element={<MCQGenerator />} />

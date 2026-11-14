@@ -23,11 +23,11 @@ const CustomCursor = () => {
     const handleHoverStart = (e) => {
       const target = e.target;
       if (
-        target.tagName.toLowerCase() === 'a' ||
-        target.tagName.toLowerCase() === 'button' ||
-        target.closest('a') ||
-        target.closest('button') ||
-        target.classList.contains('cursor-pointer')
+        target.tagName?.toLowerCase() === 'a' ||
+        target.tagName?.toLowerCase() === 'button' ||
+        target.closest?.('a') ||
+        target.closest?.('button') ||
+        target.classList?.contains('cursor-pointer')
       ) {
         setIsHovering(true);
       }
@@ -40,8 +40,6 @@ const CustomCursor = () => {
     window.addEventListener('mouseenter', handleMouseEnter);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
-    
-    // Use event delegation for hover states
     document.addEventListener('mouseover', handleHoverStart);
     document.addEventListener('mouseout', handleHoverEnd);
 
@@ -60,34 +58,32 @@ const CustomCursor = () => {
 
   return (
     <>
-      {/* Outer Ring */}
       <motion.div
-        className="fixed top-0 left-0 w-8 h-8 rounded-full border-2 border-accent-primary pointer-events-none z-[10000] mix-blend-difference hidden md:block"
+        className="fixed top-0 left-0 w-7 h-7 rounded-full border-2 border-[#FF6B35] pointer-events-none z-[10000] hidden lg:block"
         animate={{
-          x: position.x - 16,
-          y: position.y - 16,
-          scale: isHovering ? 1.5 : isClicking ? 0.8 : 1,
-          opacity: isHovering ? 0.5 : 1,
+          x: position.x - 14,
+          y: position.y - 14,
+          scale: isHovering ? 1.45 : isClicking ? 0.85 : 1,
+          opacity: isHovering ? 0.75 : 0.9,
         }}
         transition={{
           type: 'spring',
-          stiffness: 150,
-          damping: 15,
+          stiffness: 220,
+          damping: 20,
           mass: 0.1,
         }}
       />
-      {/* Inner Dot */}
       <motion.div
-        className="fixed top-0 left-0 w-2 h-2 rounded-full bg-accent-primary pointer-events-none z-[10000] mix-blend-difference hidden md:block"
+        className="fixed top-0 left-0 w-2 h-2 rounded-full bg-[#151515] pointer-events-none z-[10000] hidden lg:block"
         animate={{
           x: position.x - 4,
           y: position.y - 4,
-          scale: isHovering ? 0 : isClicking ? 0.5 : 1,
+          scale: isHovering ? 0 : isClicking ? 0.6 : 1,
         }}
         transition={{
           type: 'spring',
-          stiffness: 300,
-          damping: 20,
+          stiffness: 350,
+          damping: 22,
           mass: 0.1,
         }}
       />

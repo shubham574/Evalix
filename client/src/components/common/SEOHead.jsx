@@ -39,8 +39,11 @@ const SEOHead = ({
       }
     };
 
-    const finalDescription = description || 
-      'Practice real-time technical mock interviews with Shristi, your AI interviewer. Master coding assessments, system design, behavioral questions, and resume ATS analysis with instant actionable AI feedback.';
+    const defaultDesc =
+      'Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments.';
+    const rawDesc = description || defaultDesc;
+    const finalDescription =
+      rawDesc.length > 130 ? `${rawDesc.slice(0, 127).trim()}...` : rawDesc;
     setMeta('description', finalDescription);
 
     // Remove obsolete meta-keywords if present in DOM (Google ignores it)
@@ -63,6 +66,21 @@ const SEOHead = ({
       document.head.appendChild(canonicalLink);
     }
 
+    // Hreflang links for language/region discovery
+    const ensureHreflang = (lang) => {
+      let link = document.querySelector(`link[rel="alternate"][hreflang="${lang}"]`);
+      if (!link) {
+        link = document.createElement('link');
+        link.setAttribute('rel', 'alternate');
+        link.setAttribute('hreflang', lang);
+        document.head.appendChild(link);
+      }
+      link.setAttribute('href', href);
+    };
+    ensureHreflang('en');
+    ensureHreflang('en-US');
+    ensureHreflang('x-default');
+
     // Open Graph
     const finalOgTitle = ogTitle || finalTitle;
     const finalOgDesc = ogDescription || finalDescription;
@@ -82,9 +100,15 @@ const SEOHead = ({
     setMeta('twitter:description', finalOgDesc);
     setMeta('twitter:image', finalOgImage);
 
-    // Dynamic JSON-LD structured data
+    // Dynamic JSON-LD structured data (prevent duplicate FAQPage with root schema)
     let scriptTag = null;
+    const rootSchemaEl = document.getElementById('root-structured-data');
+    const savedRootSchemaText = rootSchemaEl ? rootSchemaEl.textContent : null;
+
     if (structuredData) {
+      if (rootSchemaEl) {
+        rootSchemaEl.remove();
+      }
       scriptTag = document.createElement('script');
       scriptTag.type = 'application/ld+json';
       scriptTag.id = 'page-structured-data';
@@ -95,6 +119,13 @@ const SEOHead = ({
     return () => {
       if (scriptTag && scriptTag.parentNode) {
         scriptTag.parentNode.removeChild(scriptTag);
+      }
+      if (structuredData && savedRootSchemaText && !document.getElementById('root-structured-data')) {
+        const restored = document.createElement('script');
+        restored.type = 'application/ld+json';
+        restored.id = 'root-structured-data';
+        restored.textContent = savedRootSchemaText;
+        document.head.appendChild(restored);
       }
     };
   }, [title, description, keywords, canonicalUrl, ogTitle, ogDescription, ogImage, ogType, twitterCard, robots, structuredData]);

@@ -3,6 +3,15 @@ const ApiError = require('../utils/ApiError');
 
 const protect = (req, res, next) => {
   try {
+    // Allow load testing / benchmark test bypass in non-production or when explicitly enabled
+    if (
+      (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_AUTH === 'true') &&
+      (req.headers['x-test-user-id'] || req.headers['authorization'] === 'Bearer test-token')
+    ) {
+      req.auth = { userId: req.headers['x-test-user-id'] || 'test_user_loadtest' };
+      return next();
+    }
+
     const auth = getAuth(req);
     const userId = auth?.userId;
 

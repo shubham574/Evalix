@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { FiAlertTriangle } from 'react-icons/fi';
+import { FiAlertTriangle, FiRefreshCw } from 'react-icons/fi';
 import Button from '../ui/Button';
 
 class ErrorBoundary extends Component {
@@ -24,21 +24,28 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <div className="max-w-md w-full glass p-8 rounded-2xl text-center border border-error/20">
-            <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center mx-auto mb-6">
-              <FiAlertTriangle className="w-8 h-8 text-error" />
+        <div className="min-h-screen flex items-center justify-center bg-bg-canvas p-4">
+          <div className="max-w-md w-full bg-bg-surface p-8 rounded-[22px] text-center border-2 border-[#151515] shadow-[0_6px_0_0_#151515]">
+            <div className="w-14 h-14 rounded-[14px] bg-[#EF4444]/15 border border-[#EF4444]/30 flex items-center justify-center mx-auto mb-5">
+              <FiAlertTriangle className="w-7 h-7 text-[#EF4444]" />
             </div>
-            <h1 className="text-2xl font-bold text-text-primary mb-4">Something went wrong</h1>
-            <p className="text-text-secondary mb-8">
-              We've encountered an unexpected error. Please try refreshing the page.
+            <span className="px-2.5 py-0.5 rounded-full bg-[#EF4444]/15 text-[#EF4444] font-mono text-[11px] uppercase tracking-widest font-bold">
+              Arena Interruption
+            </span>
+            <h1 className="heading-card text-text-primary mt-2 mb-2">
+              Something went wrong
+            </h1>
+            <p className="text-sm text-text-secondary mb-6 leading-relaxed">
+              An unexpected client error occurred while rendering this view. Refreshing the session will restore your workspace.
             </p>
-            <Button onClick={this.handleReset} fullWidth>
-              Refresh Page
+            <Button onClick={this.handleReset} icon={FiRefreshCw} fullWidth>
+              Reload Workspace
             </Button>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mt-8 text-left bg-black/50 p-4 rounded-lg overflow-auto max-h-40">
-                <code className="text-error text-xs">{this.state.error.toString()}</code>
+            {import.meta.env.DEV && this.state.error && (
+              <div className="mt-6 text-left bg-[#151515] text-[#F8F5EF] p-3.5 rounded-[12px] overflow-auto max-h-40 border border-[#2E2E2E]">
+                <code className="text-[#EF4444] font-mono text-xs">
+                  {this.state.error.toString()}
+                </code>
               </div>
             )}
           </div>

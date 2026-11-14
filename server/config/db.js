@@ -3,13 +3,28 @@ const mongoose = require('mongoose');
 let isConnected = false;
 
 const connectDB = async () => {
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/evalix';
+  const options = {
+    serverSelectionTimeoutMS: 3000,
+    maxPoolSize: 25, // Optimized pool size per PM2 cluster worker
+    minPoolSize: 5,
+  };
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000, // 10s timeout for initial connection
-    });
+    const conn = await mongoose.connect(uri, options);
     isConnected = true;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
+    if (uri !== 'mongodb://127.0.0.1:27017/evalix') {
+      try {
+        console.log('Attempting local MongoDB connection (mongodb://127.0.0.1:27017/evalix)...');
+        const localConn = await mongoose.connect('mongodb://127.0.0.1:27017/evalix', options);
+        isConnected = true;
+        console.log(`MongoDB Connected (local fallback): ${localConn.connection.host}`);
+        return;
+      } catch (localErr) {
+        // Continue to retry logic
+      }
+    }
     isConnected = false;
     console.error(`MongoDB connection failed: ${error.message}`);
     console.error('The server will continue running. Retrying in 30 seconds...');

@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { motion } from 'motion/react';
-import { FiUploadCloud, FiFileText, FiCheck, FiAlertTriangle, FiX } from 'react-icons/fi';
+import {
+  FiUploadCloud, FiFileText, FiCheck, FiAlertTriangle,
+  FiX, FiAward, FiTarget, FiTrendingUp,
+} from 'react-icons/fi';
 import { useApiMutation } from '../hooks/useApi';
 import { API } from '../api/endpoints';
 import SEOHead from '../components/common/SEOHead';
@@ -8,9 +10,8 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import Loader from '../components/ui/Loader';
-import { getGradeColor } from '../utils/helpers';
 import { showError } from '../components/ui/Toast';
+import EvalixOrb, { EvalixStarburst } from '../components/ui/EvalixOrb';
 
 const ResumeAnalyzer = () => {
   const [jobDescription, setJobDescription] = useState('');
@@ -21,10 +22,10 @@ const ResumeAnalyzer = () => {
 
   // Analyze mutation
   const analyzeMutation = useApiMutation(API.RESUME.ANALYZE, 'post', {
-    successMessage: 'Resume analyzed successfully!',
+    successMessage: 'Resume ATS scan complete!',
     onSuccess: (data) => {
       setAnalysisResult(data.data);
-    }
+    },
   });
 
   const handleDragOver = (e) => {
@@ -39,7 +40,7 @@ const ResumeAnalyzer = () => {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0];
       validateAndSetFile(droppedFile);
@@ -57,12 +58,12 @@ const ResumeAnalyzer = () => {
       showError('Please upload a PDF file');
       return;
     }
-    
+
     if (selectedFile.size > 5 * 1024 * 1024) {
       showError('File size must be less than 5MB');
       return;
     }
-    
+
     setFile(selectedFile);
   };
 
@@ -75,11 +76,11 @@ const ResumeAnalyzer = () => {
 
   const handleAnalyze = (e) => {
     e.preventDefault();
-    
+
     if (!file) {
       return showError('Please upload your resume');
     }
-    
+
     if (!jobDescription.trim()) {
       return showError('Please paste the job description');
     }
@@ -91,201 +92,237 @@ const ResumeAnalyzer = () => {
     analyzeMutation.mutate(formData);
   };
 
+  const score = Math.round(analysisResult?.matchScore || 0);
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)]">
-      <SEOHead title="Resume Analyzer" />
-      
-      {/* Left side - Form */}
-      <div className="w-full lg:w-1/3 flex flex-col space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Resume Match</h1>
-          <p className="text-text-secondary mt-1">Compare your resume against a JD to see your match score and missing skills.</p>
-        </div>
+    <div className="space-y-6 pb-10">
+      <SEOHead title="Resume & ATS Match Scanner — Evalix Prep Lab" />
 
-        <Card className="flex-1 flex flex-col">
-          <form onSubmit={handleAnalyze} className="space-y-6 flex-1 flex flex-col">
-            
-            {/* File Upload Zone */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-text-secondary block">Upload Resume (PDF)</label>
-              
-              {!file ? (
-                <div 
-                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                    isDragging ? 'border-primary bg-primary/5' : 'border-border bg-surface-hover hover:border-primary/50'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileChange} 
-                    accept="application/pdf" 
-                    className="hidden" 
-                  />
-                  <FiUploadCloud className={`w-12 h-12 mb-3 ${isDragging ? 'text-primary' : 'text-text-muted'}`} />
-                  <p className="text-sm font-medium text-text-primary mb-1">Click to upload or drag and drop</p>
-                  <p className="text-xs text-text-muted">PDF only (max 5MB)</p>
-                </div>
-              ) : (
-                <div className="border border-border rounded-xl p-4 bg-surface-hover flex items-center justify-between">
-                  <div className="flex items-center overflow-hidden">
-                    <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary mr-3 flex-shrink-0">
-                      <FiFileText className="w-5 h-5" />
-                    </div>
-                    <div className="truncate">
-                      <p className="text-sm font-medium text-text-primary truncate">{file.name}</p>
-                      <p className="text-xs text-text-muted">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={removeFile}
-                    className="p-2 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors ml-2"
+      {/* Page Header */}
+      <div className="border-b border-border-subtle pb-5">
+        <h1 className="heading-page text-text-primary">Resume &amp; JD Match Scanner</h1>
+        <p className="text-sm sm:text-base text-text-secondary mt-1">
+          Upload your <strong className="text-text-primary font-semibold">PDF resume (up to 5MB)</strong> and compare it against a target job description to find <strong className="text-text-primary font-semibold">missing keywords</strong> and <strong className="text-text-primary font-semibold">bullet rewrites</strong>.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Upload & JD Input (4 cols) */}
+        <div className="lg:col-span-4">
+          <Card className="p-6 border border-border-subtle">
+            <form onSubmit={handleAnalyze} className="space-y-5">
+              {/* File Upload Zone */}
+              <div className="space-y-2">
+                <label className="text-xs font-mono uppercase tracking-wider font-semibold text-text-secondary block">
+                  1. Upload Resume (PDF, Max 5MB)
+                </label>
+
+                {!file ? (
+                  <div
+                    className={`border-2 border-dashed rounded-[16px] p-7 text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                      isDragging
+                        ? 'border-[#FF6B35] bg-[#FF6B35]/10'
+                        : 'border-border-strong bg-bg-canvas hover:border-[#FF6B35]'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <FiX />
-                  </button>
-                </div>
-              )}
-            </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="application/pdf"
+                      className="hidden"
+                    />
+                    <FiUploadCloud className="w-7 h-7 text-[#FF6B35] mb-2.5" />
+                    <p className="text-sm font-display font-bold text-text-primary mb-1">
+                      Drop your PDF resume or click to browse
+                    </p>
+                    <p className="text-xs font-mono text-text-muted">PDF format • Up to 5MB</p>
+                  </div>
+                ) : (
+                  <div className="border border-border-strong rounded-[14px] p-3.5 bg-bg-canvas flex items-center justify-between">
+                    <div className="truncate pr-2">
+                      <p className="text-sm font-display font-bold text-text-primary truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs font-mono text-text-muted">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB • Ready
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="p-2 text-text-muted hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded-[8px] transition-colors ml-2 cursor-pointer"
+                    >
+                      <FiX />
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            <div className="flex-1 flex flex-col">
               <Input
                 id="jd"
-                label="Job Description"
-                placeholder="Paste the full job description here..."
+                label="2. Target Job Description"
+                placeholder="Paste the full job description to compare your resume against..."
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 textarea
                 rows={10}
-                className="flex-1"
                 required
               />
-            </div>
 
-            <Button 
-              type="submit" 
-              fullWidth 
-              size="lg"
-              loading={analyzeMutation.isPending}
-              disabled={!file || !jobDescription}
-              className="mt-auto"
-            >
-              Analyze Match
-            </Button>
-          </form>
-        </Card>
-      </div>
-
-      {/* Right side - Results */}
-      <div className="w-full lg:w-2/3 flex flex-col">
-        {analyzeMutation.isPending ? (
-          <Card className="flex-1 flex flex-col items-center justify-center min-h-[500px]">
-            <Loader size="lg" />
-            <h3 className="text-xl font-bold mt-6 text-text-primary">Scanning Resume...</h3>
-            <p className="text-text-secondary mt-2 text-center max-w-md">
-              Our AI is analyzing your resume against the job description to calculate an ATS match score.
-            </p>
+              <Button
+                type="submit"
+                fullWidth
+                size="lg"
+                loading={analyzeMutation.isPending}
+                disabled={!file || !jobDescription}
+              >
+                Scan Resume Match
+              </Button>
+            </form>
           </Card>
-        ) : analysisResult ? (
-          <div className="flex flex-col h-full space-y-6 animate-fade-in pb-10">
-            {/* Header / Overall Score */}
-            <Card variant="gradient" className="p-8">
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="w-32 h-32 rounded-full border-8 flex items-center justify-center flex-shrink-0 bg-background/20"
-                  style={{ borderColor: analysisResult.matchScore >= 80 ? '#10b981' : analysisResult.matchScore >= 60 ? '#f59e0b' : '#ef4444' }}
-                >
-                  <span className="text-4xl font-bold text-text-primary">{analysisResult.matchScore}%</span>
-                </div>
-                
-                <div>
-                  <h2 className="text-2xl font-bold text-text-primary mb-2">Resume Match Score</h2>
-                  <p className="text-text-secondary leading-relaxed text-lg">
-                    {analysisResult.summary}
-                  </p>
-                  
-                  <div className="mt-4 flex gap-2">
-                    <Badge variant={analysisResult.matchScore >= 80 ? 'success' : 'warning'}>
-                      {analysisResult.matchScore >= 80 ? 'Highly Recommended to Apply' : 'Update Resume First'}
-                    </Badge>
+        </div>
+
+        {/* Right Column: ATS Match Report (8 cols) */}
+        <div className="lg:col-span-8">
+          {analyzeMutation.isPending ? (
+            <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-12 flex flex-col items-center justify-center min-h-[500px] text-center">
+              <EvalixOrb size="lg" state="evaluating" />
+              <h3 className="heading-card text-[#F8F5EF] mt-5">
+                Comparing Resume Against Job Description...
+              </h3>
+              <p className="text-sm text-[#F8F5EF]/65 mt-2 max-w-md">
+                Checking keyword overlap, technical skills, and experience alignment.
+              </p>
+            </div>
+          ) : analysisResult ? (
+            <div className="space-y-6 animate-fade-in">
+              {/* ATS Match Score Banner */}
+              <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                  <div className="md:col-span-4 flex flex-col items-center md:items-start text-center md:text-left border-b md:border-b-0 md:border-r border-[#2E2E2E] pb-6 md:pb-0 md:pr-6">
+                    <span className="text-[11px] font-mono uppercase tracking-widest text-[#F8F5EF]/60 mb-2">
+                      ATS Match Score
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span
+                        className="font-editorial text-6xl sm:text-7xl leading-none"
+                        style={{
+                          color: score >= 80 ? '#C7F36B' : score >= 60 ? '#FF6B35' : '#EF4444',
+                        }}
+                      >
+                        {score}%
+                      </span>
+                    </div>
+                    <span
+                      className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase ${
+                        score >= 80
+                          ? 'bg-[#C7F36B] text-[#151515]'
+                          : 'bg-[#FF6B35] text-white'
+                      }`}
+                    >
+                      {score >= 80 ? 'Strong Match' : 'Needs Keyword Updates'}
+                    </span>
+                  </div>
+
+                  <div className="md:col-span-8 space-y-2">
+                    <h2 className="font-display font-bold text-xl text-[#F8F5EF]">
+                      Alignment Summary
+                    </h2>
+                    <p className="text-sm sm:text-base text-[#F8F5EF]/85 leading-relaxed">
+                      {analysisResult.summary}
+                    </p>
                   </div>
                 </div>
               </div>
-            </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Matched Skills */}
-              <Card>
-                <h3 className="text-lg font-bold text-success mb-4 flex items-center">
-                  <span className="w-8 h-8 rounded bg-success/20 flex items-center justify-center mr-3">
-                    <FiCheck />
-                  </span>
-                  Matched Skills
-                </h3>
-                
-                {analysisResult.matchedSkills?.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {analysisResult.matchedSkills.map((skill, idx) => (
-                      <Badge key={idx} variant="success">{skill}</Badge>
-                    ))}
+              {/* Matched vs Missing Skills */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="p-6 border border-border-subtle">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="heading-card text-text-primary">
+                      Matched Skills ({analysisResult.matchedSkills?.length || 0})
+                    </h3>
                   </div>
-                ) : (
-                  <p className="text-sm text-text-muted">No key skills from the JD found in your resume.</p>
-                )}
-              </Card>
 
-              {/* Missing Skills */}
-              <Card>
-                <h3 className="text-lg font-bold text-error mb-4 flex items-center">
-                  <span className="w-8 h-8 rounded bg-error/20 flex items-center justify-center mr-3">
-                    <FiAlertTriangle />
-                  </span>
-                  Missing Skills
-                </h3>
-                
-                {analysisResult.missingSkills?.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {analysisResult.missingSkills.map((skill, idx) => (
-                      <Badge key={idx} variant="error">{skill}</Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-text-muted">Great! You have all the key skills.</p>
-                )}
-              </Card>
-            </div>
-
-            {/* Recommendations */}
-            <Card>
-              <h3 className="text-lg font-bold text-text-primary mb-4 border-b border-border pb-4">
-                How to improve your resume
-              </h3>
-              <ul className="space-y-4">
-                {analysisResult.recommendations?.map((rec, idx) => (
-                  <li key={idx} className="flex items-start text-text-secondary bg-surface-hover p-4 rounded-lg border border-border">
-                    <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs mr-3 flex-shrink-0 mt-0.5">
-                      {idx + 1}
+                  {analysisResult.matchedSkills?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {analysisResult.matchedSkills.map((skill, idx) => (
+                        <Badge key={idx} variant="success">
+                          {skill}
+                        </Badge>
+                      ))}
                     </div>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col justify-center items-center text-text-muted h-full min-h-[500px]">
-            <div className="w-20 h-20 rounded-full bg-surface-hover flex items-center justify-center mb-6">
-              <FiFileText className="w-10 h-10 opacity-30" />
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      No direct skill matches detected from the job description.
+                    </p>
+                  )}
+                </Card>
+
+                <Card className="p-6 border border-border-subtle">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="heading-card text-text-primary">
+                      Missing Keywords ({analysisResult.missingSkills?.length || 0})
+                    </h3>
+                  </div>
+
+                  {analysisResult.missingSkills?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {analysisResult.missingSkills.map((skill, idx) => (
+                        <Badge key={idx} variant="danger">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      Your resume covers all primary keywords in this job description.
+                    </p>
+                  )}
+                </Card>
+              </div>
+
+              {/* Actionable Resume Improvements */}
+              <Card className="p-6 border border-border-subtle">
+                <div className="pb-4 mb-4 border-b border-border-subtle">
+                  <h3 className="heading-card text-text-primary">Recommended Resume Edits</h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Specific bullet and keyword adjustments to improve alignment with this role.
+                  </p>
+                </div>
+
+                <ul className="space-y-3">
+                  {analysisResult.recommendations?.map((rec, idx) => (
+                    <li
+                      key={idx}
+                      className="flex items-start gap-3 text-sm text-text-primary bg-bg-canvas p-4 rounded-[14px] border border-border-subtle"
+                    >
+                      <span className="font-mono text-xs font-bold text-[#FF6B35] flex-shrink-0 mt-0.5">
+                        {idx + 1}.
+                      </span>
+                      <span className="leading-relaxed">{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             </div>
-            <h3 className="text-xl font-medium mb-2">Check your ATS Score</h3>
-            <p className="text-center max-w-md">
-              Upload your resume and the job description to see how well you match the role and get tips to optimize your resume before applying.
-            </p>
-          </div>
-        )}
+          ) : (
+            <Card className="p-10 border border-border-subtle min-h-[500px] flex flex-col justify-center items-center text-center">
+              <EvalixOrb size="lg" state="idle" />
+              <h3 className="heading-card text-text-primary mt-5">
+                Compare Your Resume Against Any Job Posting
+              </h3>
+              <p className="text-sm text-text-secondary mt-2 max-w-md">
+                Upload your <strong className="text-text-primary font-semibold">PDF resume</strong> and paste the <strong className="text-text-primary font-semibold">target job description</strong> on the left to see matched skills, missing keywords, and specific bullet improvements.
+              </p>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

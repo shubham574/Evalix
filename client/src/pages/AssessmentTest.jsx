@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { FiClock, FiCheckCircle, FiXCircle, FiArrowRight, FiArrowLeft, FiFlag } from 'react-icons/fi';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  FiClock, FiCheckCircle, FiXCircle, FiArrowRight,
+  FiArrowLeft, FiFlag, FiAward, FiCpu,
+} from 'react-icons/fi';
 import { useApiQuery, useApiMutation } from '../hooks/useApi';
 import { API } from '../api/endpoints';
 import SEOHead from '../components/common/SEOHead';
@@ -12,7 +13,8 @@ import Badge from '../components/ui/Badge';
 import Loader from '../components/ui/Loader';
 import Modal from '../components/ui/Modal';
 import AnimatedCounter from '../components/ui/AnimatedCounter';
-import { formatTime, getGradeColor } from '../utils/helpers';
+import { formatTime } from '../utils/helpers';
+import EvalixOrb, { EvalixStarburst } from '../components/ui/EvalixOrb';
 
 const AssessmentTest = () => {
   const { id } = useParams();
@@ -34,7 +36,7 @@ const AssessmentTest = () => {
     API.MCQ.GET(id),
     {
       enabled: !!id,
-      showErrorToast: false, // We'll handle error state manually
+      showErrorToast: false,
     }
   );
 
@@ -45,7 +47,7 @@ const AssessmentTest = () => {
     onSuccess: (data) => {
       setAssessmentResult(data.data);
       setIsTestFinished(true);
-    }
+    },
   });
 
   // Timer Effect
@@ -68,21 +70,20 @@ const AssessmentTest = () => {
 
   const handleStartTest = () => {
     if (!mcqSet || !mcqSet.questions) return;
-    // Set time: 1.5 minutes per question
     const totalSeconds = mcqSet.questions.length * 90;
     setTimeLeft(totalSeconds);
     setIsTestStarted(true);
   };
 
   const handleSelectOption = (qIndex, oIndex) => {
-    setSelectedAnswers(prev => ({
+    setSelectedAnswers((prev) => ({
       ...prev,
-      [qIndex]: oIndex
+      [qIndex]: oIndex,
     }));
   };
 
   const toggleMarkForReview = (qIndex) => {
-    setMarkedForReview(prev => {
+    setMarkedForReview((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(qIndex)) {
         newSet.delete(qIndex);
@@ -99,31 +100,32 @@ const AssessmentTest = () => {
 
   const submitTest = () => {
     setShowSubmitModal(false);
-    
-    // Format answers array for backend
-    const answersArray = Object.keys(selectedAnswers).map(qIdx => ({
-      questionIndex: parseInt(qIdx),
-      selectedAnswer: selectedAnswers[qIdx]
+
+    const answersArray = Object.keys(selectedAnswers).map((qIdx) => ({
+      questionIndex: parseInt(qIdx, 10),
+      selectedAnswer: selectedAnswers[qIdx],
     }));
 
-    // Calculate time taken
     const totalTimeAssigned = mcqSet.questions.length * 90;
     const timeTaken = totalTimeAssigned - timeLeft;
 
     submitMutation.mutate({
       mcqSetId: id,
       answers: answersArray,
-      timeTaken
+      timeTaken,
     });
   };
 
   // Error State
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <h2 className="text-2xl font-bold text-text-primary mb-4">Assessment Not Found</h2>
-        <p className="text-text-secondary mb-6">This MCQ set may have been deleted or you don't have access.</p>
-        <Button onClick={() => navigate('/mcq-generator')}>Go to MCQ Generator</Button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <EvalixOrb size="md" state="idle" />
+        <h2 className="heading-section text-text-primary mt-4 mb-2">Assessment Not Found</h2>
+        <p className="text-sm text-text-secondary mb-6">
+          This MCQ set may have been removed or you don't have access.
+        </p>
+        <Button onClick={() => navigate('/mcq-generator')}>Back to MCQ Generator</Button>
       </div>
     );
   }
@@ -134,195 +136,234 @@ const AssessmentTest = () => {
   // Empty Data State
   if (!mcqSet.questions || mcqSet.questions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <h2 className="text-2xl font-bold text-text-primary mb-4">No Questions Available</h2>
-        <p className="text-text-secondary mb-6">There was an error generating the questions for this assessment.</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <h2 className="heading-section text-text-primary mb-2">No Questions Available</h2>
+        <p className="text-sm text-text-secondary mb-6">
+          There was an error loading the questions for this assessment.
+        </p>
         <Button onClick={() => navigate('/mcq-generator')}>Generate New Questions</Button>
       </div>
     );
   }
 
-  // Start Screen
+  // ── 1. Pre-Assessment Briefing Screen ─────────────────────────────────────
   if (!isTestStarted && !isTestFinished) {
     return (
-      <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <SEOHead title={`Assessment: ${mcqSet.jobRole}`} />
-        <Card padding="p-8 md:p-12" className="w-full relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-primary" />
-          <h1 className="text-3xl font-bold text-text-primary mb-2">Assessment Test</h1>
-          <h2 className="text-xl text-primary font-medium mb-8">{mcqSet.jobRole}</h2>
-          
-          <div className="grid grid-cols-2 gap-4 mb-10 text-left max-w-sm mx-auto">
-            <div className="bg-surface-hover p-4 rounded-xl border border-border">
-              <p className="text-text-secondary text-sm">Total Questions</p>
-              <p className="text-2xl font-bold text-text-primary">{mcqSet?.questions?.length || 0}</p>
+      <div className="max-w-2xl mx-auto py-8">
+        <SEOHead title={`Timed Assessment: ${mcqSet.jobRole}`} />
+        <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-8 sm:p-10 text-center">
+          <div className="flex justify-center mb-4">
+            <EvalixOrb size="md" state="idle" />
+          </div>
+
+          <h1 className="heading-section text-[#F8F5EF] mb-1">{mcqSet.jobRole}</h1>
+          <p className="text-xs font-mono uppercase tracking-wider text-[#C7F36B] mb-8">
+            Difficulty: {mcqSet.difficulty || 'Standard'}
+          </p>
+
+          <div className="grid grid-cols-2 gap-4 mb-8 max-w-md mx-auto">
+            <div className="bg-[#1F1F1F] p-4 rounded-[14px] border border-[#2E2E2E]">
+              <p className="text-[#F8F5EF]/60 font-mono text-xs uppercase">Questions</p>
+              <p className="font-editorial text-3xl text-[#F8F5EF] mt-1">
+                {mcqSet.questions.length}
+              </p>
             </div>
-            <div className="bg-surface-hover p-4 rounded-xl border border-border">
-              <p className="text-text-secondary text-sm">Time Limit</p>
-              <p className="text-2xl font-bold text-text-primary">{Math.round((mcqSet?.questions?.length || 0) * 1.5)} Mins</p>
+            <div className="bg-[#1F1F1F] p-4 rounded-[14px] border border-[#2E2E2E]">
+              <p className="text-[#F8F5EF]/60 font-mono text-xs uppercase">Time Limit</p>
+              <p className="font-editorial text-3xl text-[#C7F36B] mt-1">
+                {Math.round(mcqSet.questions.length * 1.5)}m
+              </p>
             </div>
           </div>
 
-          <div className="bg-warning/10 border border-warning/20 p-4 rounded-lg text-left mb-8 inline-block">
-            <h4 className="font-bold text-warning flex items-center mb-1">
-              <FiClock className="mr-2" /> Important Instructions
+          <div className="bg-[#1F1F1F] border border-[#2E2E2E] p-5 rounded-[16px] text-left mb-8">
+            <h4 className="font-mono text-xs uppercase tracking-widest text-[#FF6B35] font-bold mb-2.5">
+              Assessment Format
             </h4>
-            <ul className="text-sm text-text-secondary space-y-1 list-disc pl-5 mt-2">
-              <li>The test will automatically submit when time runs out.</li>
-              <li>Do not refresh the page or you will lose your progress.</li>
-              <li>You can navigate back and forth between questions.</li>
-              <li>Use the 'Mark for Review' flag for questions you want to revisit.</li>
+            <ul className="text-xs sm:text-sm text-[#F8F5EF]/80 space-y-1.5">
+              <li>• <strong className="text-white">90 seconds per question</strong>; auto-submits when the timer reaches 00:00.</li>
+              <li>• Jump between questions using the right-hand <strong className="text-white">Question Navigator</strong>.</li>
+              <li>• Flag uncertain items for review before submitting.</li>
             </ul>
           </div>
 
-          <Button size="lg" onClick={handleStartTest} fullWidth className="max-w-sm">
-            Start Assessment Now
-          </Button>
-        </Card>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button variant="secondary" onClick={() => navigate('/mcq-generator')}>
+              Back to MCQ Sets
+            </Button>
+            <Button size="lg" variant="primary" onClick={handleStartTest}>
+              Start Timed Assessment
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Results Screen
+  // ── 2. Post-Assessment Scorecard Screen ───────────────────────────────────
   if (isTestFinished && assessmentResult) {
-    const pieData = [
-      { name: 'Correct', value: assessmentResult.correctAnswers, color: '#10b981' }, // Success
-      { name: 'Incorrect', value: assessmentResult.incorrectAnswers, color: '#ef4444' }, // Error
-      { name: 'Unanswered', value: assessmentResult.totalQuestions - (assessmentResult.correctAnswers + assessmentResult.incorrectAnswers), color: '#64748b' } // Muted
-    ];
-
+    const score = Math.round(assessmentResult.score || 0);
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <SEOHead title={`Results: ${assessmentResult.jobRole}`} />
-        
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Score Card */}
-          <Card variant="gradient" className="flex-1 text-center p-8">
-            <h2 className="text-xl font-bold text-text-primary mb-6">Assessment Results</h2>
-            <div className="relative w-48 h-48 mx-auto mb-4">
-              <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                {/* Background Circle */}
-                <path
-                  className="text-primary/20"
-                  strokeWidth="3"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                {/* Progress Circle */}
-                <motion.path
-                  className="text-primary drop-shadow-sm"
-                  strokeWidth="3"
-                  strokeDasharray={`${assessmentResult.score}, 100`}
-                  stroke="currentColor"
-                  fill="none"
-                  strokeLinecap="round"
-                  initial={{ strokeDasharray: "0, 100" }}
-                  animate={{ strokeDasharray: `${assessmentResult.score}, 100` }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-text-primary">
-                <span className="text-4xl font-bold">
-                  <AnimatedCounter value={assessmentResult.score} />%
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <SEOHead title={`Assessment Scorecard: ${assessmentResult.jobRole}`} />
+
+        {/* Score Banner */}
+        <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-4 flex flex-col items-center lg:items-start text-center lg:text-left border-b lg:border-b-0 lg:border-r border-[#2E2E2E] pb-6 lg:pb-0 lg:pr-6">
+              <span className="text-[11px] font-mono uppercase tracking-widest text-[#F8F5EF]/60 mb-2">
+                Final Score
+              </span>
+              <div className="font-editorial text-6xl sm:text-7xl leading-none text-[#C7F36B]">
+                <AnimatedCounter value={score} />%
+              </div>
+              <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase bg-[#FF6B35] text-white">
+                {score >= 80
+                  ? 'Strong Score'
+                  : score >= 60
+                  ? 'Passing Score'
+                  : 'Needs Review'}
+              </span>
+            </div>
+
+            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-4 rounded-[14px] bg-[#1F1F1F] border border-[#2E2E2E] text-center">
+                <span className="text-[11px] font-mono uppercase text-[#F8F5EF]/60 block">
+                  Time Taken
                 </span>
-                <span className="text-sm opacity-80 mt-1">Score</span>
+                <span className="font-mono font-bold text-xl text-[#F8F5EF] mt-1 block">
+                  {formatTime(assessmentResult.timeTaken)}
+                </span>
+              </div>
+              <div className="p-4 rounded-[14px] bg-[#1F1F1F] border border-[#2E2E2E] text-center">
+                <span className="text-[11px] font-mono uppercase text-[#F8F5EF]/60 block">
+                  Accuracy
+                </span>
+                <span className="font-mono font-bold text-xl text-[#8174FF] mt-1 block">
+                  {assessmentResult.accuracy}%
+                </span>
+              </div>
+              <div className="p-4 rounded-[14px] bg-[#1F1F1F] border border-[#C7F36B]/40 text-center">
+                <span className="text-[11px] font-mono uppercase text-[#C7F36B] block">
+                  Correct
+                </span>
+                <span className="font-mono font-bold text-xl text-[#C7F36B] mt-1 block">
+                  {assessmentResult.correctAnswers}
+                </span>
+              </div>
+              <div className="p-4 rounded-[14px] bg-[#1F1F1F] border border-[#EF4444]/40 text-center">
+                <span className="text-[11px] font-mono uppercase text-[#EF4444] block">
+                  Incorrect
+                </span>
+                <span className="font-mono font-bold text-xl text-[#EF4444] mt-1 block">
+                  {assessmentResult.incorrectAnswers}
+                </span>
               </div>
             </div>
-            
-            <p className="text-lg font-medium text-text-secondary mt-4">
-              {assessmentResult.score >= 80 ? 'Excellent job! You are well prepared.' : 
-               assessmentResult.score >= 60 ? 'Good effort, but room for improvement.' : 
-               'Keep practicing to improve your score.'}
-            </p>
-          </Card>
-
-          {/* Stats Grid */}
-          <div className="flex-1 grid grid-cols-2 gap-4">
-            <Card className="flex flex-col justify-center text-center">
-              <span className="text-text-secondary text-sm">Time Taken</span>
-              <span className="text-2xl font-bold text-text-primary mt-1">{formatTime(assessmentResult.timeTaken)}</span>
-            </Card>
-            <Card className="flex flex-col justify-center text-center">
-              <span className="text-text-secondary text-sm">Accuracy</span>
-              <span className="text-2xl font-bold text-text-primary mt-1">{assessmentResult.accuracy}%</span>
-            </Card>
-            <Card className="flex flex-col justify-center text-center border-b-4 border-b-success">
-              <span className="text-text-secondary text-sm">Correct</span>
-              <span className="text-2xl font-bold text-success mt-1">{assessmentResult.correctAnswers}</span>
-            </Card>
-            <Card className="flex flex-col justify-center text-center border-b-4 border-b-error">
-              <span className="text-text-secondary text-sm">Incorrect</span>
-              <span className="text-2xl font-bold text-error mt-1">{assessmentResult.incorrectAnswers}</span>
-            </Card>
           </div>
         </div>
 
-        {/* Detailed Review */}
-        <Card>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-text-primary">Detailed Review</h3>
-            <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
+        {/* Detailed Question Review */}
+        <Card className="p-6 border-2 border-border-subtle">
+          <div className="flex flex-wrap justify-between items-center gap-3 pb-4 mb-6 border-b border-border-subtle">
+            <div>
+              <h3 className="heading-card text-text-primary">Answer Key &amp; Explanations</h3>
+              <p className="text-xs text-text-muted">
+                Inspect every prompt alongside your selection and the verified explanation
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
           </div>
-          
-          <div className="space-y-6">
+
+          <div className="space-y-5">
             {mcqSet.questions.map((q, qIndex) => {
-              // Find user answer in result
-              const answerData = assessmentResult.answers.find(a => a.questionIndex === qIndex);
+              const answerData = assessmentResult.answers.find(
+                (a) => a.questionIndex === qIndex
+              );
               const userAnswerIndex = answerData?.selectedAnswer;
               const isCorrect = answerData?.isCorrect;
               const isUnanswered = userAnswerIndex === undefined;
 
               return (
-                <div key={qIndex} className="p-5 border border-border rounded-xl bg-surface-hover">
-                  <div className="flex items-start mb-4">
-                    <div className="mt-1 mr-3 flex-shrink-0">
-                      {isCorrect ? (
-                        <FiCheckCircle className="text-success w-6 h-6" />
-                      ) : isUnanswered ? (
-                        <div className="w-6 h-6 rounded-full border-2 border-text-muted flex items-center justify-center text-text-muted text-xs">-</div>
-                      ) : (
-                        <FiXCircle className="text-error w-6 h-6" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-medium text-text-primary">
-                        <span className="text-text-muted mr-2">{qIndex + 1}.</span>
+                <div
+                  key={qIndex}
+                  className="p-5 border-2 border-border-subtle rounded-[16px] bg-bg-canvas space-y-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex-shrink-0">
+                        {isCorrect ? (
+                          <FiCheckCircle className="text-emerald-600 dark:text-[#C7F36B] w-5 h-5" />
+                        ) : isUnanswered ? (
+                          <span className="px-2 py-0.5 rounded bg-border-subtle font-mono text-xs text-text-muted">
+                            SKIP
+                          </span>
+                        ) : (
+                          <FiXCircle className="text-[#EF4444] w-5 h-5" />
+                        )}
+                      </div>
+                      <h4 className="font-display font-bold text-base text-text-primary">
+                        <span className="font-mono text-text-muted mr-2">
+                          Q{String(qIndex + 1).padStart(2, '0')}.
+                        </span>
                         {q.question}
                       </h4>
-                      <Badge variant="default" className="mt-2">{q.topic || 'General'}</Badge>
                     </div>
+                    <Badge variant="default">{q.topic || 'Core'}</Badge>
                   </div>
 
-                  <div className="ml-9 space-y-2 mb-4">
+                  <div className="space-y-2">
                     {q.options.map((opt, oIndex) => {
                       const isOptionCorrect = oIndex === q.correctAnswer;
                       const isOptionSelected = oIndex === userAnswerIndex;
-                      
-                      let optClass = "p-3 rounded-lg border border-gray-200 bg-white text-text-secondary text-sm flex justify-between";
-                      
+
+                      let optClass =
+                        'p-3 rounded-[10px] border text-sm flex justify-between items-center ';
+
                       if (isOptionCorrect) {
-                        optClass = "p-3 rounded-lg border border-success bg-success/10 text-success font-medium flex justify-between";
+                        optClass +=
+                          'border-emerald-600 bg-emerald-500/15 text-text-primary font-semibold';
                       } else if (isOptionSelected && !isOptionCorrect) {
-                        optClass = "p-3 rounded-lg border border-error bg-error/10 text-error font-medium flex justify-between";
+                        optClass +=
+                          'border-[#EF4444] bg-[#EF4444]/15 text-[#EF4444] font-medium';
+                      } else {
+                        optClass += 'border-border-subtle bg-bg-surface text-text-secondary';
                       }
 
                       return (
                         <div key={oIndex} className={optClass}>
-                          <span>{String.fromCharCode(65 + oIndex)}. {opt}</span>
+                          <span>
+                            <strong className="font-mono mr-2">
+                              {String.fromCharCode(65 + oIndex)}.
+                            </strong>
+                            {opt}
+                          </span>
                           <div className="flex gap-2">
-                            {isOptionSelected && <span className="text-xs uppercase bg-black/20 px-2 py-0.5 rounded">Your Answer</span>}
-                            {isOptionCorrect && <span className="text-xs uppercase bg-black/20 px-2 py-0.5 rounded">Correct</span>}
+                            {isOptionSelected && (
+                              <span className="text-[10px] font-mono uppercase bg-[#151515] text-[#F8F5EF] px-2 py-0.5 rounded">
+                                Your Pick
+                              </span>
+                            )}
+                            {isOptionCorrect && (
+                              <span className="text-[10px] font-mono uppercase bg-[#C7F36B] text-[#151515] font-bold px-2 py-0.5 rounded">
+                                Correct
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  <div className="ml-9 p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-sm font-bold text-text-primary mb-1">Explanation:</p>
-                    <p className="text-sm text-text-secondary">{q.explanation}</p>
+                  <div className="p-3.5 rounded-[12px] bg-bg-surface border border-border-subtle">
+                    <p className="text-xs font-mono uppercase tracking-wider text-[#FF6B35] font-bold mb-1">
+                      Concept Explanation
+                    </p>
+                    <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
+                      {q.explanation}
+                    </p>
                   </div>
                 </div>
               );
@@ -333,73 +374,96 @@ const AssessmentTest = () => {
     );
   }
 
-  // Active Test Screen
+  // ── 3. Active Timed Assessment Runner ─────────────────────────────────────
   const currentQuestion = mcqSet.questions[currentQuestionIdx];
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
-      <SEOHead title={`Testing: ${mcqSet.jobRole}`} />
-      
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[calc(100vh-8rem)] pb-8">
+      <SEOHead title={`Assessment Arena: ${mcqSet.jobRole}`} />
+
       {/* Submit Confirmation Modal */}
-      <Modal isOpen={showSubmitModal} onClose={() => setShowSubmitModal(false)} title="Submit Assessment">
-        <div className="py-4 text-center">
-          <p className="text-text-primary mb-6 text-lg">Are you sure you want to submit your assessment?</p>
-          
-          <div className="flex justify-center gap-6 mb-8">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-success">{Object.keys(selectedAnswers).length}</div>
-              <div className="text-xs text-text-muted">Answered</div>
+      <Modal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        title="Finalize & Submit Assessment?"
+      >
+        <div className="py-2 text-center space-y-6">
+          <p className="text-sm text-text-secondary">
+            Review your completion telemetry below before locking in your answers.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 rounded-[12px] bg-bg-canvas border border-border-subtle">
+              <div className="font-editorial text-2xl text-emerald-600 dark:text-[#C7F36B]">
+                {Object.keys(selectedAnswers).length}
+              </div>
+              <div className="text-xs font-mono text-text-muted uppercase">Answered</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-warning">{markedForReview.size}</div>
-              <div className="text-xs text-text-muted">Marked</div>
+            <div className="p-3 rounded-[12px] bg-bg-canvas border border-border-subtle">
+              <div className="font-editorial text-2xl text-[#F59E0B]">
+                {markedForReview.size}
+              </div>
+              <div className="text-xs font-mono text-text-muted uppercase">Flagged</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-text-secondary">
+            <div className="p-3 rounded-[12px] bg-bg-canvas border border-border-subtle">
+              <div className="font-editorial text-2xl text-text-primary">
                 {mcqSet.questions.length - Object.keys(selectedAnswers).length}
               </div>
-              <div className="text-xs text-text-muted">Unanswered</div>
+              <div className="text-xs font-mono text-text-muted uppercase">Remaining</div>
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <Button variant="secondary" fullWidth onClick={() => setShowSubmitModal(false)}>
-              Cancel
+              Keep Working
             </Button>
-            <Button variant="primary" fullWidth onClick={submitTest} loading={submitMutation.isPending}>
-              Yes, Submit
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={submitTest}
+              loading={submitMutation.isPending}
+            >
+              Submit &amp; Score
             </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Main Question Area */}
-      <div className="w-full lg:w-3/4 flex flex-col">
-        {/* Top Bar */}
-        <div className="glass rounded-t-xl border-b border-border p-4 flex justify-between items-center z-10 sticky top-0">
-          <div className="flex items-center">
-            <Badge variant="primary" className="text-sm px-3 py-1 mr-4">
-              Question {currentQuestionIdx + 1} of {mcqSet.questions.length}
-            </Badge>
+      {/* Left/Center: Active Question Runner (8 cols) */}
+      <div className="lg:col-span-8 flex flex-col justify-between rounded-[22px] bg-bg-surface border-2 border-border-subtle overflow-hidden">
+        {/* Top Telemetry Bar */}
+        <div className="p-4 sm:p-5 bg-[#151515] text-[#F8F5EF] flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="px-3 py-1 rounded-full bg-[#FF6B35] text-white font-mono text-xs font-bold">
+              Q{String(currentQuestionIdx + 1).padStart(2, '0')} /{' '}
+              {String(mcqSet.questions.length).padStart(2, '0')}
+            </span>
             {markedForReview.has(currentQuestionIdx) && (
-              <Badge variant="warning" className="flex items-center gap-1">
-                <FiFlag /> Marked for Review
-              </Badge>
+              <span className="px-2.5 py-1 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] font-mono text-xs flex items-center gap-1">
+                <FiFlag /> Flagged
+              </span>
             )}
           </div>
-          <div className="flex items-center text-text-primary font-bold bg-surface px-4 py-2 rounded-lg border border-border shadow-inner">
-            <FiClock className={`mr-2 ${timeLeft < 60 ? 'text-error animate-pulse' : 'text-primary'}`} />
-            <span className={timeLeft < 60 ? 'text-error' : ''}>{formatTime(timeLeft)}</span>
+
+          <div
+            className={`flex items-center gap-2 font-mono text-sm font-bold px-3.5 py-1.5 rounded-[10px] border ${
+              timeLeft < 60
+                ? 'bg-[#EF4444]/20 border-[#EF4444] text-[#EF4444] animate-pulse'
+                : 'bg-[#1F1F1F] border-[#2E2E2E] text-[#C7F36B]'
+            }`}
+          >
+            <FiClock />
+            <span>{formatTime(timeLeft)}</span>
           </div>
         </div>
 
-        {/* Question Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-surface border-x border-border">
-          <h2 className="text-xl md:text-2xl font-medium text-text-primary mb-8 leading-relaxed">
+        {/* Question Body */}
+        <div className="flex-1 p-6 sm:p-8 space-y-6">
+          <h2 className="font-display font-bold text-xl sm:text-2xl text-text-primary leading-snug">
             {currentQuestion.question}
           </h2>
 
-          <div className="space-y-3.5">
+          <div className="space-y-3">
             {currentQuestion.options.map((opt, oIndex) => {
               const isSelected = selectedAnswers[currentQuestionIdx] === oIndex;
               return (
@@ -407,19 +471,22 @@ const AssessmentTest = () => {
                   key={oIndex}
                   type="button"
                   onClick={() => handleSelectOption(currentQuestionIdx, oIndex)}
-                  className={`w-full text-left p-4 sm:p-5 rounded-2xl border-2 transition-all duration-200 flex items-center cursor-pointer select-none active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-accent-primary/50 ${
-                    isSelected 
-                      ? 'border-accent-primary bg-accent-primary/10 text-text-primary shadow-sm ring-1 ring-accent-primary' 
-                      : 'border-border-subtle bg-bg-surface hover:border-accent-primary/40 text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                  className={`w-full text-left p-4 rounded-[14px] border-2 transition-all flex items-center gap-3.5 cursor-pointer ${
+                    isSelected
+                      ? 'border-[#151515] dark:border-[#FF6B35] bg-[#FF6B35]/15 text-text-primary shadow-[0_3px_0_0_#151515]'
+                      : 'border-border-subtle bg-bg-canvas hover:border-text-primary text-text-secondary hover:text-text-primary'
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 flex-shrink-0 transition-colors ${
-                    isSelected ? 'border-accent-primary bg-accent-primary/20' : 'border-border-subtle'
-                  }`}>
-                    {isSelected && <div className="w-3 h-3 rounded-full bg-accent-primary animate-scale-in" />}
-                  </div>
-                  <span className="text-base sm:text-lg font-medium leading-relaxed flex-1">
-                    <span className="text-text-muted font-mono mr-2">{String.fromCharCode(65 + oIndex)}.</span>
+                  <span
+                    className={`w-7 h-7 rounded-[8px] font-mono text-xs font-bold flex items-center justify-center flex-shrink-0 ${
+                      isSelected
+                        ? 'bg-[#FF6B35] text-white'
+                        : 'bg-bg-surface border border-border-subtle text-text-muted'
+                    }`}
+                  >
+                    {String.fromCharCode(65 + oIndex)}
+                  </span>
+                  <span className="text-sm sm:text-base font-medium leading-relaxed flex-1">
                     {opt}
                   </span>
                 </button>
@@ -428,104 +495,119 @@ const AssessmentTest = () => {
           </div>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="glass rounded-b-xl border-t border-border p-4 flex justify-between items-center z-10 sticky bottom-0">
-          <Button 
-            variant="secondary" 
+        {/* Bottom Navigation Bar */}
+        <div className="p-4 sm:p-5 border-t-2 border-border-subtle bg-bg-canvas flex flex-wrap justify-between items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => toggleMarkForReview(currentQuestionIdx)}
             icon={FiFlag}
-            className={markedForReview.has(currentQuestionIdx) ? '!text-warning !border-warning/50' : ''}
           >
-            {markedForReview.has(currentQuestionIdx) ? 'Unmark' : 'Mark for Review'}
+            {markedForReview.has(currentQuestionIdx) ? 'Unflag' : 'Flag for Review'}
           </Button>
 
-          <div className="flex gap-3">
-            <Button 
-              variant="secondary" 
-              onClick={() => setCurrentQuestionIdx(prev => prev - 1)}
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setCurrentQuestionIdx((prev) => prev - 1)}
               disabled={currentQuestionIdx === 0}
               icon={FiArrowLeft}
             >
-              <span className="hidden sm:inline">Previous</span>
+              Prev
             </Button>
-            
+
             {currentQuestionIdx < mcqSet.questions.length - 1 ? (
-              <Button 
-                variant="primary" 
-                onClick={() => setCurrentQuestionIdx(prev => prev + 1)}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setCurrentQuestionIdx((prev) => prev + 1)}
+                icon={FiArrowRight}
               >
-                <span className="hidden sm:inline mr-2">Next</span>
-                <FiArrowRight />
+                Next Prompt
               </Button>
             ) : (
-              <Button 
-                variant="primary" 
+              <Button
+                variant="lime"
+                size="sm"
                 onClick={() => setShowSubmitModal(true)}
-                className="bg-gradient-to-r from-success to-emerald-400"
               >
-                Submit Test
+                Finish &amp; Submit
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Right Sidebar - Question Palette */}
-      <Card className="w-full lg:w-1/4 h-full flex flex-col p-0 overflow-hidden hidden md:flex">
-        <div className="p-4 border-b border-border bg-surface-hover">
-          <h3 className="font-bold text-text-primary mb-4">Question Palette</h3>
-          
-          {/* Legend */}
-          <div className="grid grid-cols-2 gap-2 text-xs text-text-secondary">
-            <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-success mr-2" /> Answered</div>
-            <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-warning mr-2" /> Marked</div>
-            <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-surface border border-border mr-2" /> Not Answered</div>
-            <div className="flex items-center"><div className="w-3 h-3 rounded-full border-2 border-primary mr-2" /> Current</div>
+      {/* Right Column: Question Palette (4 cols) */}
+      <div className="lg:col-span-4">
+        <Card className="p-6 border-2 border-border-subtle flex flex-col justify-between h-full">
+          <div>
+            <h3 className="heading-card text-text-primary mb-4">Prompt Navigator</h3>
+
+            {/* Legend */}
+            <div className="grid grid-cols-2 gap-2 text-xs font-mono text-text-secondary mb-5 p-3 rounded-[12px] bg-bg-canvas border border-border-subtle">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-[#C7F36B] border border-[#151515]" /> Answered
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-[#F59E0B]" /> Flagged
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-bg-surface border border-border-subtle" /> Unseen
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded border-2 border-[#FF6B35]" /> Active
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 gap-2">
+              {mcqSet.questions.map((_, idx) => {
+                const isAnswered = selectedAnswers[idx] !== undefined;
+                const isMarked = markedForReview.has(idx);
+                const isCurrent = currentQuestionIdx === idx;
+
+                let btnClass =
+                  'h-10 rounded-[10px] font-mono text-xs font-bold flex items-center justify-center transition-all cursor-pointer ';
+
+                if (isCurrent) {
+                  btnClass += 'ring-2 ring-[#FF6B35] ';
+                }
+
+                if (isMarked) {
+                  btnClass += 'bg-[#F59E0B] text-[#151515]';
+                } else if (isAnswered) {
+                  btnClass += 'bg-[#C7F36B] text-[#151515] border border-[#151515]';
+                } else {
+                  btnClass +=
+                    'bg-bg-canvas border border-border-subtle text-text-secondary hover:border-text-primary';
+                }
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentQuestionIdx(idx)}
+                    className={btnClass}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-          <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-4 gap-2">
-            {mcqSet.questions.map((_, idx) => {
-              const isAnswered = selectedAnswers[idx] !== undefined;
-              const isMarked = markedForReview.has(idx);
-              const isCurrent = currentQuestionIdx === idx;
-              
-              let btnClass = "w-10 h-10 rounded-lg flex items-center justify-center font-medium text-sm transition-all ";
-              
-              if (isCurrent) {
-                btnClass += "border-2 border-primary ";
-              } else {
-                btnClass += "border border-border ";
-              }
-
-              if (isMarked) {
-                btnClass += "bg-warning/20 text-warning ";
-              } else if (isAnswered) {
-                btnClass += "bg-success/20 text-success ";
-              } else {
-                btnClass += "bg-surface text-text-secondary hover:bg-surface-hover ";
-              }
-
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentQuestionIdx(idx)}
-                  className={btnClass}
-                >
-                  {idx + 1}
-                </button>
-              );
-            })}
+          <div className="pt-6 mt-6 border-t border-border-subtle">
+            <Button
+              fullWidth
+              variant="primary"
+              onClick={() => setShowSubmitModal(true)}
+            >
+              Submit Assessment
+            </Button>
           </div>
-        </div>
-
-        <div className="p-4 border-t border-border bg-surface-hover mt-auto">
-          <Button fullWidth onClick={() => setShowSubmitModal(true)} variant="danger" className="!bg-error/20 !text-error hover:!bg-error/30 !border-error/30">
-            End Assessment
-          </Button>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

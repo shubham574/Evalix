@@ -1,16 +1,19 @@
 import { toast } from 'react-hot-toast';
 
-// Custom toast wrappers for consistent styling
 export const showSuccess = (message) => {
   toast.success(message, {
     style: {
-      background: '#13131a',
-      color: '#f1f5f9',
-      border: '1px solid rgba(16, 185, 129, 0.2)',
+      background: '#151515',
+      color: '#F8F5EF',
+      border: '1.5px solid #C7F36B',
+      borderRadius: '12px',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: '14px',
+      fontWeight: 500,
     },
     iconTheme: {
-      primary: '#10b981',
-      secondary: '#13131a',
+      primary: '#C7F36B',
+      secondary: '#151515',
     },
   });
 };
@@ -18,13 +21,17 @@ export const showSuccess = (message) => {
 export const showError = (message) => {
   toast.error(message, {
     style: {
-      background: '#13131a',
-      color: '#f1f5f9',
-      border: '1px solid rgba(239, 68, 68, 0.2)',
+      background: '#151515',
+      color: '#F8F5EF',
+      border: '1.5px solid #FF6B35',
+      borderRadius: '12px',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: '14px',
+      fontWeight: 500,
     },
     iconTheme: {
-      primary: '#ef4444',
-      secondary: '#13131a',
+      primary: '#FF6B35',
+      secondary: '#F8F5EF',
     },
   });
 };
@@ -32,9 +39,12 @@ export const showError = (message) => {
 export const showLoading = (message) => {
   return toast.loading(message, {
     style: {
-      background: '#13131a',
-      color: '#f1f5f9',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: '#151515',
+      color: '#F8F5EF',
+      border: '1.5px solid #333333',
+      borderRadius: '12px',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: '14px',
     },
   });
 };

@@ -13,24 +13,21 @@ const Layout = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-bg-canvas">
+    <div className="flex min-h-screen bg-bg-canvas text-text-primary">
       {/* Sidebar for authenticated layout */}
       <Sidebar isOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      
+
       <div className="flex flex-col flex-1 w-full min-w-0">
         <Navbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
-        
+
         <main className="flex-1 focus:outline-none relative bg-bg-canvas">
-          {/* Subtle background decoration */}
-          <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-accent-primary/10 to-transparent pointer-events-none -z-10" />
-          
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
               className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-full pb-20"
             >
               <Outlet />

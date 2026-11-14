@@ -4,8 +4,10 @@ import { motion } from 'motion/react';
 import {
   FiVideo, FiMic, FiStopCircle, FiCheckCircle,
   FiPlay, FiArrowRight, FiAlertCircle, FiLoader,
-  FiVolume2, FiVolumeX,
+  FiVolume2, FiVolumeX, FiRotateCcw, FiAward,
+  FiTrendingUp, FiCpu, FiClock,
 } from 'react-icons/fi';
+import EvalixOrb, { EvalixStarburst } from '../components/ui/EvalixOrb';
 import LottieComponent from 'lottie-react';
 const Lottie = LottieComponent.default || LottieComponent;
 import interviewLoader from '../assets/interviewLoader.json';
@@ -489,7 +491,17 @@ const useVoiceRecorder = ({ onTranscript, getToken }) => {
 
 const useDeepgramRecorder = useVoiceRecorder;
 
-// ─── Answer textarea with voice indicator ─────────────────────────────────────
+// ─── Role Presets for Quick Launch ──────────────────────────────────────────
+const MOCK_ROLE_PRESETS = [
+  'Frontend Developer (React)',
+  'Full Stack Engineer (MERN)',
+  'Backend Engineer (Node.js)',
+  'System Design & Architecture',
+  'Data Structures & Algorithms',
+  'Python / AI Engineer',
+];
+
+// ─── Answer textarea with voice indicator (Arena dark styled) ─────────────────
 const AnswerInput = ({ text, setText, isRecording, isTranscribing }) => (
   <div className="w-full relative">
     <textarea
@@ -497,32 +509,32 @@ const AnswerInput = ({ text, setText, isRecording, isTranscribing }) => (
       rows={6}
       placeholder={
         isRecording
-          ? '🎙️ Recording... speak clearly, then click Stop Recording'
+          ? '🎙️ Listening... Speak clearly, then click "Stop Recording" when ready.'
           : isTranscribing
-          ? '⏳ Transcribing your speech...'
-          : 'Type your answer here, or click "Record Answer" to use your voice...'
+          ? '⏳ Transcribing your voice response with AI...'
+          : 'Type your detailed response here, or click "Record Voice Answer" below to speak...'
       }
       value={text}
       onChange={(e) => setText(e.target.value)}
       disabled={isTranscribing}
-      className={`w-full px-4 py-3 rounded-xl border-2 bg-bg-surface text-text-primary placeholder-text-secondary resize-none transition-all duration-200 outline-none text-base leading-relaxed ${
+      className={`w-full px-4 py-3.5 rounded-[14px] border-2 bg-[#141414] text-[#F8F5EF] placeholder-[#F8F5EF]/35 resize-none transition-all duration-200 outline-none text-sm sm:text-base leading-relaxed ${
         isRecording
-          ? 'border-danger ring-2 ring-danger/20'
+          ? 'border-[#C7F36B] ring-2 ring-[#C7F36B]/20'
           : isTranscribing
-          ? 'border-warning ring-2 ring-warning/20 opacity-70'
-          : 'border-border-subtle focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20'
+          ? 'border-[#F59E0B] ring-2 ring-[#F59E0B]/20 opacity-75'
+          : 'border-[#2E2E2E] focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/20'
       }`}
     />
 
     {isRecording && (
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-danger/10 text-danger px-2 py-1 rounded-lg text-xs font-medium animate-pulse pointer-events-none">
-        <span className="w-2 h-2 rounded-full bg-danger inline-block" />
-        Recording
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#C7F36B]/15 border border-[#C7F36B]/40 text-[#C7F36B] px-2.5 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider animate-pulse pointer-events-none">
+        <span className="w-2 h-2 rounded-full bg-[#C7F36B] inline-block" />
+        Recording Live
       </div>
     )}
 
     {isTranscribing && (
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-warning/10 text-warning px-2 py-1 rounded-lg text-xs font-medium pointer-events-none">
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#8174FF]/15 border border-[#8174FF]/40 text-[#8174FF] px-2.5 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider pointer-events-none">
         <FiLoader className="animate-spin" />
         Transcribing…
       </div>
@@ -580,6 +592,7 @@ const MockInterview = () => {
       setActiveInterview(data.data);
       setCurrentQIndex(0);
       setCurrentAnswer('');
+      setFinalResults(null);
     },
   });
 
@@ -647,122 +660,205 @@ const MockInterview = () => {
     }
   };
 
-  // ── Results screen ────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // PHASE 7: RESULTS SCORECARD REPORT
+  // ══════════════════════════════════════════════════════════════════════════
   if (finalResults) {
+    const avgScore = Math.round(finalResults.overallFeedback?.averageScore || 0);
+    const verdict =
+      avgScore >= 80
+        ? { label: 'READY FOR ONSITE', bg: 'bg-[#C7F36B]', text: 'text-[#151515]' }
+        : avgScore >= 60
+        ? { label: 'SOLID CONTENDER', bg: 'bg-[#FF6B35]', text: 'text-white' }
+        : { label: 'NEEDS MORE REPS', bg: 'bg-[#F59E0B]', text: 'text-[#151515]' };
+
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <SEOHead title={`Mock Interview Results: ${finalResults.jobRole}`} />
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <SEOHead title={`Mock Interview Report: ${finalResults.jobRole}`} />
 
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-text-primary">Mock Interview Results</h1>
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="col-span-1 flex flex-col items-center justify-center p-8 text-center border-t-4 border-t-accent-primary bg-bg-surface border-border-subtle shadow-md shadow-accent-primary/5">
-            <h3 className="text-lg font-medium text-text-secondary mb-4">Overall Performance</h3>
-            <div
-              className="w-32 h-32 rounded-full border-8 flex items-center justify-center mb-4"
-              style={{
-                borderColor:
-                  finalResults.overallFeedback?.averageScore >= 80
-                    ? '#10b981'
-                    : finalResults.overallFeedback?.averageScore >= 60
-                    ? '#f59e0b'
-                    : '#ef4444',
-              }}
-            >
-              <span className="text-4xl font-bold text-text-primary">
-                {finalResults.overallFeedback?.averageScore}%
+        {/* Top Action Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-[#FF6B35]/15 text-[#FF6B35] font-mono text-[11px] font-semibold uppercase tracking-widest">
+                Mock Interview Report
+              </span>
+              <span className="text-xs font-mono text-text-muted">
+                {finalResults.questions?.length || 0} Questions Evaluated
               </span>
             </div>
-            <p className="text-text-primary font-medium">
-              {finalResults.overallFeedback?.averageScore >= 80
-                ? 'Outstanding!'
-                : finalResults.overallFeedback?.averageScore >= 60
-                ? 'Good effort!'
-                : 'Keep practicing!'}
-            </p>
+            <h1 className="heading-page text-text-primary">{finalResults.jobRole}</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={FiRotateCcw}
+              onClick={() => {
+                setFinalResults(null);
+                setActiveInterview(null);
+                setCurrentQIndex(0);
+                setCurrentAnswer('');
+              }}
+            >
+              New Session
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => navigate('/dashboard')}>
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+
+        {/* Hero Scorecard Banner */}
+        <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-4 flex flex-col items-center lg:items-start text-center lg:text-left border-b lg:border-b-0 lg:border-r border-[#2E2E2E] pb-6 lg:pb-0 lg:pr-6">
+              <span className="text-[11px] font-mono uppercase tracking-widest text-[#F8F5EF]/60 mb-2">
+                Overall Score
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="font-editorial text-6xl sm:text-7xl leading-none"
+                  style={{
+                    color: avgScore >= 80 ? '#C7F36B' : avgScore >= 60 ? '#FF6B35' : '#EF4444',
+                  }}
+                >
+                  {avgScore}
+                </span>
+                <span className="font-mono text-xl text-[#F8F5EF]/50">/100</span>
+              </div>
+              <span
+                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider ${verdict.bg} ${verdict.text}`}
+              >
+                {verdict.label}
+              </span>
+            </div>
+
+            <div className="lg:col-span-8 space-y-2">
+              <h3 className="font-display font-bold text-lg text-[#F8F5EF]">
+                Overall Summary
+              </h3>
+              <p className="text-sm sm:text-base text-[#F8F5EF]/90 leading-relaxed">
+                {finalResults.overallFeedback?.recommendations ||
+                  'Review each question below to compare your responses against technical accuracy, communication clarity, and delivery confidence.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Strengths & Growth Areas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="p-6 border border-border-subtle">
+            <h3 className="heading-card text-text-primary mb-4">Key Strengths</h3>
+            <ul className="space-y-2.5">
+              {finalResults.overallFeedback?.strengths?.length > 0 ? (
+                finalResults.overallFeedback.strengths.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
+                    <span className="text-emerald-600 dark:text-[#C7F36B] font-mono font-bold flex-shrink-0">
+                      •
+                    </span>
+                    <span>{s}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-text-muted">Completed all interview questions.</li>
+              )}
+            </ul>
           </Card>
 
-          <Card className="col-span-2 p-6 bg-bg-surface border-border-subtle shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-bold text-success mb-3 flex items-center">
-                  <span className="text-2xl mr-2">🌟</span> Key Strengths
-                </h3>
-                <ul className="space-y-2">
-                  {finalResults.overallFeedback?.strengths?.map((s, i) => (
-                    <li key={i} className="flex items-start text-sm text-text-secondary">
-                      <FiCheckCircle className="text-success mt-1 mr-2 flex-shrink-0" />
-                      <span>{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-warning mb-3 flex items-center">
-                  <span className="text-2xl mr-2">📈</span> Areas for Improvement
-                </h3>
-                <ul className="space-y-2">
-                  {finalResults.overallFeedback?.weaknesses?.map((w, i) => (
-                    <li key={i} className="flex items-start text-sm text-text-secondary">
-                      <div className="w-1.5 h-1.5 rounded-full bg-warning mt-2 mr-2 flex-shrink-0" />
-                      <span>{w}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          <Card className="p-6 border border-border-subtle">
+            <h3 className="heading-card text-text-primary mb-4">Areas to Improve</h3>
+            <ul className="space-y-2.5">
+              {finalResults.overallFeedback?.weaknesses?.length > 0 ? (
+                finalResults.overallFeedback.weaknesses.map((w, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
+                    <span className="text-[#FF6B35] font-mono font-bold flex-shrink-0">
+                      •
+                    </span>
+                    <span>{w}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-text-muted">Continue refining depth of real-world examples.</li>
+              )}
+            </ul>
           </Card>
         </div>
 
-        <Card className="p-6 bg-accent-primary/10 border-accent-glow/30 shadow-md">
-          <h3 className="text-lg font-bold text-text-primary mb-2 flex items-center gap-2">
-            <span className="text-xl">🤖</span> AI Recommendations
-          </h3>
-          <p className="text-text-secondary leading-relaxed">{finalResults.overallFeedback?.recommendations}</p>
-        </Card>
+        {/* Question-by-Question Rubric Breakdown */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="heading-card text-text-primary">Question-by-Question Rubric Breakdown</h2>
+            <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+              3-Pillar Scoring
+            </span>
+          </div>
 
-        <h3 className="text-2xl font-bold text-text-primary mt-10 mb-4">Detailed Question Review</h3>
-        <div className="space-y-6 pb-10">
           {finalResults.questions?.map((q, i) => {
             const response = finalResults.responses?.find((r) => r.questionIndex === i);
             if (!response) return null;
             return (
-              <Card key={i} className="p-6 bg-bg-surface border-border-subtle shadow-sm">
-                <div className="flex items-start justify-between mb-4 pb-4 border-b border-border-subtle">
-                  <h4 className="text-lg font-medium text-text-primary">
-                    <span className="text-accent-primary font-bold mr-2">Q{i + 1}.</span>
-                    {q.question}
-                  </h4>
+              <Card key={i} className="p-6 border-2 border-border-subtle space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-border-subtle">
+                  <div className="flex items-start gap-3">
+                    <span className="px-2.5 py-1 rounded-[8px] bg-[#151515] text-[#F8F5EF] font-mono text-xs font-bold flex-shrink-0">
+                      Q{String(i + 1).padStart(2, '0')}
+                    </span>
+                    <h4 className="font-display font-bold text-base sm:text-lg text-text-primary leading-snug">
+                      {q.question}
+                    </h4>
+                  </div>
+                  {q.category && <Badge variant="primary">{q.category}</Badge>}
                 </div>
 
-                <div className="bg-bg-canvas p-4 rounded-xl border border-border-subtle mb-5">
-                  <span className="text-xs uppercase font-bold text-text-secondary mb-2 block tracking-wider">Your Answer:</span>
-                  <p className="text-text-primary italic">"{response.userAnswer}"</p>
+                {/* Candidate Response */}
+                <div className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-text-muted block mb-1.5">
+                    Your Recorded / Written Response
+                  </span>
+                  <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
+                    "{response.userAnswer}"
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 mb-5">
+                {/* 3 Rubric Pillars */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { label: 'Technical', key: 'technicalAccuracy' },
-                    { label: 'Communication', key: 'communicationClarity' },
-                    { label: 'Confidence', key: 'confidenceScore' },
-                  ].map(({ label, key }) => (
-                    <div key={key} className="bg-bg-canvas p-3 rounded-xl text-center border border-border-subtle">
-                      <span className="text-xs text-text-secondary uppercase tracking-wider block mb-1">{label}</span>
-                      <span className={`font-bold text-sm ${getGradeColor((response.aiEvaluation?.[key] || 0) * 10)}`}>
-                        {response.aiEvaluation?.[key] ?? '–'}/10
-                      </span>
-                    </div>
-                  ))}
+                    { label: 'Technical Accuracy', key: 'technicalAccuracy', accent: '#FF6B35' },
+                    { label: 'Communication Clarity', key: 'communicationClarity', accent: '#8174FF' },
+                    { label: 'Delivery Confidence', key: 'confidenceScore', accent: '#10B981' },
+                  ].map(({ label, key, accent }) => {
+                    const val = Number(response.aiEvaluation?.[key] ?? 0);
+                    return (
+                      <div
+                        key={key}
+                        className="p-3.5 rounded-[12px] bg-bg-canvas border border-border-subtle"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-mono text-text-secondary">{label}</span>
+                          <span className="font-mono font-bold text-sm text-text-primary">
+                            {val}/10
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-border-subtle overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(100, val * 10)}%`, backgroundColor: accent }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="bg-accent-primary/10 p-5 rounded-xl border border-accent-primary/20">
-                  <span className="text-xs uppercase font-bold text-accent-primary mb-2 block tracking-wider">AI Feedback:</span>
-                  <p className="text-sm text-text-primary leading-relaxed">{response.aiEvaluation?.feedback}</p>
+                {/* AI Feedback */}
+                <div className="p-4 rounded-[14px] bg-[#8174FF]/10 border border-[#8174FF]/25">
+                  <span className="text-[11px] font-mono uppercase tracking-widest text-[#8174FF] font-semibold block mb-1">
+                    AI Evaluator Notes
+                  </span>
+                  <p className="text-sm text-text-primary leading-relaxed">
+                    {response.aiEvaluation?.feedback}
+                  </p>
                 </div>
               </Card>
             );
@@ -772,63 +868,138 @@ const MockInterview = () => {
     );
   }
 
-  // ── Active interview screen ───────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // PHASE 6: ACTIVE STRUCTURED INTERVIEW ARENA (Dark High-Contrast Focus)
+  // ══════════════════════════════════════════════════════════════════════════
   if (activeInterview) {
     const currentQ = activeInterview.questions[currentQIndex];
     const isLastQuestion = currentQIndex === activeInterview.questions.length - 1;
     const canSubmit = currentAnswer.trim().length >= 10 && !isEvaluating && !isTranscribing;
+    const orbState = isEvaluating
+      ? 'evaluating'
+      : isQuestionSpeaking
+      ? 'speaking'
+      : isRecording
+      ? 'listening'
+      : isTranscribing
+      ? 'thinking'
+      : 'idle';
 
     return (
-      <div className="max-w-4xl mx-auto w-full min-h-[calc(100vh-8rem)] flex flex-col">
-        <SEOHead title={`Interview: ${activeInterview.jobRole}`} />
+      <div className="theme-interview rounded-[24px] bg-[#151515] text-[#F8F5EF] border-2 border-[#2E2E2E] p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-7.5rem)] flex flex-col justify-between shadow-xl">
+        <SEOHead title={`Interview Arena: ${activeInterview.jobRole}`} />
 
-        {/* Progress */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-bold text-text-primary">{activeInterview.jobRole} Interview</h2>
-            <span className="text-sm font-medium text-text-secondary">
-              Question {currentQIndex + 1} of {activeInterview.questions.length}
-            </span>
+        {/* Arena Top Telemetry Bar */}
+        <div className="pb-5 border-b border-[#2E2E2E]">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF6B35]/15 border border-[#FF6B35]/40 text-[#FF6B35] font-mono text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-[#FF6B35] animate-pulse" />
+                STRUCTURED ARENA
+              </span>
+              <h2 className="font-display font-bold text-lg sm:text-xl text-[#F8F5EF]">
+                {activeInterview.jobRole}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-[#F8F5EF]/70 bg-[#1F1F1F] px-3 py-1.5 rounded-[10px] border border-[#2E2E2E]">
+                PROMPT {String(currentQIndex + 1).padStart(2, '0')} /{' '}
+                {String(activeInterview.questions.length).padStart(2, '0')}
+              </span>
+            </div>
           </div>
-          <div className="w-full bg-bg-surface border border-border-subtle rounded-full h-2">
+
+          {/* Progress Bar */}
+          <div className="w-full bg-[#1F1F1F] border border-[#2E2E2E] rounded-full h-2 overflow-hidden">
             <motion.div
-              className="bg-accent-primary h-2 rounded-full shadow-[0_0_10px_var(--color-accent-primary)]"
+              className="bg-[#C7F36B] h-full rounded-full"
               initial={{ width: 0 }}
-              animate={{ width: `${(currentQIndex / activeInterview.questions.length) * 100}%` }}
+              animate={{
+                width: `${((currentQIndex + 1) / activeInterview.questions.length) * 100}%`,
+              }}
             />
           </div>
         </div>
 
-        <Card className="flex-1 flex flex-col mb-6" padding="p-0">
-          <div className="flex-1 flex flex-col p-6 md:p-10">
-            {/* Question */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <Badge variant="secondary">
-                  {currentQ.category}
-                </Badge>
-                <button
-                  type="button"
-                  onClick={() => (isQuestionSpeaking ? stopSpeakingQuestion() : speakQuestion(currentQ.question))}
-                  className="flex items-center gap-1.5 text-xs text-accent-primary hover:text-accent-glow font-medium bg-accent-primary/10 hover:bg-accent-primary/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                  title={isQuestionSpeaking ? 'Stop speaking question' : 'Listen to question'}
-                >
-                  {isQuestionSpeaking ? <FiVolumeX className="w-4 h-4" /> : <FiVolume2 className="w-4 h-4" />}
-                  <span>{isQuestionSpeaking ? 'Stop Voice' : 'Listen to Question'}</span>
-                </button>
+        {/* Arena Center Stage */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 my-6 flex-1">
+          {/* Left Column: AI Evaluator Pod */}
+          <div className="lg:col-span-4 rounded-[20px] bg-[#1F1F1F] border border-[#2E2E2E] p-6 flex flex-col items-center justify-between text-center">
+            <div className="w-full flex items-center justify-between text-xs font-mono text-[#F8F5EF]/60">
+              <span>EVALIX AI PANEL</span>
+              <span className=" uppercase text-[#C7F36B]">{orbState}</span>
+            </div>
+
+            <div className="my-6 flex flex-col items-center">
+              <EvalixOrb size="lg" state={orbState} />
+              <p className="mt-4 font-display font-bold text-base text-[#F8F5EF]">
+                {isEvaluating
+                  ? 'Scoring Technical & Delivery Rubric...'
+                  : isQuestionSpeaking
+                  ? 'Reading Prompt Aloud...'
+                  : isRecording
+                  ? 'Listening to Your Answer...'
+                  : isTranscribing
+                  ? 'Converting Speech to Text...'
+                  : 'Ready for Your Response'}
+              </p>
+              <p className="text-xs text-[#F8F5EF]/55 mt-1 max-w-xs">
+                Speak naturally using the voice recorder or compose a structured written response.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                isQuestionSpeaking
+                  ? stopSpeakingQuestion()
+                  : speakQuestion(currentQ.question)
+              }
+              className="w-full py-2.5 px-4 rounded-[12px] bg-[#282828] hover:bg-[#323232] border border-[#3A3A3A] text-xs font-mono uppercase tracking-wider text-[#F8F5EF] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              {isQuestionSpeaking ? (
+                <>
+                  <FiVolumeX className="w-4 h-4 text-[#FF6B35]" />
+                  <span>Stop Audio Playback</span>
+                </>
+              ) : (
+                <>
+                  <FiVolume2 className="w-4 h-4 text-[#C7F36B]" />
+                  <span>Listen to Question Audio</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Right Column: Active Question & Response Editor */}
+          <div className="lg:col-span-8 rounded-[20px] bg-[#1F1F1F] border border-[#2E2E2E] p-6 sm:p-8 flex flex-col justify-between">
+            {/* Active Prompt */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <span className="px-3 py-1 rounded-full bg-[#8174FF]/15 border border-[#8174FF]/30 text-[#8174FF] font-mono text-xs font-semibold">
+                  {currentQ.category || 'Technical & Behavioral'}
+                </span>
+                <span className="text-xs font-mono text-[#F8F5EF]/45">
+                  Min. 10 characters required
+                </span>
               </div>
-              <h3 className="text-2xl md:text-3xl font-medium text-text-primary leading-tight">
+              <h3 className="font-display font-bold text-xl sm:text-2xl md:text-3xl text-[#F8F5EF] leading-snug">
                 {currentQ.question}
               </h3>
             </div>
 
-            {/* Answer area */}
-            <div className="flex-1 flex flex-col justify-end">
+            {/* Answer Editor or Evaluating State */}
+            <div className="mt-auto">
               {isEvaluating ? (
-                <div className="flex flex-col items-center justify-center p-10 bg-bg-surface rounded-xl border border-border-subtle">
+                <div className="flex flex-col items-center justify-center p-10 bg-[#141414] rounded-[16px] border border-[#2E2E2E]">
                   <Loader size="md" />
-                  <p className="mt-4 text-text-primary font-medium">AI is evaluating your response...</p>
-                  <p className="text-sm text-text-secondary mt-1">Analysing technical accuracy and communication.</p>
+                  <p className="mt-4 text-[#F8F5EF] font-display font-bold">
+                    Evaluating your response against hiring rubrics...
+                  </p>
+                  <p className="text-xs text-[#F8F5EF]/60 mt-1">
+                    Scoring technical accuracy, communication clarity, and confidence.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -839,22 +1010,21 @@ const MockInterview = () => {
                     isTranscribing={isTranscribing}
                   />
 
-                  {/* Recorder error */}
                   {recorderError && (
-                    <div className="flex items-start gap-2 text-sm text-error bg-error/5 border border-error/20 p-3 rounded-lg">
+                    <div className="flex items-start gap-2 text-xs text-[#EF4444] bg-[#EF4444]/10 border border-[#EF4444]/30 p-3 rounded-[10px]">
                       <FiAlertCircle className="mt-0.5 flex-shrink-0" />
                       <span>{recorderError}</span>
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center pt-2">
+                  <div className="flex flex-wrap justify-between items-center gap-3 pt-2">
                     <Button
                       variant={isRecording ? 'danger' : 'secondary'}
                       onClick={toggleRecording}
                       icon={isRecording ? FiStopCircle : FiMic}
                       disabled={isTranscribing || isEvaluating}
                     >
-                      {isRecording ? 'Stop Recording' : 'Record Answer'}
+                      {isRecording ? 'Stop Recording' : 'Record Voice Answer'}
                     </Button>
 
                     <Button
@@ -863,169 +1033,225 @@ const MockInterview = () => {
                       disabled={!canSubmit}
                       icon={FiArrowRight}
                     >
-                      {isLastQuestion ? 'Finish Interview' : 'Submit & Next'}
+                      {isLastQuestion ? 'Complete & View Scorecard' : 'Submit & Next Prompt'}
                     </Button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
-  // ── Setup screen ──────────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════════
+  // PHASE 5: INTERVIEW CONFIGURATION & PAST ARCHIVE
+  // ══════════════════════════════════════════════════════════════════════════
   if (startMutation.isPending) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-        <SEOHead title="Setting up Interview..." />
-        <div className="w-64 h-64 mb-4">
+      <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-10 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center">
+        <SEOHead title="Setting up Mock Interview..." />
+        <EvalixOrb size="lg" state="thinking" />
+        <div className="w-40 h-40 my-2">
           <Lottie animationData={interviewLoader} loop={true} />
         </div>
-        <h2 className="text-xl font-bold text-text-primary animate-pulse">Preparing your interview...</h2>
-        <p className="text-text-secondary mt-2">Our AI is generating contextual questions for your role.</p>
+        <h2 className="heading-section text-[#F8F5EF]">
+          Preparing {totalQuestions} Questions for {jobRole}...
+        </h2>
+        <p className="text-sm text-[#F8F5EF]/65 mt-2 max-w-md">
+          Generating role-specific technical and behavioral questions with 3-pillar scoring rubrics.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)]">
-      <SEOHead title="Mock Interview" />
+    <div className="space-y-6 pb-10">
+      <SEOHead title="Structured Mock Interview — Evalix" />
 
-      {/* Left – form */}
-      <div className="w-full lg:w-1/3 flex flex-col space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-subtle pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Mock Interview</h1>
-          <p className="text-text-secondary mt-1">
-            Practice with an AI interviewer. Speak or type your answers and get instant AI feedback.
+          <h1 className="heading-page text-text-primary">Structured Mock Interview</h1>
+          <p className="text-sm sm:text-base text-text-secondary mt-1">
+            Practice <strong className="text-text-primary font-semibold">3, 5, or 8 role-specific questions</strong> at your own pace. Speak or type responses and get scored on <strong className="text-text-primary font-semibold">Technical Accuracy, Clarity, and Confidence</strong>.
           </p>
         </div>
-
-        <Card>
-          <form onSubmit={handleStart} className="space-y-5">
-            <Input
-              id="jobRole"
-              label="Target Role"
-              placeholder="e.g., Full Stack Engineer"
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-              required
-            />
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-primary">
-                Number of Questions <span className="text-danger">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {MOCK_QUESTION_COUNTS.map((opt) => (
-                  <div
-                    key={opt}
-                    onClick={() => setTotalQuestions(opt)}
-                    className={`cursor-pointer text-center py-3 rounded-xl border-2 transition-all ${
-                      totalQuestions === opt
-                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
-                        : 'border-border-subtle bg-bg-canvas text-text-secondary hover:border-text-secondary/50'
-                    }`}
-                  >
-                    {opt}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              fullWidth
-              loading={startMutation.isPending}
-              disabled={!jobRole}
-              icon={FiPlay}
-              className="mt-4"
-              variant="primary"
-            >
-              Start Interview
-            </Button>
-          </form>
-        </Card>
-
-        <Card className="bg-bg-surface border-border-subtle shadow-lg shadow-accent-primary/5 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent-primary/10 via-transparent to-transparent pointer-events-none blur-3xl" />
-          <h4 className="font-bold text-text-primary mb-3 flex items-center relative z-10">
-            <FiVideo className="mr-2 text-accent-primary" /> How it works
-          </h4>
-          <ul className="space-y-3 text-sm text-text-secondary relative z-10">
-            <li className="flex items-start"><span className="text-accent-primary mr-2">•</span> AI generates contextual questions for your role</li>
-            <li className="flex items-start"><span className="text-accent-primary mr-2">•</span> Click <strong>Record Answer</strong> and speak naturally</li>
-            <li className="flex items-start"><span className="text-accent-primary mr-2">•</span> Gemini AI transcribes your speech</li>
-            <li className="flex items-start"><span className="text-accent-primary mr-2">•</span> Gemini AI evaluates your technical accuracy &amp; confidence</li>
-            <li className="flex items-start"><span className="text-accent-primary mr-2">•</span> Get a full report with strengths &amp; improvements</li>
-          </ul>
-        </Card>
       </div>
 
-      {/* Right – past interviews */}
-      <div className="w-full lg:w-2/3 flex flex-col">
-        {startMutation.isPending ? (
-          <Card className="flex-1 flex flex-col items-center justify-center min-h-[500px]">
-            <Loader size="lg" />
-            <h3 className="text-xl font-bold mt-6 text-text-primary">Preparing your interview...</h3>
-            <p className="text-text-secondary mt-2 text-center max-w-md">
-              The AI is reviewing the role requirements and preparing customised questions. Get ready!
-            </p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left: Configuration Card (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          <Card className="p-6 border border-border-subtle">
+            <form onSubmit={handleStart} className="space-y-5">
+              <div>
+                <Input
+                  id="jobRole"
+                  label="1. Target Role or Track"
+                  placeholder="e.g., Full Stack Engineer (React / Node.js)"
+                  value={jobRole}
+                  onChange={(e) => setJobRole(e.target.value)}
+                  required
+                />
+                <div className="mt-2.5">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">
+                    Quick Role Presets:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MOCK_ROLE_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setJobRole(preset)}
+                        className={`text-xs px-2.5 py-1 rounded-[8px] border transition-all cursor-pointer ${
+                          jobRole === preset
+                            ? 'bg-[#151515] text-[#F8F5EF] border-[#151515] dark:bg-[#FF6B35] dark:border-[#FF6B35] font-medium'
+                            : 'bg-bg-canvas border-border-subtle text-text-secondary hover:border-text-primary'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono uppercase tracking-wider font-semibold text-text-secondary">
+                  2. Number of Questions <span className="text-[#FF6B35]">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {MOCK_QUESTION_COUNTS.map((opt) => (
+                    <button
+                      type="button"
+                      key={opt}
+                      onClick={() => setTotalQuestions(opt)}
+                      className={`cursor-pointer text-center py-3 rounded-[12px] border transition-all font-display font-bold ${
+                        totalQuestions === opt
+                          ? 'border-[#151515] bg-[#FF6B35] text-white'
+                          : 'border-border-subtle bg-bg-canvas text-text-secondary hover:border-text-primary'
+                      }`}
+                    >
+                      {opt} Questions
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                fullWidth
+                loading={startMutation.isPending}
+                disabled={!jobRole}
+                icon={FiPlay}
+                size="lg"
+                variant="primary"
+              >
+                Start Mock Interview
+              </Button>
+            </form>
           </Card>
-        ) : (
-          <Card className="flex-1 flex flex-col min-h-[500px]">
-            <h3 className="text-xl font-bold text-text-primary mb-6 border-b border-border pb-4">
-              Past Interviews
-            </h3>
+
+          {/* Briefing Card */}
+          <div className="rounded-[20px] bg-[#151515] text-[#F8F5EF] p-6 border border-[#2E2E2E]">
+            <h4 className="font-display font-bold text-base text-[#F8F5EF] mb-1">
+              How Scoring Works
+            </h4>
+            <p className="text-xs font-mono text-[#C7F36B] mb-4">3-Pillar Rubric (0–10 each)</p>
+            <ul className="space-y-2.5 text-xs sm:text-sm text-[#F8F5EF]/80">
+              <li className="flex items-start gap-2">
+                <span className="text-[#FF6B35] font-mono font-bold">1.</span>
+                <span><strong className="text-white">Technical Accuracy:</strong> Depth and correctness of your engineering explanation.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#C7F36B] font-mono font-bold">2.</span>
+                <span><strong className="text-white">Communication Clarity:</strong> Logical structure and conciseness.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-[#8174FF] font-mono font-bold">3.</span>
+                <span><strong className="text-white">Delivery Confidence:</strong> Directness and use of concrete examples.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Right: Past Interviews Archive (7 cols) */}
+        <div className="lg:col-span-7">
+          <Card className="p-6 border border-border-subtle min-h-[480px] flex flex-col">
+            <div className="flex items-center justify-between pb-4 mb-5 border-b border-border-subtle">
+              <div>
+                <h3 className="heading-card text-text-primary">Past Mock Sessions</h3>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Click any completed session to inspect its full scorecard
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-bg-canvas border border-border-subtle font-mono text-xs text-text-secondary">
+                {pastInterviews?.data?.length || 0} Total
+              </span>
+            </div>
 
             {isPastLoading ? (
-              <div className="flex-1 flex justify-center items-center">
+              <div className="flex-1 flex justify-center items-center py-16">
                 <Loader />
               </div>
             ) : pastInterviews?.data?.length > 0 ? (
-              <div className="space-y-4 flex-1 overflow-y-auto pr-2 scrollbar-thin">
-                {pastInterviews.data.map((interview) => (
-                  <div
-                    key={interview._id}
-                    className="p-4 rounded-xl border border-border-subtle bg-bg-surface hover:border-accent-primary/30 transition-all flex justify-between items-center"
-                  >
-                    <div>
-                      <h4 className="font-bold text-text-primary">{interview.jobRole}</h4>
-                      <p className="text-sm text-text-secondary mt-1">
-                        {new Date(interview.createdAt).toLocaleDateString()} •{' '}
-                        {interview.questions?.length} Questions
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {interview.status === 'completed' ? (
-                        <>
-                          <div className="text-right hidden sm:block">
-                            <span className="text-xs text-text-secondary block">Score</span>
-                            <span className={`font-bold ${getGradeColor(interview.overallFeedback?.averageScore || 0)}`}>
-                              {interview.overallFeedback?.averageScore || 0}%
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-[520px] pr-1">
+                {pastInterviews.data.map((interview) => {
+                  const score = Math.round(interview.overallFeedback?.averageScore || 0);
+                  const isCompleted = interview.status === 'completed';
+                  return (
+                    <div
+                      key={interview._id}
+                      onClick={() => {
+                        if (isCompleted) setFinalResults(interview);
+                      }}
+                      className={`p-4 rounded-[14px] border border-border-subtle bg-bg-canvas transition-all flex flex-wrap justify-between items-center gap-3 ${
+                        isCompleted
+                          ? 'hover:border-[#151515] dark:hover:border-[#FF6B35] cursor-pointer'
+                          : 'opacity-80'
+                      }`}
+                    >
+                      <div>
+                        <h4 className="font-display font-bold text-sm sm:text-base text-text-primary">
+                          {interview.jobRole}
+                        </h4>
+                        <p className="text-xs font-mono text-text-muted mt-0.5">
+                          {new Date(interview.createdAt).toLocaleDateString()} •{' '}
+                          <strong className="text-text-primary">{interview.questions?.length || 0} Questions</strong>
+                          {isCompleted ? ` • Score: ${score}%` : ''}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2.5">
+                        {isCompleted ? (
+                          <>
+                            <Badge variant="success">{score}% Score</Badge>
+                            <span className="text-xs font-mono text-[#FF6B35] font-semibold hidden sm:inline">
+                              View Report →
                             </span>
-                          </div>
-                          <Badge variant="success">Completed</Badge>
-                        </>
-                      ) : (
-                        <Badge variant="warning">Incomplete</Badge>
-                      )}
+                          </>
+                        ) : (
+                          <Badge variant="warning">Incomplete</Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col justify-center items-center text-text-muted">
-                <div className="w-16 h-16 rounded-full bg-surface-hover flex items-center justify-center mb-4">
-                  <FiMic className="w-8 h-8 opacity-50" />
-                </div>
-                <p>No past interviews found.</p>
-                <p className="text-sm mt-2">Start a new mock interview to practice.</p>
+              <div className="flex-1 flex flex-col justify-center items-center text-center py-12">
+                <EvalixOrb size="md" state="idle" />
+                <p className="font-display font-bold text-base text-text-primary mt-4">
+                  No mock sessions yet
+                </p>
+                <p className="text-xs text-text-secondary mt-1 max-w-xs">
+                  Select a target role on the left to start your first mock interview.
+                </p>
               </div>
             )}
           </Card>
-        )}
+        </div>
       </div>
     </div>
   );

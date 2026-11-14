@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   FiMic, FiStopCircle, FiArrowRight, FiAlertCircle,
   FiLoader, FiCheckCircle, FiUser, FiFileText, FiBriefcase,
-  FiVolume2, FiVolumeX, FiStar, FiTrendingUp, FiMaximize, FiMinimize, FiX
+  FiVolume2, FiVolumeX, FiStar, FiTrendingUp, FiMaximize, FiMinimize, FiX,
+  FiClock, FiPlay, FiRefreshCw, FiMessageSquare
 } from 'react-icons/fi';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
@@ -18,6 +19,7 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Badge from '../components/ui/Badge';
 import Loader from '../components/ui/Loader';
+import { EvalixOrb, EvalixStarburst } from '../components/ui/EvalixOrb';
 import api from '../api/axios';
 import { API } from '../api/endpoints';
 import { MOCK_QUESTION_COUNTS } from '../utils/constants';
@@ -586,18 +588,40 @@ const SCREEN = { SETUP: 'setup', LOADING: 'loading', INTERVIEW: 'interview', RES
 
 const LiveInterview = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { getToken } = useAuth();
   const { user } = useUser();
   const containerRef = useRef(null);
   const chatEndRef = useRef(null);
 
   // ── Setup form state
-  const [userName, setUserName] = useState('');
-  const [jobRole, setJobRole] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
+  const [userName, setUserName] = useState(user?.firstName || '');
+  const [jobRole, setJobRole] = useState(location.state?.jobRole || '');
+  const [jobDescription, setJobDescription] = useState(location.state?.skills || '');
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [difficulty, setDifficulty] = useState('medium');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [micStatus, setMicStatus] = useState('untested'); // 'untested' | 'testing' | 'ready' | 'denied'
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (user?.firstName && !userName) {
+      setUserName(user.firstName);
+    }
+  }, [user?.firstName]);
+
+  const handleCheckMicrophone = async () => {
+    setMicStatus('testing');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      setMicStatus('ready');
+      toast.success('Microphone connected and ready!');
+    } catch (err) {
+      setMicStatus('denied');
+      toast.error('Microphone access blocked. You can still use keyboard text mode.');
+    }
+  };
 
   // ── Session state
   const [screen, setScreen] = useState(SCREEN.SETUP);
@@ -961,10 +985,27 @@ const LiveInterview = () => {
     }
   };
 
-  // ─── Render: RESULTS ─────────────────────────────────────────────────────────
+  // ─── Elapsed timer during active interview
+  useEffect(() => {
+    if (screen !== SCREEN.INTERVIEW) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [screen]);
+
+  const formatClock = (secs) => {
+    const mins = Math.floor(secs / 60).toString().padStart(2, '0');
+    const rem = (secs % 60).toString().padStart(2, '0');
+    return `${mins}:${rem}`;
+  };
+
+  // ─── Render: RESULTS (Phase 7 Editorial Scorecard) ───────────────────────────
   if (screen === SCREEN.RESULTS && finalSession) {
     const { overallFeedback, questions, turns, userName: name, jobRole: role } = finalSession;
-    // Best turn per question
     const bestTurnByQ = {};
     (turns || []).forEach((t) => {
       if (!bestTurnByQ[t.questionIndex] || t.score > bestTurnByQ[t.questionIndex].score) {
@@ -972,618 +1013,867 @@ const LiveInterview = () => {
       }
     });
 
+    const avgScore = overallFeedback?.averageScore || 0;
+    const verdictLabel =
+      avgScore >= 80
+        ? 'Strong Hire Signal'
+        : avgScore >= 60
+        ? 'Hire Ready — Minor Polish'
+        : 'Keep Training in Arena';
+
     return (
-      <div className="max-w-5xl mx-auto space-y-6 pb-10">
-        <SEOHead title={`Live Interview Results — ${role}`} />
+      <div className="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in">
+        <SEOHead title={`Live Interview Scorecard — ${role}`} />
 
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold text-text-primary">Interview Complete! 🎉</h1>
-              <Badge variant={finalSession.difficulty === 'hard' ? 'error' : finalSession.difficulty === 'easy' ? 'success' : 'primary'} className="capitalize">
-                {finalSession.difficulty || difficulty} Level
-              </Badge>
+        {/* Top Scorecard Banner */}
+        <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8 lg:p-10">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="space-y-3 max-w-2xl">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="px-3 py-1 rounded-[8px] bg-[#282828] text-[#C7F36B] font-mono text-xs uppercase font-bold">
+                  SESSION REPORT
+                </span>
+                <span className="px-3 py-1 rounded-[8px] bg-[#FF6B35]/20 text-[#FF6B35] font-mono text-xs uppercase font-semibold">
+                  {finalSession.difficulty || difficulty} Difficulty
+                </span>
+                <span className="text-xs font-mono text-[#B5AFA6]">
+                  • {overallFeedback?.totalTurns || turns?.length || 0} Total Exchanges
+                </span>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight">
+                {role} — Live Voice Evaluation
+              </h1>
+
+              <p className="text-sm sm:text-base text-[#B5AFA6]">
+                Candidate: <strong className="text-white">{name}</strong> • Evaluated across technical accuracy, clarity, and depth.
+              </p>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={FiRefreshCw}
+                  onClick={() => {
+                    setFinalSession(null);
+                    setSession(null);
+                    setScreen(SCREEN.SETUP);
+                  }}
+                >
+                  Practice Another Round
+                </Button>
+                <Button variant="lime" size="md" onClick={() => navigate('/dashboard')}>
+                  Back to Dashboard
+                </Button>
+              </div>
             </div>
-            <p className="text-text-muted mt-1">Role: <strong className="text-text-primary">{role}</strong> &bull; Candidate: {name}</p>
+
+            {/* Overall Score Dial Box */}
+            <div className="rounded-[20px] bg-[#1F1F1F] border border-[#333333] p-6 flex flex-col items-center justify-center min-w-[220px] text-center">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#B5AFA6]">
+                OVERALL SCORE
+              </span>
+              <div
+                className={`text-5xl sm:text-6xl font-editorial my-2 ${
+                  avgScore >= 75
+                    ? 'text-[#C7F36B]'
+                    : avgScore >= 50
+                    ? 'text-[#FF6B35]'
+                    : 'text-[#F87171]'
+                }`}
+              >
+                {avgScore}%
+              </div>
+              <span className="px-3 py-1 rounded-[8px] bg-[#282828] text-xs font-display font-bold text-white">
+                {verdictLabel}
+              </span>
+            </div>
           </div>
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back to Dashboard</Button>
         </div>
 
-        {/* Score overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="col-span-1 flex flex-col items-center justify-center p-8 text-center border-t-4 border-t-accent-primary bg-bg-surface border-border-subtle shadow-md shadow-accent-primary/5">
-            <h3 className="text-lg font-medium text-text-secondary mb-4">Overall Score</h3>
-            <div
-              className="w-32 h-32 rounded-full border-8 flex items-center justify-center mb-4"
-              style={{
-                borderColor:
-                  overallFeedback?.averageScore >= 70 ? '#10b981' :
-                  overallFeedback?.averageScore >= 50 ? '#f59e0b' : '#ef4444',
-              }}
-            >
-              <span className="text-4xl font-bold text-text-primary">{overallFeedback?.averageScore}%</span>
-            </div>
-            <p className="text-text-primary font-medium">
-              {overallFeedback?.averageScore >= 70 ? '🌟 Excellent!' :
-               overallFeedback?.averageScore >= 50 ? '👍 Good effort!' : '📚 Keep practicing!'}
-            </p>
-            <p className="text-xs text-text-secondary mt-2">{overallFeedback?.totalTurns} total attempts</p>
-          </Card>
+        {/* Strengths, Improvements & Shristi's Verdict */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4 rounded-[18px] bg-bg-surface border border-border-subtle p-6 space-y-4">
+            <h3 className="text-lg font-display font-bold text-text-primary">
+              Key Strengths
+            </h3>
+            <ul className="space-y-2.5">
+              {overallFeedback?.strengths?.length > 0 ? (
+                overallFeedback.strengths.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
+                    <FiCheckCircle className="text-success mt-0.5 shrink-0" />
+                    <span>{s}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-text-muted">Completed live voice session.</li>
+              )}
+            </ul>
+          </div>
 
-          <Card className="col-span-2 p-6 bg-bg-surface border-border-subtle shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="lg:col-span-4 rounded-[18px] bg-bg-surface border border-border-subtle p-6 space-y-4">
+            <h3 className="text-lg font-display font-bold text-text-primary">
+              Areas to Improve
+            </h3>
+            <ul className="space-y-2.5">
+              {overallFeedback?.weaknesses?.length > 0 ? (
+                overallFeedback.weaknesses.map((w, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
+                    <span className="w-2 h-2 rounded-full bg-[#FF6B35] mt-2 shrink-0" />
+                    <span>{w}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-text-muted">Keep practicing deeper system trade-offs.</li>
+              )}
+            </ul>
+          </div>
+
+          <div className="lg:col-span-4 rounded-[18px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 flex flex-col justify-between space-y-4">
+            <div className="space-y-3">
               <div>
-                <h3 className="text-lg font-bold text-success mb-3 flex items-center gap-2">
-                  <FiStar /> Key Strengths
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#C7F36B] block">
+                  INTERVIEWER NOTE
+                </span>
+                <h3 className="text-base font-display font-bold text-white mt-0.5">
+                  Shristi’s Summary
                 </h3>
-                <ul className="space-y-2">
-                  {overallFeedback?.strengths?.map((s, i) => (
-                    <li key={i} className="flex items-start text-sm text-text-secondary">
-                      <FiCheckCircle className="text-success mt-0.5 mr-2 flex-shrink-0" />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-warning mb-3 flex items-center gap-2">
-                  <FiTrendingUp /> Areas to Improve
-                </h3>
-                <ul className="space-y-2">
-                  {overallFeedback?.weaknesses?.map((w, i) => (
-                    <li key={i} className="flex items-start text-sm text-text-secondary">
-                      <div className="w-1.5 h-1.5 rounded-full bg-warning mt-2 mr-2 flex-shrink-0" />
-                      {w}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <p className="text-xs sm:text-sm text-[#B5AFA6] leading-relaxed">
+                {overallFeedback?.recommendations ||
+                  'Focus on structuring technical answers with concrete metrics and architectural trade-offs.'}
+              </p>
             </div>
-          </Card>
+            <div className="pt-3 border-t border-[#2E2E2E] flex items-center justify-between text-xs font-mono text-[#C7F36B]">
+              <span>Saved to Session History</span>
+              <span>✓ Saved</span>
+            </div>
+          </div>
         </div>
 
-        <Card className="p-6 bg-accent-primary/10 border-accent-glow/30 shadow-md">
-          <h3 className="text-lg font-bold text-text-primary mb-2 flex items-center gap-2">
-            <span className="text-xl">👩‍💼</span> Shristi's Recommendations
-          </h3>
-          <p className="text-text-secondary leading-relaxed">{overallFeedback?.recommendations}</p>
-        </Card>
+        {/* Question-by-Question Breakdown */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs font-mono uppercase tracking-wider text-[#FF6B35] font-bold">
+                QUESTION-BY-QUESTION RUBRIC
+              </span>
+              <h2 className="text-2xl font-display font-bold text-text-primary">
+                Detailed Exchange Breakdown
+              </h2>
+            </div>
+          </div>
 
-        {/* Detailed transcript */}
-        <h3 className="text-2xl font-bold text-text-primary mt-10 mb-4">Full Interview Transcript</h3>
-        <div className="space-y-6">
-          {questions?.map((q, i) => {
-            const best = bestTurnByQ[i];
-            const allAttempts = (turns || []).filter((t) => t.questionIndex === i);
-            if (!best) return null;
-            return (
-              <Card key={i} className="p-6 bg-bg-surface border-border-subtle shadow-sm">
-                <div className="flex items-start justify-between mb-4 pb-4 border-b border-border-subtle">
-                  <h4 className="text-lg font-medium text-text-primary flex-1">
-                    <span className="text-accent-primary font-bold mr-2">Q{i + 1}.</span>{q.question}
-                  </h4>
-                  <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                    <Badge variant="secondary">{q.category}</Badge>
-                    {allAttempts.length > 1 && (
-                      <span className="text-xs text-warning bg-warning/10 px-2 py-0.5 rounded-full border border-warning/20">
-                        {allAttempts.length} attempts
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {allAttempts.map((turn, ti) => (
-                  <div key={ti} className={`mb-3 p-4 rounded-xl border ${turn.isPassing ? 'bg-success/5 border-success/20' : 'bg-bg-canvas border-border-subtle'}`}>
-                    {allAttempts.length > 1 && (
-                      <span className="text-xs font-bold text-text-secondary uppercase mb-2 block tracking-wider">
-                        Attempt {turn.attempt}
-                      </span>
-                    )}
-                    <p className="text-sm text-text-primary italic">"{turn.userAnswer}"</p>
-                  </div>
-                ))}
-
-                <div className="grid grid-cols-3 gap-3 my-4">
-                  {[
-                    { label: 'Score', val: `${best.score}/10` },
-                    { label: 'Status', val: best.isPassing ? '✅ Passed' : '❌ Needs Work' },
-                    { label: 'Action', val: best.action === 'next' ? '➡️ Next' : best.action === 'retry' ? '🔄 Retry' : '🔍 Follow-up' },
-                  ].map(({ label, val }) => (
-                    <div key={label} className="bg-bg-canvas p-3 rounded-xl text-center border border-border-subtle">
-                      <span className="text-xs text-text-secondary uppercase tracking-wider block mb-1">{label}</span>
-                      <span className={`font-bold text-sm ${getGradeColor((best.score || 0) * 10)}`}>{val}</span>
+          <div className="space-y-5">
+            {questions?.map((q, i) => {
+              const best = bestTurnByQ[i];
+              const allAttempts = (turns || []).filter((t) => t.questionIndex === i);
+              if (!best) return null;
+              return (
+                <div
+                  key={i}
+                  className="rounded-[20px] bg-bg-surface border border-border-subtle p-6 space-y-4 shadow-xs"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-border-subtle">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-[6px] bg-[#151515] text-[#F8F5EF] font-mono text-xs font-bold">
+                          Q0{i + 1}
+                        </span>
+                        <Badge variant="secondary">{q.category}</Badge>
+                        {allAttempts.length > 1 && (
+                          <Badge variant="warning">{allAttempts.length} Attempts</Badge>
+                        )}
+                      </div>
+                      <h4 className="text-base sm:text-lg font-display font-bold text-text-primary pt-1">
+                        {q.question}
+                      </h4>
                     </div>
-                  ))}
-                </div>
 
-                <div className="bg-accent-primary/10 p-5 rounded-xl border border-accent-primary/20">
-                  <span className="text-xs uppercase font-bold text-accent-primary mb-2 block tracking-wider">Shristi's Feedback:</span>
-                  <p className="text-sm text-text-primary leading-relaxed">{best.feedback}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`px-3 py-1.5 rounded-[10px] font-mono text-sm font-bold ${
+                          best.score >= 7
+                            ? 'bg-[#C7F36B] text-[#151515]'
+                            : best.score >= 5
+                            ? 'bg-[#FF6B35]/15 text-[#FF6B35]'
+                            : 'bg-danger/15 text-danger'
+                        }`}
+                      >
+                        {best.score}/10
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block">
+                        YOUR SPOKEN RESPONSE
+                      </span>
+                      {allAttempts.map((turn, ti) => (
+                        <div
+                          key={ti}
+                          className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle text-sm text-text-primary italic leading-relaxed"
+                        >
+                          {allAttempts.length > 1 && (
+                            <span className="text-[10px] font-mono uppercase font-bold text-[#FF6B35] block mb-1 not-italic">
+                              Attempt {turn.attempt}
+                            </span>
+                          )}
+                          “{turn.userAnswer}”
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-[#FF6B35] font-bold block">
+                        SHRISTI’S RUBRIC EVALUATION
+                      </span>
+                      <div className="p-4 rounded-[14px] bg-[#FF6B35]/8 border border-[#FF6B35]/25 text-sm text-text-primary leading-relaxed">
+                        {best.feedback}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </Card>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     );
   }
 
-  // ─── Render: MAIN APP CONTAINER (used for LOADING and INTERVIEW) ───────────────
-  const renderAppContainer = (content) => (
-    <div 
-      ref={containerRef} 
-      className={`bg-bg-canvas transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 h-screen w-screen overflow-hidden flex flex-col p-4 sm:p-6' : 'h-[calc(100vh-5rem)] overflow-hidden flex flex-col p-4 sm:p-6'}`}
+  // ─── Render: MAIN ARENA CONTAINER (Focused Ink Black Experience) ─────────────
+  const renderArenaContainer = (content) => (
+    <div
+      ref={containerRef}
+      className={`theme-interview bg-[#151515] text-[#F8F5EF] rounded-[24px] border-2 border-[#2E2E2E] transition-all duration-300 ${
+        isFullscreen
+          ? 'fixed inset-0 z-50 h-screen w-screen rounded-none border-0 overflow-hidden flex flex-col p-4 sm:p-6'
+          : 'min-h-[calc(100vh-6.5rem)] overflow-hidden flex flex-col p-4 sm:p-6 shadow-xl'
+      }`}
     >
-       <SEOHead title={`Live Interview — ${jobRole}`} />
-       {content}
+      <SEOHead title={`Live Interview Arena — ${jobRole}`} />
+      {content}
     </div>
   );
 
   // ─── Render: LOADING ─────────────────────────────────────────────────────────
   if (screen === SCREEN.LOADING) {
-    return renderAppContainer(
-      <div className="flex flex-col items-center justify-center h-full min-h-[500px]">
-        <div className="w-64 h-64 mb-4">
-          <Lottie animationData={interviewLoader} loop={true} />
+    return renderArenaContainer(
+      <div className="flex flex-col items-center justify-center flex-1 py-16 text-center space-y-6">
+        <EvalixOrb state="thinking" size="xl" showLabel />
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-white">
+            Preparing your {jobRole} interview...
+          </h2>
+          <p className="text-sm text-[#B5AFA6] leading-relaxed">
+            Generating <strong className="text-white">{totalQuestions} {difficulty}-level questions</strong> from your job description and connecting the voice room.
+          </p>
         </div>
-        <h2 className="text-xl font-bold text-text-primary animate-pulse">Shristi is preparing your interview...</h2>
-        <p className="text-text-secondary mt-2 text-center max-w-md">
-          Analysing the job description and generating tailored questions for <strong>{jobRole}</strong>.
-        </p>
       </div>
     );
   }
 
-  // ─── Render: INTERVIEW ────────────────────────────────────────────────────────
+  // ─── Render: INTERVIEW (Phase 6 — 3-Zone Dark Interview Arena) ───────────────
   if (screen === SCREEN.INTERVIEW && session) {
-    const progress = Math.round((currentQIndex / session.totalQuestions) * 100);
+    const progress = Math.round(((currentQIndex + 1) / session.totalQuestions) * 100);
+    const orbState = isSpeaking
+      ? 'speaking'
+      : isRecording
+      ? 'listening'
+      : isThinking || isTranscribing
+      ? 'evaluating'
+      : 'idle';
 
-    return renderAppContainer(
-      <div className="flex flex-col h-full w-full max-w-6xl mx-auto">
-        {/* Top bar */}
-        <div className="mb-4 flex-shrink-0">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-text-primary">{session.jobRole} Interview</h2>
-                <Badge variant={session.difficulty === 'hard' ? 'error' : session.difficulty === 'easy' ? 'success' : 'primary'} className="capitalize">
-                  {session.difficulty || difficulty}
-                </Badge>
-              </div>
-              <p className="text-xs text-text-muted">with {userName} &bull; {isSmallTalkPhase ? '🌸 Icebreaker Check-in' : `Question ${currentQIndex + 1} of ${session.totalQuestions}`}</p>
-            </div>
+    const currentQuestionObj = session.questions?.[currentQIndex];
+
+    return renderArenaContainer(
+      <div className="flex flex-col flex-1 w-full max-w-6xl mx-auto justify-between gap-4 min-h-0">
+        {/* ── ZONE 1: Top Arena Telemetry Bar ── */}
+        <div className="pb-3.5 border-b border-[#2E2E2E] shrink-0 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-display font-bold text-white">
+                    {session.jobRole}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-[6px] bg-[#282828] border border-[#383838] text-[11px] font-mono uppercase text-[#C7F36B]">
+                    {session.difficulty || difficulty}
+                  </span>
+                </div>
+                <p className="text-xs font-mono text-[#B5AFA6]">
+                  {isSmallTalkPhase
+                    ? 'Warm-Up Check-in with Shristi'
+                    : `Question ${currentQIndex + 1} of ${session.totalQuestions} • Attempt #${attempt}`}
+                </p>
+              </div>
+            </div>
+
+            {/* Right Arena Status & Session Controls */}
+            <div className="flex items-center gap-2.5">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-[10px] bg-[#1F1F1F] border border-[#333333] text-xs font-mono text-[#F8F5EF]">
+                <FiClock className="text-[#FF6B35]" size={13} />
+                <span>{formatClock(elapsedSeconds)}</span>
+              </div>
+
               <button
-                aria-label={isMuted ? 'Unmute Shristi' : 'Mute Shristi'}
+                type="button"
                 onClick={toggleMute}
-                className="flex items-center justify-center text-text-muted hover:text-text-primary transition-colors bg-surface-hover border border-border rounded-lg p-2 cursor-pointer"
-                title={isMuted ? 'Unmute Shristi' : 'Mute Shristi'}
+                className={`px-3 py-1.5 rounded-[10px] border text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  isMuted
+                    ? 'bg-[#F87171]/15 border-[#F87171]/40 text-[#F87171]'
+                    : 'bg-[#1F1F1F] border-[#333333] text-[#F8F5EF] hover:border-[#FF6B35]'
+                }`}
+                title={isMuted ? 'Unmute Shristi AI Voice' : 'Mute Shristi AI Voice'}
               >
-                {isMuted ? <FiVolumeX className="w-4 h-4" /> : <FiVolume2 className="w-4 h-4" />}
+                {isMuted ? <FiVolumeX size={14} /> : <FiVolume2 size={14} />}
+                <span className="hidden md:inline">{isMuted ? 'AI Muted' : 'Voice On'}</span>
               </button>
+
               <button
-                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                type="button"
                 onClick={toggleFullscreen}
-                className="flex items-center justify-center text-text-muted hover:text-text-primary transition-colors bg-surface-hover border border-border rounded-lg p-2 hidden sm:flex cursor-pointer"
-                title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+                className="p-2 rounded-[10px] bg-[#1F1F1F] border border-[#333333] text-[#B5AFA6] hover:text-white hidden sm:flex items-center justify-center cursor-pointer"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Arena'}
               >
-                {isFullscreen ? <FiMinimize className="w-4 h-4" /> : <FiMaximize className="w-4 h-4" />}
+                {isFullscreen ? <FiMinimize size={14} /> : <FiMaximize size={14} />}
               </button>
+
               <button
-                aria-label="Exit Interview"
+                type="button"
                 onClick={exitInterview}
-                className="flex items-center justify-center text-error hover:bg-error/10 transition-colors bg-surface-hover border border-border rounded-lg p-2 ml-2 cursor-pointer"
-                title="Exit Interview"
+                className="px-3 py-1.5 rounded-[10px] bg-[#282828] hover:bg-[#DC2626] text-[#F8F5EF] border border-[#383838] text-xs font-display font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <FiX className="w-4 h-4" />
+                <FiX size={14} /> End
               </button>
             </div>
           </div>
-          <div className="w-full bg-surface-hover rounded-full h-2">
+
+          {/* Progress Bar */}
+          <div className="w-full bg-[#242424] rounded-full h-1.5 overflow-hidden">
             <motion.div
-              className="bg-accent-primary h-2 rounded-full"
-              animate={{ width: `${progress}%` }}
+              className="bg-[#C7F36B] h-full rounded-full"
+              animate={{ width: `${isSmallTalkPhase ? 8 : progress}%` }}
               transition={{ duration: 0.4 }}
             />
           </div>
         </div>
 
-        {/* Main interview area */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
-          
-          {/* Left - Avatars */}
-          <div className="md:col-span-1 flex flex-row md:flex-col gap-4">
-             <Card className="flex-1 flex items-center justify-center p-6 bg-bg-surface border-border-subtle shadow-md shadow-accent-primary/5 relative overflow-hidden">
-               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-accent-primary/10 to-transparent pointer-events-none" />
-               <ShristiAvatar isSpeaking={isSpeaking} isThinking={isThinking} />
-             </Card>
-             <Card className="flex-1 flex items-center justify-center p-6 bg-bg-surface border-border-subtle shadow-md shadow-success/5 relative overflow-hidden">
-               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-success/10 to-transparent pointer-events-none" />
-               <UserAvatar isSpeaking={isRecording} imageUrl={user?.imageUrl} name={userName} />
-             </Card>
+        {/* ── ZONE 2: Main Interview Stage (Left Presence + Right Active Question & Transcript) ── */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
+          {/* Left Column: AI Interviewer Presence & Candidate Pod (4 Cols) */}
+          <div className="lg:col-span-4 flex flex-row lg:flex-col gap-4">
+            {/* Shristi AI Presence Card */}
+            <div className="flex-1 rounded-[20px] bg-[#1F1F1F] border border-[#333333] p-5 flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#B5AFA6] mb-3">
+                AI INTERVIEWER
+              </span>
+              <EvalixOrb state={orbState} size="lg" showLabel />
+              <h3 className="font-display font-bold text-base text-white mt-3">
+                Shristi
+              </h3>
+              <p className="text-xs text-[#B5AFA6] mt-0.5">
+                {isSpeaking
+                  ? 'Speaking prompt aloud...'
+                  : isRecording
+                  ? 'Listening to your answer...'
+                  : isThinking
+                  ? 'Evaluating against rubric...'
+                  : 'Waiting for your response'}
+              </p>
+            </div>
+
+            {/* Candidate Pod */}
+            <div className="flex-1 rounded-[20px] bg-[#1F1F1F] border border-[#333333] p-5 flex flex-col items-center justify-center text-center relative">
+              <div
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 flex items-center justify-center mb-3 transition-all ${
+                  isRecording
+                    ? 'border-[#C7F36B] shadow-[0_0_20px_rgba(199,243,107,0.3)]'
+                    : 'border-[#383838] bg-[#282828]'
+                }`}
+              >
+                {user?.imageUrl ? (
+                  <img src={user.imageUrl} alt={userName} className="w-full h-full object-cover" />
+                ) : (
+                  <FiUser className="w-8 h-8 text-[#B5AFA6]" />
+                )}
+              </div>
+              <p className="font-display font-bold text-sm text-white">{userName || 'You'}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    isRecording ? 'bg-[#C7F36B] animate-ping' : 'bg-[#7C7872]'
+                  }`}
+                />
+                <span className="text-[11px] font-mono text-[#B5AFA6]">
+                  {isRecording ? 'Mic Live — Recording' : isTextMode ? 'Keyboard Mode' : 'Mic Standby'}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Right - Chat & Controls */}
-          <Card className="md:col-span-2 flex flex-col p-0 overflow-hidden bg-bg-canvas border-border-subtle">
-             
-             {/* WhatsApp Style Chat Area */}
-             <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
+          {/* Right Column: Prominent Question Banner + Live Transcript Feed (8 Cols) */}
+          <div className="lg:col-span-8 rounded-[20px] bg-[#1F1F1F] border border-[#333333] flex flex-col overflow-hidden min-h-0">
+            {/* Pinned Current Question Header */}
+            <div className="p-4 sm:p-5 bg-[#242424] border-b border-[#333333] shrink-0">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-[#FF6B35] font-bold">
+                  {isSmallTalkPhase
+                    ? 'WARM-UP ICEBREAKER'
+                    : `ACTIVE PROMPT • ${currentQuestionObj?.category || 'Technical'}`}
+                </span>
                 {isSmallTalkPhase && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-accent-primary/10 border border-accent-primary/20 text-xs text-accent-primary animate-fade-in shadow-sm">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-accent-primary animate-ping" />
-                      🌸 Warm Check-in with Shristi (Non-technical small talk to comfort you)
+                  <button
+                    type="button"
+                    onClick={handleSkipIntro}
+                    className="px-2.5 py-1 rounded-[8px] bg-[#FF6B35] text-white text-xs font-display font-semibold hover:bg-[#EB5822] transition-colors cursor-pointer"
+                  >
+                    Skip to Question 1 →
+                  </button>
+                )}
+              </div>
+              <p className="text-sm sm:text-base font-display font-semibold text-white leading-snug">
+                {isSmallTalkPhase
+                  ? 'Take a slow breath and say hello to Shristi — or skip directly to Question 1 whenever you feel ready.'
+                  : currentQuestionObj?.question}
+              </p>
+            </div>
+
+            {/* Conversation & Live Transcript Stream */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 scrollbar-thin">
+              {isCalmingActive && (
+                <div className="p-3.5 rounded-[14px] bg-[#C7F36B]/15 border border-[#C7F36B]/40 text-xs text-[#C7F36B] flex items-center gap-2">
+                  <span>🌱</span>
+                  <span>
+                    Take your time — Shristi is here to help you practice. Zero rush!
+                  </span>
+                </div>
+              )}
+
+              {chatHistory.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[86%] p-4 rounded-[16px] text-sm leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-[#FF6B35] text-white rounded-tr-xs'
+                        : 'bg-[#151515] border border-[#333333] text-[#F8F5EF] rounded-tl-xs'
+                    }`}
+                  >
+                    <span className="text-[10px] font-mono uppercase tracking-wider opacity-75 block mb-1">
+                      {msg.sender === 'user' ? `${userName || 'You'}` : 'Shristi AI'}
                     </span>
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                  </div>
+                </div>
+              ))}
+
+              {isThinking && (
+                <div className="flex justify-start">
+                  <div className="bg-[#151515] border border-[#333333] px-4 py-3 rounded-[14px] flex items-center gap-3 text-xs font-mono text-[#C7F36B]">
+                    <FiLoader className="animate-spin text-[#FF6B35]" />
+                    <span>Shristi is evaluating your answer...</span>
+                  </div>
+                </div>
+              )}
+
+              {isTranscribing && (
+                <div className="flex justify-end">
+                  <div className="bg-[#282828] border border-[#383838] px-4 py-3 rounded-[14px] flex items-center gap-3 text-xs font-mono text-[#F8F5EF]">
+                    <FiLoader className="animate-spin text-[#C7F36B]" />
+                    <span>Transcribing your voice response...</span>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* ── ZONE 3: Bottom Control Dock ── */}
+            <div className="p-4 bg-[#181818] border-t border-[#2E2E2E] shrink-0">
+              {recorderError && (
+                <div className="flex items-center gap-2 text-xs text-[#F87171] bg-[#F87171]/10 border border-[#F87171]/30 px-3 py-1.5 rounded-[10px] mb-3">
+                  <FiAlertCircle /> {recorderError}
+                </div>
+              )}
+
+              {isTextMode ? (
+                <form onSubmit={handleSendTypedAnswer} className="space-y-2.5">
+                  <div className="flex gap-2">
+                    <textarea
+                      value={typedAnswer}
+                      onChange={(e) => setTypedAnswer(e.target.value)}
+                      placeholder={
+                        isRecording
+                          ? 'Recording voice... click mic to stop & transcribe'
+                          : isSmallTalkPhase
+                          ? 'Reply to Shristi (e.g., "Doing great, ready to start!")...'
+                          : 'Type your technical explanation or click the mic to dictate...'
+                      }
+                      rows={2}
+                      disabled={isSubmitting || isThinking || isTranscribing}
+                      className="flex-1 px-4 py-2.5 rounded-[12px] border border-[#383838] bg-[#151515] text-[#F8F5EF] placeholder-[#7C7872] text-sm focus:border-[#FF6B35] focus:outline-none resize-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendTypedAnswer();
+                        }
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={handleSkipIntro}
-                      className="px-3 py-1 rounded-lg bg-accent-primary text-white font-semibold hover:bg-accent-glow transition-all cursor-pointer text-xs"
+                      onClick={toggleRecording}
+                      disabled={isSubmitting || isThinking || isTranscribing}
+                      className={`px-3.5 rounded-[12px] border transition-all cursor-pointer flex items-center justify-center ${
+                        isRecording
+                          ? 'bg-[#DC2626] border-[#DC2626] text-white animate-pulse'
+                          : 'bg-[#242424] border-[#383838] text-[#F8F5EF] hover:border-[#FF6B35]'
+                      }`}
+                      title={isRecording ? 'Stop & transcribe' : 'Dictate with mic'}
                     >
-                      Skip to Question 1 &rarr;
+                      {isRecording ? <FiStopCircle size={18} /> : <FiMic size={18} />}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={
+                        isSubmitting ||
+                        isThinking ||
+                        !typedAnswer.trim() ||
+                        isRecording ||
+                        isTranscribing
+                      }
+                      className="px-5 rounded-[12px] bg-[#FF6B35] hover:bg-[#EB5822] text-white font-display font-bold text-sm disabled:opacity-40 cursor-pointer"
+                    >
+                      {isSubmitting ? <FiLoader className="animate-spin" /> : 'Submit'}
                     </button>
                   </div>
-                )}
 
-                {isCalmingActive && (
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400 animate-fade-in shadow-sm">
-                    <span className="flex items-center gap-2">
-                      <span>🌱</span>
-                      <span>Take a slow, deep breath — Shristi understands! There is zero rush, relax.</span>
-                    </span>
-                  </div>
-                )}
-
-                {chatHistory.map(msg => (
-                   <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm border ${msg.sender === 'user' ? 'bg-accent-primary border-accent-glow text-white rounded-tr-none' : 'bg-bg-surface border-border-subtle text-text-primary rounded-tl-none'}`}>
-                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                      </div>
-                   </div>
-                ))}
-                
-                {isThinking && (
-                   <div className="flex justify-start">
-                      <div className="bg-bg-surface border border-border-subtle p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
-                         <FiLoader className="animate-spin text-accent-primary" />
-                         <span className="text-sm text-text-secondary italic">Shristi is evaluating your answer...</span>
-                      </div>
-                   </div>
-                )}
-                
-                {isTranscribing && (
-                   <div className="flex justify-end">
-                      <div className="bg-accent-primary/80 border border-accent-glow/50 text-white p-4 rounded-2xl rounded-tr-none flex items-center gap-3 shadow-sm">
-                         <FiLoader className="animate-spin" />
-                         <span className="text-sm italic">Transcribing your speech...</span>
-                      </div>
-                   </div>
-                )}
-                <div ref={chatEndRef} />
-             </div>
-
-             {/* Controls */}
-             <div className="p-4 sm:p-5 bg-bg-surface border-t border-border-subtle flex-shrink-0 flex flex-col items-center justify-center gap-3">
-                {recorderError && (
-                  <div className="flex items-center gap-2 text-xs text-danger bg-danger/10 px-3 py-1.5 rounded-lg mb-1">
-                    <FiAlertCircle /> {recorderError}
-                  </div>
-                )}
-
-                {isSpeaking && isSmallTalkPhase && (
-                  <div className="flex items-center justify-between w-full max-w-lg px-3 py-1.5 rounded-xl bg-accent-primary/10 border border-accent-primary/20 text-xs text-accent-primary">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-accent-primary animate-pulse" />
-                      🌸 Shristi is greeting you...
-                    </span>
+                  <div className="flex items-center justify-between text-xs font-mono text-[#B5AFA6]">
+                    {!isSmallTalkPhase ? (
+                      <button
+                        type="button"
+                        onClick={handleAskHintOrCalm}
+                        disabled={isSubmitting || isThinking}
+                        className="text-[#C7F36B] hover:underline cursor-pointer"
+                      >
+                        Need a hint from Shristi?
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                     <button
                       type="button"
-                      onClick={handleSkipIntro}
-                      className="font-bold underline hover:text-accent-glow cursor-pointer text-xs"
+                      onClick={() => setIsTextMode(false)}
+                      className="text-[#FF6B35] hover:underline cursor-pointer"
                     >
-                      Skip to Question 1 &rarr;
+                      Switch to Voice Dock 🎙️
                     </button>
                   </div>
-                )}
+                </form>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#B5AFA6]">
+                    {!isSmallTalkPhase && (
+                      <button
+                        type="button"
+                        onClick={handleAskHintOrCalm}
+                        disabled={isSpeaking || isSubmitting || isThinking}
+                        className="px-3 py-2 rounded-[10px] bg-[#242424] hover:bg-[#2E2E2E] text-[#C7F36B] border border-[#383838] transition-colors cursor-pointer"
+                      >
+                        💡 Ask for a Hint
+                      </button>
+                    )}
+                  </div>
 
-                {isTextMode ? (
-                   <form onSubmit={handleSendTypedAnswer} className="w-full flex flex-col gap-2">
-                     <div className="flex gap-2">
-                       <textarea
-                         value={typedAnswer}
-                         onChange={(e) => setTypedAnswer(e.target.value)}
-                         placeholder={
-                           isRecording
-                             ? '🎙️ Recording... click mic button to stop and transcribe'
-                             : isTranscribing
-                             ? '⏳ Transcribing your speech...'
-                             : isSmallTalkPhase
-                             ? 'Reply to Shristi (e.g., "Doing great, ready to get started!"), or click mic...'
-                             : 'Type your answer here, or click mic to dictate...'
-                         }
-                         rows={2}
-                         disabled={isSubmitting || isThinking || isTranscribing}
-                         className="flex-1 px-4 py-2.5 rounded-xl border border-border-subtle bg-bg-canvas text-text-primary text-sm focus:border-accent-primary focus:outline-none resize-none"
-                         onKeyDown={(e) => {
-                           if (e.key === 'Enter' && !e.shiftKey) {
-                             e.preventDefault();
-                             handleSendTypedAnswer();
-                           }
-                         }}
-                       />
-                       <button
-                         type="button"
-                         onClick={toggleRecording}
-                         disabled={isSubmitting || isThinking || isTranscribing}
-                         className={`p-2.5 rounded-xl border border-border-subtle transition-all cursor-pointer shrink-0 flex items-center justify-center ${
-                           isRecording
-                             ? 'bg-danger text-white animate-pulse'
-                             : 'bg-bg-canvas hover:bg-bg-surface text-text-primary'
-                         }`}
-                         title={isRecording ? 'Stop recording & transcribe' : 'Dictate answer with microphone'}
-                       >
-                         {isRecording ? <FiStopCircle className="w-5 h-5" /> : <FiMic className="w-5 h-5" />}
-                       </button>
-                       <button
-                         type="submit"
-                         disabled={isSubmitting || isThinking || !typedAnswer.trim() || isRecording || isTranscribing}
-                         className="bg-accent-primary text-white px-5 rounded-xl font-bold hover:bg-accent-glow transition-all disabled:opacity-50 cursor-pointer text-sm shrink-0 flex items-center justify-center"
-                       >
-                         {isSubmitting ? <FiLoader className="animate-spin" /> : isSmallTalkPhase ? 'Reply' : 'Send'}
-                       </button>
-                     </div>
-                     <div className="flex justify-between items-center text-xs text-text-muted">
-                       {isSmallTalkPhase ? (
-                         <button
-                           type="button"
-                           onClick={handleSkipIntro}
-                           className="text-accent-primary hover:underline cursor-pointer font-medium"
-                         >
-                           Skip to Question 1 &rarr;
-                         </button>
-                       ) : (
-                         <button
-                           type="button"
-                           onClick={handleAskHintOrCalm}
-                           disabled={isSubmitting || isThinking}
-                           className="text-emerald-500 hover:text-emerald-400 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                         >
-                           🌱 Feeling nervous or blanking out? Ask Shristi for a hint
-                         </button>
-                       )}
-                       <button
-                         type="button"
-                         onClick={() => setIsTextMode(false)}
-                         className="text-accent-primary hover:underline cursor-pointer font-medium"
-                       >
-                         Switch to Voice Mode 🎙️
-                       </button>
-                     </div>
-                   </form>
-                ) : (
-                   <div className="flex flex-col items-center gap-2.5 w-full">
-                     {isRecording ? (
-                        <button 
-                          type="button"
-                          onClick={toggleRecording} 
-                          className="flex items-center gap-2 bg-danger text-white px-8 py-3.5 rounded-full font-bold hover:bg-danger/90 transition-all animate-pulse shadow-lg shadow-danger/30 cursor-pointer"
-                        >
-                           <FiStopCircle className="w-5 h-5" /> {isSmallTalkPhase ? "Stop & Send Reply" : "Stop & Submit Answer"}
-                        </button>
-                     ) : (
-                        <button 
-                          type="button"
-                          onClick={toggleRecording} 
-                          disabled={isSpeaking || isSubmitting || isTranscribing} 
-                          className="flex items-center gap-2 bg-accent-primary text-white px-8 py-3.5 rounded-full font-bold hover:bg-accent-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-accent-primary/20 cursor-pointer"
-                        >
-                           <FiMic className="w-5 h-5" /> {isSpeaking ? (isSmallTalkPhase ? "Listening to Shristi..." : "Wait for Shristi...") : (isSmallTalkPhase ? "Tap to Reply to Shristi" : "Tap to Answer")}
-                        </button>
-                     )}
-                     <div className="flex items-center justify-between w-full max-w-lg px-2 text-xs text-text-muted">
-                       {isSmallTalkPhase ? (
-                         <>
-                           <span className="text-text-muted">🌸 Zero stress: friendly warm-up with Shristi</span>
-                           <div className="flex items-center gap-3">
-                             <button
-                               type="button"
-                               onClick={handleSkipIntro}
-                               className="text-accent-primary hover:underline font-semibold cursor-pointer"
-                             >
-                               Skip to Q1 &rarr;
-                             </button>
-                             <button
-                               type="button"
-                               onClick={() => setIsTextMode(true)}
-                               className="text-accent-primary hover:underline font-semibold cursor-pointer shrink-0"
-                             >
-                               Type Instead
-                             </button>
-                           </div>
-                         </>
-                       ) : (
-                         <>
-                           <button
-                             type="button"
-                             onClick={handleAskHintOrCalm}
-                             disabled={isSpeaking || isSubmitting || isThinking}
-                             className="text-emerald-500 hover:text-emerald-400 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                           >
-                             🌱 Feeling nervous or stuck? Ask for a hint
-                           </button>
-                           <button
-                             type="button"
-                             onClick={() => setIsTextMode(true)}
-                             className="text-accent-primary hover:underline font-semibold cursor-pointer ml-3 shrink-0"
-                           >
-                             Type Answer Instead
-                           </button>
-                         </>
-                       )}
-                     </div>
-                   </div>
-                )}
-             </div>
-          </Card>
+                  {/* Center Primary Mic Control */}
+                  <div>
+                    {isRecording ? (
+                      <button
+                        type="button"
+                        onClick={toggleRecording}
+                        className="inline-flex items-center gap-2.5 px-7 py-3 rounded-[14px] bg-[#DC2626] text-white font-display font-bold text-sm shadow-[0_3px_0_#000000] animate-pulse cursor-pointer"
+                      >
+                        <FiStopCircle size={18} />
+                        {isSmallTalkPhase ? 'Done Speaking Reply' : 'Finish & Submit Answer'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={toggleRecording}
+                        disabled={isSpeaking || isSubmitting || isTranscribing}
+                        className="inline-flex items-center gap-2.5 px-7 py-3 rounded-[14px] bg-[#FF6B35] hover:bg-[#EB5822] text-white font-display font-bold text-sm shadow-[0_3px_0_#000000] disabled:opacity-40 cursor-pointer transition-all"
+                      >
+                        <FiMic size={18} />
+                        {isSpeaking
+                          ? 'Shristi is speaking...'
+                          : isSmallTalkPhase
+                          ? 'Tap Mic to Reply'
+                          : 'Tap Mic to Speak Answer'}
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsTextMode(true)}
+                    className="px-3 py-2 rounded-[10px] bg-[#242424] hover:bg-[#2E2E2E] text-[#F8F5EF] border border-[#383838] text-xs font-mono transition-colors cursor-pointer"
+                  >
+                    <FiMessageSquare className="inline mr-1.5" size={13} />
+                    Type Answer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ─── Render: SETUP ────────────────────────────────────────────────────────────
+  // ─── Render: SETUP (Phase 5 — Structured Interview Configuration + Equipment Check) ───
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-8rem)]">
-      <SEOHead title="Live AI Interview with Shristi" />
+    <div className="space-y-6 animate-fade-in">
+      <SEOHead title="Live AI Voice Interview — Evalix" />
 
-      {/* Left — form */}
-      <div className="w-full lg:w-5/12 flex flex-col space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-subtle pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Live AI Interview</h1>
-          <p className="text-text-secondary mt-1">
-            Practice with <strong>Shristi</strong>, your AI interviewer. She'll ask questions based on your
-            actual job description, evaluate your answers in real-time, and guide you to improve.
+          <h1 className="heading-page text-text-primary">
+            Live AI Voice Interview
+          </h1>
+          <p className="text-sm sm:text-base text-text-secondary mt-1">
+            Practice a <strong className="text-text-primary font-semibold">multi-turn spoken interview</strong> with <strong className="text-text-primary font-semibold">Shristi AI</strong> tailored to your target role and job description.
           </p>
         </div>
+      </div>
 
-        <Card>
-          <form onSubmit={handleStart} className="space-y-5">
-            <Input
-              id="userName"
-              label="Your Name"
-              placeholder="e.g., Rahul Sharma"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              required
-            />
-            <Input
-              id="jobRole"
-              label="Target Role"
-              placeholder="e.g., Frontend Engineer"
-              value={jobRole}
-              onChange={(e) => setJobRole(e.target.value)}
-              required
-            />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-primary" htmlFor="jobDescription">
-                Job Description <span className="text-error">*</span>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Step-by-Step Configuration Form (7 Cols) */}
+        <div className="lg:col-span-7 rounded-[20px] bg-bg-surface border border-border-subtle p-6 sm:p-8">
+          <form onSubmit={handleStart} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                id="userName"
+                label="1. Candidate Name"
+                placeholder="e.g., Shubham Maurya"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                icon={FiUser}
+                required
+              />
+              <Input
+                id="jobRole"
+                label="2. Target Role / Track"
+                placeholder="e.g., Senior Frontend Engineer"
+                value={jobRole}
+                onChange={(e) => setJobRole(e.target.value)}
+                icon={FiBriefcase}
+                required
+              />
+            </div>
+
+            {/* Quick Role Preset Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-mono text-text-muted mr-1">Quick Fill:</span>
+              {[
+                'Frontend React Engineer',
+                'Full Stack Developer',
+                'Backend Node.js Engineer',
+                'System Design Architect',
+                'SDE-1 (Fresher)',
+              ].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setJobRole(preset)}
+                  className={`px-2.5 py-1 rounded-[8px] text-xs font-mono transition-colors cursor-pointer border ${
+                    jobRole === preset
+                      ? 'bg-[#151515] text-[#F8F5EF] border-[#151515]'
+                      : 'bg-bg-canvas text-text-secondary border-border-subtle hover:border-[#FF6B35]'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Job Description / Resume Context */}
+            <div className="space-y-1.5">
+              <label
+                className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block"
+                htmlFor="jobDescription"
+              >
+                3. Job Description or Resume Project Highlights *
               </label>
               <textarea
                 id="jobDescription"
                 rows={5}
-                placeholder="Paste the full job description here. Shristi will tailor questions based on it..."
+                placeholder="Paste the target job description, required tech stack, or key projects from your resume. Shristi will tailor her questions and follow-ups to this context..."
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border-2 border-border-subtle bg-bg-surface text-text-primary placeholder-text-secondary resize-none transition-all duration-200 outline-none text-sm focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20"
+                className="w-full px-4 py-3 rounded-[11px] border border-border-subtle bg-bg-surface text-text-primary placeholder-text-muted resize-y text-sm focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/15 focus:outline-none transition-all"
               />
             </div>
-            {/* Difficulty Level Selector */}
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-primary">
-                Difficulty Level <span className="text-danger">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { id: 'easy', label: 'Easy', tag: 'Concepts', color: 'border-success/40 bg-success/10 text-success' },
-                  { id: 'medium', label: 'Medium', tag: 'Practical', color: 'border-accent-primary bg-accent-primary/10 text-accent-primary' },
-                  { id: 'hard', label: 'Hard', tag: 'Advanced', color: 'border-danger/40 bg-danger/10 text-danger' },
-                ].map((d) => (
-                  <div
-                    key={d.id}
-                    onClick={() => setDifficulty(d.id)}
-                    className={`cursor-pointer text-center p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
-                      difficulty === d.id
-                        ? `${d.color} font-bold shadow-sm ring-1`
-                        : 'border-border-subtle bg-bg-canvas text-text-secondary hover:border-text-secondary/50'
-                    }`}
-                  >
-                    <span className="capitalize text-sm font-bold">{d.label}</span>
-                    <span className="text-[10px] opacity-80 mt-0.5">{d.tag}</span>
-                  </div>
-                ))}
+
+            {/* Difficulty & Question Count */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block">
+                  4. Seniority & Difficulty
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { id: 'easy', label: 'Easy', sub: 'Fundamentals' },
+                    { id: 'medium', label: 'Medium', sub: 'Practical' },
+                    { id: 'hard', label: 'Hard', sub: 'Deep Dive' },
+                  ].map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDifficulty(d.id)}
+                      className={`p-3 rounded-[12px] border text-center transition-all cursor-pointer flex flex-col items-center ${
+                        difficulty === d.id
+                          ? 'bg-[#151515] text-[#F8F5EF] border-[#151515]'
+                          : 'bg-bg-canvas border-border-subtle text-text-secondary hover:border-text-primary/40'
+                      }`}
+                    >
+                      <span className="text-xs font-display font-bold">{d.label}</span>
+                      <span className="text-[10px] font-mono opacity-75 mt-0.5">{d.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block">
+                  5. Session Length (Questions)
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {MOCK_QUESTION_COUNTS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setTotalQuestions(opt)}
+                      className={`p-3 rounded-[12px] border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                        totalQuestions === opt
+                          ? 'bg-[#FF6B35] text-white border-[#151515] font-bold'
+                          : 'bg-bg-canvas border-border-subtle text-text-secondary hover:border-text-primary/40'
+                      }`}
+                    >
+                      <span className="text-sm font-display font-bold">{opt} Qs</span>
+                      <span className="text-[10px] font-mono opacity-80">~{opt * 2} mins</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-primary">
-                Number of Questions <span className="text-danger">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {MOCK_QUESTION_COUNTS.map((opt) => (
-                  <div
-                    key={opt}
-                    onClick={() => setTotalQuestions(opt)}
-                    className={`cursor-pointer text-center py-3 rounded-xl border-2 transition-all ${
-                      totalQuestions === opt
-                        ? 'border-accent-primary bg-accent-primary/10 text-accent-primary font-bold'
-                        : 'border-border-subtle bg-bg-canvas text-text-secondary hover:border-text-secondary/50'
-                    }`}
-                  >
-                    {opt}
-                  </div>
-                ))}
+            {/* Pre-Interview Equipment Check Bar */}
+            <div className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-display font-bold text-text-primary">
+                  Microphone Check
+                </p>
+                <p className="text-[11px] text-text-secondary mt-0.5">
+                  {micStatus === 'ready'
+                    ? 'Microphone verified and ready for live voice mode.'
+                    : micStatus === 'denied'
+                    ? 'Mic blocked — keyboard answer fallback will be available.'
+                    : 'Test microphone access before starting your session.'}
+                </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleCheckMicrophone}
+                className="px-3.5 py-2 rounded-[10px] bg-bg-surface border border-border-subtle hover:border-[#151515] text-xs font-mono font-semibold text-text-primary shrink-0 cursor-pointer transition-colors"
+              >
+                {micStatus === 'testing'
+                  ? 'Checking...'
+                  : micStatus === 'ready'
+                  ? '✓ Mic Verified'
+                  : 'Test Microphone'}
+              </button>
             </div>
-            
-            <button
+
+            <Button
               type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
               disabled={!userName || !jobRole || !jobDescription}
-              className="w-full bg-accent-primary text-white px-4 py-3 rounded-xl font-bold hover:bg-accent-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 mt-4 shadow-md shadow-accent-primary/20"
+              icon={FiArrowRight}
             >
-              Start Interview with Shristi <FiArrowRight />
-            </button>
+              Start Live Voice Interview
+            </Button>
           </form>
-        </Card>
-      </div>
+        </div>
 
-      {/* Right — about Shristi */}
-      <div className="w-full lg:w-7/12 flex flex-col gap-6">
-        {/* Shristi intro card */}
-        <Card className="p-8 bg-bg-surface border-border-subtle shadow-lg shadow-accent-primary/5 relative overflow-hidden">
-          <div className="absolute top-[-20%] right-[-10%] w-[300px] h-[300px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-accent-primary/10 via-transparent to-transparent pointer-events-none blur-3xl" />
-          
-          <div className="flex items-center gap-5 mb-6 relative z-10">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-lg border-2 border-border-subtle"
-              style={{ background: 'linear-gradient(135deg, #1C1D21 0%, #26272B 100%)' }}>
-              👩‍💼
+        {/* Right Column: Persistent Session Summary & Shristi Briefing Card (5 Cols) */}
+        <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+          <div className="rounded-[22px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-7 space-y-6">
+            <div className="flex items-center gap-4 pb-5 border-b border-[#2E2E2E]">
+              <EvalixOrb state="speaking" size="md" />
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#C7F36B] block">
+                  VOICE INTERVIEWER
+                </span>
+                <h2 className="text-xl font-display font-bold text-white">
+                  Shristi AI
+                </h2>
+                <p className="text-xs text-[#B5AFA6]">
+                  Multi-turn Technical &amp; Behavioral Interviewer
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-text-primary">Meet Shristi</h2>
-              <p className="text-text-secondary">Your AI Interviewer</p>
-              <div className="flex gap-2 mt-2">
-                <Badge variant="success">Live Voice</Badge>
-                <Badge variant="secondary">JD-Aware</Badge>
-                <Badge variant="info">Adaptive AI</Badge>
+
+            {/* Live Session Summary Preview */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#B5AFA6] block">
+                SESSION SUMMARY
+              </span>
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="p-3 rounded-[12px] bg-[#1F1F1F] border border-[#333333]">
+                  <span className="text-[#B5AFA6] font-mono block text-[10px]">TARGET ROLE</span>
+                  <span className="font-display font-bold text-white mt-0.5 block truncate">
+                    {jobRole || 'Not selected yet'}
+                  </span>
+                </div>
+                <div className="p-3 rounded-[12px] bg-[#1F1F1F] border border-[#333333]">
+                  <span className="text-[#B5AFA6] font-mono block text-[10px]">FORMAT</span>
+                  <span className="font-display font-bold text-[#FF6B35] uppercase mt-0.5 block">
+                    {difficulty} • {totalQuestions} Qs
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* What to Expect */}
+            <div className="space-y-3 pt-2 border-t border-[#2E2E2E]">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#C7F36B] block">
+                SESSION FLOW
+              </span>
+              <div className="space-y-2.5 text-xs text-[#B5AFA6]">
+                <p>
+                  <strong className="text-white">1. Optional Warm-Up:</strong> Start with a brief check-in or skip directly to Question 1.
+                </p>
+                <p>
+                  <strong className="text-white">2. Spoken Q&amp;A + Follow-Ups:</strong> Shristi reads each question aloud and probes shallow answers with up to <strong className="text-white">2 follow-ups</strong>.
+                </p>
+                <p>
+                  <strong className="text-white">3. Hints &amp; Text Fallback:</strong> Request a hint anytime or switch between microphone and keyboard input.
+                </p>
+                <p>
+                  <strong className="text-white">4. Per-Question Scorecard:</strong> Review your transcript, scores out of 10, and feedback after completing the session.
+                </p>
               </div>
             </div>
           </div>
-          <p className="text-text-secondary leading-relaxed">
-            Shristi is a professional AI interviewer trained to conduct realistic interviews. She adapts to your
-            answers — if you need more guidance, she'll give you a hint; if you nail it, she'll move on. She speaks
-            using natural voice, making it feel like a real interview.
-          </p>
-        </Card>
-
-        <Card className="p-6 bg-bg-surface border-border-subtle">
-          <h3 className="font-bold text-text-primary mb-4">How it works</h3>
-          <div className="space-y-4">
-            {[
-              { icon: FiFileText, step: '1', title: 'Paste your Job Description', desc: 'Shristi reads the JD and generates role-specific questions tailored to the exact skills required.' },
-              { icon: FiMic, step: '2', title: 'Answer by voice automatically', desc: 'Use the microphone for a realistic feel. Gemini AI transcribes your speech accurately when you finish.' },
-              { icon: FiBriefcase, step: '3', title: 'Shristi evaluates live', desc: 'She evaluates your answer, gives feedback, and either asks a follow-up or moves to the next question.' },
-              { icon: FiStar, step: '4', title: 'Get a full performance report', desc: 'After the interview, see your score per question, strengths, areas to improve, and Shristi\'s final recommendation.' },
-            ].map(({ icon: Icon, step, title, desc }) => (
-              <div key={step} className="flex items-start gap-4">
-                <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary font-bold text-sm flex-shrink-0">
-                  {step}
-                </div>
-                <div>
-                  <p className="font-medium text-text-primary text-sm">{title}</p>
-                  <p className="text-xs text-text-muted mt-0.5">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

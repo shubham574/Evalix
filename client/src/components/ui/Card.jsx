@@ -10,39 +10,36 @@ const Card = ({
   onClick,
   ...props
 }) => {
-  const baseStyles = 'rounded-3xl overflow-hidden relative transition-all duration-300';
-  
+  const baseStyles = 'rounded-[18px] overflow-hidden relative transition-all duration-200';
+
   const variants = {
-    default: 'bg-bg-surface/60 backdrop-blur-3xl border border-border-subtle shadow-sm flex flex-col',
+    default: 'bg-bg-surface border border-border-subtle shadow-xs flex flex-col',
     solid: 'bg-bg-elevated border border-border-subtle flex flex-col',
-    gradient: 'bg-gradient-to-br from-bg-surface to-bg-elevated border border-border-subtle shadow-sm flex flex-col',
+    ink: 'bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] flex flex-col',
+    tactile: 'bg-bg-surface border-[1.5px] border-[#151515] shadow-[4px_4px_0px_#151515] flex flex-col',
+    gradient: 'bg-bg-surface border border-border-subtle shadow-xs flex flex-col',
   };
 
-  const hoverStyles = hover ? 'hover:shadow-[0_0_40px_rgba(79,70,229,0.1)] hover:border-accent-primary/40 cursor-pointer group' : '';
+  const hoverStyles = hover
+    ? 'hover:border-[#FF6B35] hover:shadow-md cursor-pointer group'
+    : '';
 
   const CardWrapper = hover || onClick ? motion.div : 'div';
-  const motionProps = (hover || onClick) ? {
-    whileHover: { y: -2 },
-    onClick: onClick
-  } : {};
+  const motionProps =
+    hover || onClick
+      ? {
+          whileHover: { y: -2 },
+          onClick,
+        }
+      : {};
 
   return (
     <CardWrapper
-      className={`${baseStyles} ${variants[variant]} ${hoverStyles} ${className}`}
+      className={`${baseStyles} ${variants[variant] || variants.default} ${hoverStyles} ${className}`}
       {...motionProps}
       {...props}
     >
-      <div className={`relative z-10 w-full flex-1 ${padding}`}>
-        {children}
-      </div>
-      
-      {/* Subtle top gradient glow for hover cards */}
-      {hover && (
-        <>
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-        </>
-      )}
+      <div className={`relative z-10 w-full flex-1 ${padding}`}>{children}</div>
     </CardWrapper>
   );
 };

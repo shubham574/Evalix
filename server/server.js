@@ -27,7 +27,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet({
   crossOriginResourcePolicy: false,
 }));
-app.use(morgan('dev'));
+if (process.env.LOAD_TEST !== 'true') {
+  app.use(morgan('dev'));
+}
 app.use(clerkMiddleware());
 
 // Routes
@@ -68,6 +70,9 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', 4096, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;

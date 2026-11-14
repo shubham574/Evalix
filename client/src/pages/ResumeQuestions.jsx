@@ -64,11 +64,23 @@ const ResumeQuestions = () => {
         "@id": "https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions#article",
         "headline": "Resume-Based Interview Questions & AI Mock Practice",
         "description": "Upload your resume to generate personalized technical and behavioral mock interview questions with instant AI evaluation.",
+        "image": "https://interview-ai-ten-psi.vercel.app/og-image.png",
+        "datePublished": "2026-01-15",
+        "dateModified": "2026-11-12",
+        "author": {
+          "@type": "Organization",
+          "name": "Evalix",
+          "url": "https://interview-ai-ten-psi.vercel.app/"
+        },
         "url": "https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions",
         "publisher": {
           "@type": "Organization",
           "name": "Evalix",
-          "url": "https://interview-ai-ten-psi.vercel.app/"
+          "url": "https://interview-ai-ten-psi.vercel.app/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://interview-ai-ten-psi.vercel.app/og-image.png"
+          }
         }
       },
       {
@@ -90,22 +102,22 @@ const ResumeQuestions = () => {
     <div className="min-h-screen bg-bg-canvas text-text-primary font-body overflow-x-clip">
       <SEOHead 
         title="Resume-Based Interview Questions — AI Tailored Mock Prep"
-        description="Generate personalized technical interview questions directly from your resume and target job description. Practice with AI interviewer Shristi and get hiring-grade feedback."
+        description="Upload your PDF resume to generate tailored technical and behavioral interview questions with instant AI feedback."
         canonicalUrl="https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions"
         structuredData={structuredData}
       />
 
       {/* Header Bar */}
-      <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
+      <header className="border-b border-border-subtle bg-bg-surface/90 backdrop-blur-md sticky top-0 z-50 py-3.5 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            Evalix
+          <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-baseline gap-1">
+            <span>Evalix</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-              Log In
+            <Link to="/login" className="text-sm font-display font-semibold text-text-secondary hover:text-text-primary transition-colors">
+              Sign In
             </Link>
-            <Link to="/register" className="bg-accent-primary text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 transition-all shadow-md">
+            <Link to="/register" className="bg-[#FF6B35] text-white px-5 py-2 rounded-[12px] font-display font-semibold text-sm border border-[#151515]/15 shadow-[0_2px_0_#151515] hover:bg-[#EB5822] transition-all">
               Upload Resume Free
             </Link>
           </div>
@@ -115,14 +127,14 @@ const ResumeQuestions = () => {
       <main id="main-content" className="max-w-6xl mx-auto px-6 py-16 space-y-24">
         {/* ─── Hero Section ─── */}
         <section className="text-center max-w-4xl mx-auto pt-8">
-          <div className="inline-flex items-center space-x-2 bg-bg-elevated border border-border-subtle rounded-full px-4 py-1.5 mb-6 shadow-sm">
-            <FiFileText className="text-accent-primary" size={14} />
-            <span className="text-xs font-mono text-text-secondary uppercase tracking-widest">Resume-Driven AI Analysis</span>
+          <div className="inline-flex items-center space-x-2 bg-bg-surface border-[1.5px] border-[#151515] shadow-[2px_2px_0px_#151515] rounded-[10px] px-4 py-1.5 mb-6">
+            <FiFileText className="text-[#FF6B35]" size={14} />
+            <span className="text-xs font-mono text-text-primary font-bold uppercase tracking-widest">Resume-Driven AI Analysis</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-display tracking-tight text-text-primary mb-6">
+          <h1 className="heading-section text-text-primary mb-6">
             Resume-Based <br className="hidden sm:block" />
-            <span className="text-gradient">Interview Questions & AI Prep</span>
+            <span className="inline-block px-3 py-0.5 rounded-[12px] bg-[#FF6B35] text-white mt-1">Interview Questions & AI Prep</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto mb-10">
@@ -130,10 +142,10 @@ const ResumeQuestions = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/register" className="w-full sm:w-auto bg-accent-primary text-white px-8 py-3.5 rounded-full font-bold text-base hover:opacity-90 shadow-lg shadow-accent-primary/25 transition-all flex items-center justify-center gap-2">
+            <Link to="/register" className="w-full sm:w-auto bg-[#FF6B35] text-white px-8 py-3.5 rounded-[12px] font-display font-bold text-base shadow-[0_3px_0_#151515] hover:bg-[#EB5822] transition-all flex items-center justify-center gap-2">
               <FiZap size={18} /> Analyze My Resume Free
             </Link>
-            <Link to="/#how-it-works" className="w-full sm:w-auto border border-border-subtle text-text-primary px-8 py-3.5 rounded-full font-medium text-base hover:bg-bg-elevated transition-colors">
+            <Link to="/#how-it-works" className="w-full sm:w-auto bg-bg-surface border border-border-subtle text-text-primary px-8 py-3.5 rounded-[12px] font-display font-semibold text-base hover:border-[#151515] transition-colors">
               See How It Works
             </Link>
           </div>
@@ -152,15 +164,13 @@ const ResumeQuestions = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: FiTarget, title: "Project Claim Validation", desc: "Drills into your biggest bullet points to verify architecture, design patterns, and hands-on implementation." },
-              { icon: FiTrendingUp, title: "Metrics & Impact Defense", desc: "Questions the numbers on your resume (e.g. 'reduced latency by 40%') to ensure you can explain the exact benchmarks." },
-              { icon: FiShield, title: "ATS & JD Skill Gap Analysis", desc: "Compares your resume against target job postings to reveal blind spots before hiring managers spot them." },
-              { icon: FiCheckCircle, title: "STAR Story Alignment", desc: "Structures behavioral responses using Situation, Task, Action, and Result to maximize recruiter scorecards." }
+              { title: "Project Claim Validation", desc: "Drills into your biggest bullet points to verify architecture, design patterns, and hands-on implementation." },
+              { title: "Metrics & Impact Defense", desc: "Questions the numbers on your resume (e.g. 'reduced latency by 40%') to ensure you can explain the exact benchmarks." },
+              { title: "ATS & JD Skill Gap Analysis", desc: "Compares your resume against target job postings to reveal blind spots before hiring managers spot them." },
+              { title: "STAR Story Alignment", desc: "Structures behavioral responses using Situation, Task, Action, and Result to maximize recruiter scorecards." }
             ].map((col, idx) => (
-              <div key={idx} className="bg-bg-surface border border-border-subtle rounded-2xl p-6 hover:border-accent-primary/40 transition-colors">
-                <div className="w-12 h-12 bg-accent-primary/10 text-accent-primary rounded-xl flex items-center justify-center mb-4">
-                  <col.icon size={22} />
-                </div>
+              <div key={idx} className="bg-bg-surface border-[1.5px] border-border-subtle rounded-[18px] p-6 hover:border-[#151515] transition-colors">
+                <span className="text-xs font-mono font-bold text-[#FF6B35] block mb-3">/0{idx + 1}</span>
                 <h3 className="text-lg font-bold font-display text-text-primary mb-2">{col.title}</h3>
                 <p className="text-sm text-text-secondary leading-relaxed">{col.desc}</p>
               </div>

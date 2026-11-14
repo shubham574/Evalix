@@ -64,11 +64,23 @@ const SystemDesignMockInterview = () => {
         "@id": "https://interview-ai-ten-psi.vercel.app/system-design-mock-interview#article",
         "headline": "AI System Design Mock Interview: Master High-Level & Low-Level Architecture",
         "description": "Interactive AI mock interviews for distributed system design. Practice HLD scenarios with AI interviewer Shristi and get hiring-grade architecture feedback.",
+        "image": "https://interview-ai-ten-psi.vercel.app/og-image.png",
+        "datePublished": "2026-01-15",
+        "dateModified": "2026-11-12",
+        "author": {
+          "@type": "Organization",
+          "name": "Evalix",
+          "url": "https://interview-ai-ten-psi.vercel.app/"
+        },
         "url": "https://interview-ai-ten-psi.vercel.app/system-design-mock-interview",
         "publisher": {
           "@type": "Organization",
           "name": "Evalix",
-          "url": "https://interview-ai-ten-psi.vercel.app/"
+          "url": "https://interview-ai-ten-psi.vercel.app/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://interview-ai-ten-psi.vercel.app/og-image.png"
+          }
         }
       },
       {
@@ -90,22 +102,22 @@ const SystemDesignMockInterview = () => {
     <div className="min-h-screen bg-bg-canvas text-text-primary font-body overflow-x-clip">
       <SEOHead 
         title="System Design Mock Interview — AI Distributed Architecture Practice"
-        description="Practice realistic AI system design mock interviews. Master distributed systems, caching, database sharding, microservices, and CAP theorem trade-offs with instant scoring."
+        description="Practice AI system design mock interviews covering distributed caching, database sharding, queues, and API architecture."
         canonicalUrl="https://interview-ai-ten-psi.vercel.app/system-design-mock-interview"
         structuredData={structuredData}
       />
 
       {/* Header Bar */}
-      <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-md sticky top-0 z-50 py-4 px-6">
+      <header className="border-b border-border-subtle bg-bg-surface/90 backdrop-blur-md sticky top-0 z-50 py-3.5 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-center gap-2">
-            Evalix
+          <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-baseline gap-1">
+            <span>Evalix</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-              Log In
+            <Link to="/login" className="text-sm font-display font-semibold text-text-secondary hover:text-text-primary transition-colors">
+              Sign In
             </Link>
-            <Link to="/register" className="bg-accent-primary text-white px-5 py-2 rounded-full font-semibold text-sm hover:opacity-90 transition-all shadow-md">
+            <Link to="/register" className="bg-[#FF6B35] text-white px-5 py-2 rounded-[12px] font-display font-semibold text-sm border border-[#151515]/15 shadow-[0_2px_0_#151515] hover:bg-[#EB5822] transition-all">
               Start Free Practice
             </Link>
           </div>
@@ -115,14 +127,14 @@ const SystemDesignMockInterview = () => {
       <main id="main-content" className="max-w-6xl mx-auto px-6 py-16 space-y-24">
         {/* ─── Hero Section ─── */}
         <section className="text-center max-w-4xl mx-auto pt-8">
-          <div className="inline-flex items-center space-x-2 bg-bg-elevated border border-border-subtle rounded-full px-4 py-1.5 mb-6 shadow-sm">
-            <FiLayers className="text-accent-primary" size={14} />
-            <span className="text-xs font-mono text-text-secondary uppercase tracking-widest">Distributed Systems Track</span>
+          <div className="inline-flex items-center space-x-2 bg-bg-surface border-[1.5px] border-[#151515] shadow-[2px_2px_0px_#151515] rounded-[10px] px-4 py-1.5 mb-6">
+            <FiLayers className="text-[#FF6B35]" size={14} />
+            <span className="text-xs font-mono text-text-primary font-bold uppercase tracking-widest">Distributed Systems Track</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-display tracking-tight text-text-primary mb-6">
+          <h1 className="heading-section text-text-primary mb-6">
             AI System Design <br className="hidden sm:block" />
-            <span className="text-gradient">Mock Interview Simulator</span>
+            <span className="inline-block px-3 py-0.5 rounded-[12px] bg-[#FF6B35] text-white mt-1">Mock Interview Simulator</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto mb-10">
@@ -130,10 +142,10 @@ const SystemDesignMockInterview = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/register" className="w-full sm:w-auto bg-accent-primary text-white px-8 py-3.5 rounded-full font-bold text-base hover:opacity-90 shadow-lg shadow-accent-primary/25 transition-all flex items-center justify-center gap-2">
+            <Link to="/register" className="w-full sm:w-auto bg-[#FF6B35] text-white px-8 py-3.5 rounded-[12px] font-display font-bold text-base shadow-[0_3px_0_#151515] hover:bg-[#EB5822] transition-all flex items-center justify-center gap-2">
               <FiServer size={18} /> Start System Design Interview
             </Link>
-            <Link to="/#how-it-works" className="w-full sm:w-auto border border-border-subtle text-text-primary px-8 py-3.5 rounded-full font-medium text-base hover:bg-bg-elevated transition-colors">
+            <Link to="/#how-it-works" className="w-full sm:w-auto bg-bg-surface border border-border-subtle text-text-primary px-8 py-3.5 rounded-[12px] font-display font-semibold text-base hover:border-[#151515] transition-colors">
               Explore Practice Features
             </Link>
           </div>
@@ -152,15 +164,13 @@ const SystemDesignMockInterview = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: FiDatabase, title: "Data Storage & Partitioning", desc: "SQL vs NoSQL tradeoffs, consistent hashing, horizontal sharding, and replication topologies." },
-              { icon: FiCloud, title: "Caching & Content Delivery", desc: "Cache-aside vs write-through patterns, Redis clusters, invalidation stampedes, and edge CDNs." },
-              { icon: FiActivity, title: "Resilience & High Availability", desc: "Circuit breakers, bulkhead isolation, rate limiting, and graceful degradation during outages." },
-              { icon: FiCpu, title: "Asynchronous Pipelines", desc: "Message brokers (Kafka, RabbitMQ), event sourcing, dead letter queues, and idempotent consumers." }
+              { title: "Data Storage & Partitioning", desc: "SQL vs NoSQL tradeoffs, consistent hashing, horizontal sharding, and replication topologies." },
+              { title: "Caching & Content Delivery", desc: "Cache-aside vs write-through patterns, Redis clusters, invalidation stampedes, and edge CDNs." },
+              { title: "Resilience & High Availability", desc: "Circuit breakers, bulkhead isolation, rate limiting, and graceful degradation during outages." },
+              { title: "Asynchronous Pipelines", desc: "Message brokers (Kafka, RabbitMQ), event sourcing, dead letter queues, and idempotent consumers." }
             ].map((col, idx) => (
-              <div key={idx} className="bg-bg-surface border border-border-subtle rounded-2xl p-6 hover:border-accent-primary/40 transition-colors">
-                <div className="w-12 h-12 bg-accent-primary/10 text-accent-primary rounded-xl flex items-center justify-center mb-4">
-                  <col.icon size={22} />
-                </div>
+              <div key={idx} className="bg-bg-surface border-[1.5px] border-border-subtle rounded-[18px] p-6 hover:border-[#151515] transition-colors">
+                <span className="text-xs font-mono font-bold text-[#FF6B35] block mb-3">/0{idx + 1}</span>
                 <h3 className="text-lg font-bold font-display text-text-primary mb-2">{col.title}</h3>
                 <p className="text-sm text-text-secondary leading-relaxed">{col.desc}</p>
               </div>
