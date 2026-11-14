@@ -129,22 +129,50 @@ exports.submitTurn = asyncHandler(async (req, res, next) => {
   const question = session.questions[questionIndex];
   if (!question) return next(new ApiError(400, 'Invalid question index'));
 
-  // Get Shristi's evaluation with empathetic panic/fumble handling
-  const evaluation = await evaluateLiveAnswer(
-    question.question,
+  // Build recent conversation history for true agentic memory
+  const conversationHistory = (session.turns || []).slice(-8).flatMap((t) => [
+    { role: 'Candidate', text: t.userAnswer },
+    { role: 'Shristi', text: t.shristiResponse },
+  ]);
+
+  const followUpCount = (session.turns || []).filter(
+    (t) => t.questionIndex === questionIndex && t.action === 'followup'
+  ).length;
+
+  const nextPlannedObj = session.questions[questionIndex + 1] || null;
+  const nextPlannedQuestion = nextPlannedObj ? nextPlannedObj.question : null;
+
+  // Get Shristi's agentic evaluation with full context
+  const evaluation = await evaluateLiveAnswer({
+    question: question.question,
     userAnswer,
-    session.jobRole,
+    jobRole: session.jobRole,
+    jobDescription: session.jobDescription,
+    difficulty: session.difficulty,
     attempt,
     previousAnswer,
-    customApiKey
-  );
+    conversationHistory,
+    nextPlannedQuestion,
+    followUpCount,
+    customApiKey,
+  });
 
-  // Force "next" action if on attempt 2+ regardless of score (prevent infinite retry)
-  if (attempt >= 2 && evaluation.action === 'retry') {
+  // Prevent infinite loops on retry or follow-up
+  if ((attempt >= 2 && evaluation.action === 'retry') || (followUpCount >= 2 && evaluation.action === 'followup')) {
     evaluation.action = 'next';
-    evaluation.shristiResponse =
-      `I really appreciate your honest effort. Take a deep breath — let's move forward together to the next question! ` +
-      (evaluation.shristiResponse || '');
+    if (nextPlannedQuestion && !evaluation.adaptedNextQuestion) {
+      evaluation.adaptedNextQuestion = nextPlannedQuestion;
+      evaluation.shristiResponse =
+        `${evaluation.shristiResponse || 'Thanks for sharing that!'} Moving on — ${nextPlannedQuestion}`;
+    }
+  }
+
+  let nextQuestionText = null;
+  if (evaluation.action === 'next' && nextPlannedObj) {
+    nextQuestionText = (evaluation.adaptedNextQuestion && evaluation.adaptedNextQuestion.trim()) || nextPlannedQuestion;
+    if (nextQuestionText !== nextPlannedObj.question) {
+      session.questions[questionIndex + 1].question = nextQuestionText;
+    }
   }
 
   // Record the turn
@@ -171,6 +199,7 @@ exports.submitTurn = asyncHandler(async (req, res, next) => {
       action: evaluation.action,
       isPanicOrFumble: evaluation.isPanicOrFumble || false,
       shristiResponse: evaluation.shristiResponse,
+      nextQuestion: nextQuestionText,
       feedback: evaluation.feedback,
       strengths: evaluation.strengths,
       improvements: evaluation.improvements,

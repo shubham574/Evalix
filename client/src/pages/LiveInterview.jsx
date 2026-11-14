@@ -5,7 +5,8 @@ import {
   FiMic, FiStopCircle, FiArrowRight, FiAlertCircle,
   FiLoader, FiCheckCircle, FiUser, FiFileText, FiBriefcase,
   FiVolume2, FiVolumeX, FiStar, FiTrendingUp, FiMaximize, FiMinimize, FiX,
-  FiClock, FiPlay, FiRefreshCw, FiMessageSquare
+  FiClock, FiPlay, FiRefreshCw, FiMessageSquare, FiUpload, FiHelpCircle,
+  FiTarget, FiAward
 } from 'react-icons/fi';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
@@ -22,13 +23,59 @@ import Loader from '../components/ui/Loader';
 import { EvalixOrb, EvalixStarburst } from '../components/ui/EvalixOrb';
 import api from '../api/axios';
 import { API } from '../api/endpoints';
+import { evalixV1 } from '../api/evalixV1';
 import { MOCK_QUESTION_COUNTS } from '../utils/constants';
 import { getGradeColor } from '../utils/helpers';
 
+const pollUntil = async (fn, isDone, { intervalMs = 1500, timeoutMs = 90000 } = {}) => {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const res = await fn();
+    if (isDone(res)) return res;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error('Operation timed out while waiting for pipeline step.');
+};
+
 // ─── Shristi Hybrid TTS Hook (Gemini Audio + Browser Web Speech API fallback) ─
+const splitSpeechChunks = (text, maxLen = 180) => {
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) || [text];
+  const chunks = [];
+  let current = '';
+
+  for (const rawSentence of sentences) {
+    const sentence = rawSentence.trim();
+    if (!sentence) continue;
+    if ((current + ' ' + sentence).trim().length <= maxLen) {
+      current = current ? `${current} ${sentence}` : sentence;
+    } else {
+      if (current) chunks.push(current);
+      if (sentence.length <= maxLen) {
+        current = sentence;
+      } else {
+        // Split very long sentence by commas/clauses
+        const parts = sentence.split(/(?<=[,;:])\s+/);
+        let sub = '';
+        for (const part of parts) {
+          if ((sub + ' ' + part).trim().length <= maxLen) {
+            sub = sub ? `${sub} ${part}` : part;
+          } else {
+            if (sub) chunks.push(sub);
+            sub = part;
+          }
+        }
+        current = sub;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length > 0 ? chunks : [text];
+};
+
 const useShristi = ({ getToken }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const isMutedRef = useRef(false);
   const audioContextRef = useRef(null);
   const sourceNodeRef = useRef(null);
   const utteranceRef = useRef(null);
@@ -37,6 +84,10 @@ const useShristi = ({ getToken }) => {
   const resumeIntervalRef = useRef(null);
   const callIdRef = useRef(0);
   const voicesRef = useRef([]);
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // Pre-load voices for window.speechSynthesis
   useEffect(() => {
@@ -100,8 +151,8 @@ const useShristi = ({ getToken }) => {
     setIsSpeaking(false);
   }, []);
 
-  // Browser Web Speech API fallback with natural English female voice
-  const speakWithBrowserSpeech = useCallback((rawText, onEnd) => {
+  // Browser Web Speech API fallback with natural English female voice (chunked to prevent mid-speech cutoff)
+  const speakWithBrowserSpeech = useCallback((rawText, onEnd, expectedCallId) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       setIsSpeaking(false);
       onEnd?.();
@@ -123,9 +174,6 @@ const useShristi = ({ getToken }) => {
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utteranceRef.current = utterance;
-
       let voices = window.speechSynthesis.getVoices() || [];
       if (voices.length === 0 && voicesRef.current.length > 0) {
         voices = voicesRef.current;
@@ -133,7 +181,6 @@ const useShristi = ({ getToken }) => {
 
       const selectFemaleVoice = (vList) => {
         if (!vList || vList.length === 0) return null;
-        // Priority 1: Natural Indian English & Hindi female voices
         const indianFemale =
           vList.find((v) =>
             /Neerja|Heera|Veena|Lekha|Swara|Aditi|Raveena|Kavya|Pooja|Geeta|Ananya|Google English \(India\)|Google हिन्दी/i.test(v.name || '')
@@ -144,7 +191,6 @@ const useShristi = ({ getToken }) => {
           );
         if (indianFemale) return indianFemale;
 
-        // Priority 2: Other warm, gentle natural female voices
         return (
           vList.find((v) =>
             /Google UK English Female|Natural|Jenny|Aria|Samantha|Victoria|Karen|Moira|Tessa|Ava|Allison|Susan/i.test(v.name || '')
@@ -157,26 +203,13 @@ const useShristi = ({ getToken }) => {
       };
 
       const femaleVoice = selectFemaleVoice(voices);
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-      } else {
-        const onVoices = () => {
-          window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
-          const updated = window.speechSynthesis.getVoices() || [];
-          const matched = selectFemaleVoice(updated);
-          if (matched) utterance.voice = matched;
-        };
-        window.speechSynthesis.addEventListener('voiceschanged', onVoices);
-      }
+      const chunks = splitSpeechChunks(cleanText, 180);
+      let chunkIdx = 0;
+      let finishedAll = false;
 
-      // Calm, polite, soothing conversational pace (unhurried Indian rhythm)
-      utterance.rate = 0.94;
-      utterance.pitch = 1.03; // Gentle, friendly, warm female tone
-
-      let finished = false;
-      const finish = () => {
-        if (finished) return;
-        finished = true;
+      const finishAll = () => {
+        if (finishedAll) return;
+        finishedAll = true;
         if (resumeIntervalRef.current) {
           clearInterval(resumeIntervalRef.current);
           resumeIntervalRef.current = null;
@@ -187,45 +220,81 @@ const useShristi = ({ getToken }) => {
         }
         utteranceRef.current = null;
         setIsSpeaking(false);
-        onEnd?.();
-      };
-
-      utterance.onend = finish;
-      utterance.onerror = (e) => {
-        console.warn('SpeechSynthesis event error:', e);
-        finish();
+        if (expectedCallId === undefined || callIdRef.current === expectedCallId) {
+          onEnd?.();
+        }
       };
 
       setIsSpeaking(true);
-      try {
-        window.speechSynthesis.resume();
-      } catch (e) { /* ignore */ }
-      window.speechSynthesis.speak(utterance);
 
-      // Chrome long-utterance keepalive fix
+      // Gentle keepalive: only resume if Chrome paused synthesis (never call pause() mid-speech!)
       if (resumeIntervalRef.current) clearInterval(resumeIntervalRef.current);
       resumeIntervalRef.current = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          if (resumeIntervalRef.current) {
-            clearInterval(resumeIntervalRef.current);
-            resumeIntervalRef.current = null;
-          }
-        } else {
-          window.speechSynthesis.pause();
-          window.speechSynthesis.resume();
+        if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+          try {
+            window.speechSynthesis.resume();
+          } catch (e) { /* ignore */ }
         }
-      }, 5000);
+      }, 2000);
 
-      const maxSeconds = Math.max(6, cleanText.length / 10 + 3);
-      safetyTimerRef.current = setTimeout(() => {
-        if (resumeIntervalRef.current) {
-          clearInterval(resumeIntervalRef.current);
-          resumeIntervalRef.current = null;
+      const speakNextChunk = () => {
+        if (finishedAll) return;
+        if (expectedCallId !== undefined && callIdRef.current !== expectedCallId) {
+          finishedAll = true;
+          setIsSpeaking(false);
+          return;
         }
-        if (!finished) {
-          finish();
+        if (chunkIdx >= chunks.length) {
+          finishAll();
+          return;
         }
-      }, maxSeconds * 1000);
+
+        const chunkText = chunks[chunkIdx++];
+        const utterance = new SpeechSynthesisUtterance(chunkText);
+        utteranceRef.current = utterance;
+
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        }
+        utterance.rate = 0.96;
+        utterance.pitch = 1.03;
+
+        let chunkDone = false;
+        const onChunkDone = () => {
+          if (chunkDone) return;
+          chunkDone = true;
+          if (safetyTimerRef.current) {
+            clearTimeout(safetyTimerRef.current);
+            safetyTimerRef.current = null;
+          }
+          speakNextChunk();
+        };
+
+        utterance.onend = onChunkDone;
+        utterance.onerror = (e) => {
+          console.warn('SpeechSynthesis chunk error:', e);
+          onChunkDone();
+        };
+
+        try {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+        } catch (e) { /* ignore */ }
+
+        window.speechSynthesis.speak(utterance);
+
+        // Generous per-chunk safety timeout so long utterances never stall or get cut short
+        const maxChunkSeconds = Math.max(12, chunkText.length / 5 + 6);
+        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+        safetyTimerRef.current = setTimeout(() => {
+          if (!chunkDone) {
+            onChunkDone();
+          }
+        }, maxChunkSeconds * 1000);
+      };
+
+      speakNextChunk();
     } catch (e) {
       console.warn('Browser speech synthesis failed:', e);
       setIsSpeaking(false);
@@ -235,7 +304,7 @@ const useShristi = ({ getToken }) => {
 
   const speak = useCallback(
     async (text, onEnd) => {
-      if (isMuted) {
+      if (isMutedRef.current) {
         onEnd?.();
         return;
       }
@@ -243,7 +312,7 @@ const useShristi = ({ getToken }) => {
       stopSpeaking();
       const currentCallId = ++callIdRef.current;
 
-      // Hybrid pipeline: Attempt external backend audio generation with quick timeout fallback
+      // Hybrid pipeline: Attempt external backend audio generation with timeout fallback
       try {
         const token = await getToken();
         const geminiKey = localStorage.getItem('custom_gemini_key');
@@ -254,10 +323,10 @@ const useShristi = ({ getToken }) => {
         const controller = new AbortController();
         abortControllerRef.current = controller;
 
-        // 8s timeout for TTS request (ElevenLabs) so the interview flow is never stalled
+        // 12s timeout for TTS request so the interview flow is never stalled
         const timeoutId = setTimeout(() => {
           controller.abort();
-        }, 8000);
+        }, 12000);
 
         const response = await api.post(
           API.TTS,
@@ -299,17 +368,19 @@ const useShristi = ({ getToken }) => {
         source.onended = () => {
           setIsSpeaking(false);
           sourceNodeRef.current = null;
-          onEnd?.();
+          if (callIdRef.current === currentCallId) {
+            onEnd?.();
+          }
         };
 
         source.start(0);
       } catch (err) {
         if (callIdRef.current !== currentCallId) return;
         // Fall back seamlessly to browser Web Speech API — NEVER show error toasts or block interview
-        speakWithBrowserSpeech(text, onEnd);
+        speakWithBrowserSpeech(text, onEnd, currentCallId);
       }
     },
-    [isMuted, getToken, stopSpeaking, speakWithBrowserSpeech]
+    [getToken, stopSpeaking, speakWithBrowserSpeech]
   );
 
   const toggleMute = useCallback(() => {
@@ -604,6 +675,43 @@ const LiveInterview = () => {
   const [micStatus, setMicStatus] = useState('untested'); // 'untested' | 'testing' | 'ready' | 'denied'
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // ── Modules 1–8 Pipeline & Practice State
+  const [resumeFile, setResumeFile] = useState(null);
+  const [jdFile, setJdFile] = useState(null);
+  const [practiceMode, setPracticeMode] = useState('REALISTIC_MOCK');
+  const [focusCompetency, setFocusCompetency] = useState('');
+  const [pipelineStatus, setPipelineStatus] = useState('');
+  const [recentIntakes, setRecentIntakes] = useState([]);
+  const [v1Profile, setV1Profile] = useState(null);
+  const [blueprint, setBlueprint] = useState(null);
+  const [hints, setHints] = useState([]);
+  const [attempts, setAttempts] = useState([]);
+  const [evaluationReport, setEvaluationReport] = useState(null);
+  const [learningInsights, setLearningInsights] = useState(null);
+  const [developmentPlan, setDevelopmentPlan] = useState(null);
+  const [practiceHistory, setPracticeHistory] = useState(null);
+
+  useEffect(() => {
+    const loadV1Context = async () => {
+      try {
+        const [profRes, intakesRes] = await Promise.allSettled([
+          evalixV1.getProfile(),
+          evalixV1.listIntakes(),
+        ]);
+        if (profRes.status === 'fulfilled') setV1Profile(profRes.value);
+        if (intakesRes.status === 'fulfilled') {
+          const list = Array.isArray(intakesRes.value)
+            ? intakesRes.value
+            : intakesRes.value?.intakes || [];
+          setRecentIntakes(list);
+        }
+      } catch (_) {
+        // Non-blocking initial fetch
+      }
+    };
+    void loadV1Context();
+  }, []);
+
   useEffect(() => {
     if (user?.firstName && !userName) {
       setUserName(user.firstName);
@@ -681,131 +789,129 @@ const LiveInterview = () => {
   // ── Shristi TTS
   const { speak, stopSpeaking, isSpeaking, isMuted, toggleMute } = useShristi({ getToken });
 
-  // ── Handle Auto-Submit
+  const isMutedLiveRef = useRef(isMuted);
+  const isTextModeLiveRef = useRef(isTextMode);
+  const smallTalkStartedRef = useRef(false);
+  const introTimeoutRef = useRef(null);
+  const introFinishedRef = useRef(false);
+
+  useEffect(() => {
+    isMutedLiveRef.current = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    isTextModeLiveRef.current = isTextMode;
+  }, [isTextMode]);
+
+  // ── Voice recording
+  const handleTranscriptCompleteRef = useRef(null);
+  const { isRecording, isTranscribing, error: recorderError, toggleRecording, startRecording } = useVoiceRecorder({
+    onTranscriptComplete: (t) => handleTranscriptCompleteRef.current?.(t),
+    getToken,
+  });
+
+  // ── Single-fire Shristi message delivery (prevents duplicate/hallucinated repeats)
+  const deliverShristiMessage = useCallback((text, { messageId = null, onSpoken = null, autoMic = true } = {}) => {
+    if (!text) return;
+    const id = messageId || `shristi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setShristiMessage(text);
+    setChatHistory((prev) => {
+      if (messageId && prev.some((m) => m.id === messageId)) return prev;
+      const last = prev[prev.length - 1];
+      if (last && last.sender === 'shristi' && last.text === text) return prev;
+      return [...prev, { id, sender: 'shristi', text }];
+    });
+
+    speak(text, () => {
+      setShristiHasSpoken(true);
+      if (onSpoken) {
+        onSpoken();
+      } else if (autoMic && !isMutedLiveRef.current && !isTextModeLiveRef.current) {
+        startRecording();
+      }
+    });
+  }, [speak, startRecording]);
+
+  // ── Handle Auto-Submit (Modules 5 & 8 /api/v1/sessions)
   const handleSubmitAnswer = async (answerText) => {
     if (!answerText || answerText.trim().length < 2) {
-       toast.error("Answer too short. Please try again.");
-       return;
+      toast.error('Answer too short. Please try again.');
+      return;
     }
-    
+    if (!session?.sessionId) return;
+
     stopSpeaking();
     setIsSubmitting(true);
     setIsThinking(true);
     setShristiHasSpoken(false);
+    const idempotencyKey = `live_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // If currently in Small Talk icebreaker phase, submit turn to comfort candidate
-    if (isSmallTalkPhase) {
-      try {
-        const token = await getToken();
-        const geminiKey = localStorage.getItem('custom_gemini_key');
-        const headers = { Authorization: `Bearer ${token}` };
-        if (geminiKey) headers['x-gemini-api-key'] = geminiKey;
-
-        const { data } = await api.post(
-          API.LIVE_INTERVIEW.TURN(session._id),
-          { questionIndex: -1, userAnswer: answerText },
-          { headers }
-        );
-
-        const result = data.data;
-        setIsThinking(false);
-        setIsSmallTalkPhase(false);
-        setIsIntroPhase(false);
-
-        const comfortingReply = result.shristiResponse ||
-          "That is so wonderful to hear! Take a slow, comfortable breath — zero stress today, we are just having a friendly conversation. Let's start nice and easy with a quick warm-up question!";
-
-        setChatHistory(prev => [...prev, { id: 'shristi-comfort', sender: 'shristi', text: comfortingReply }]);
-
-        speak(comfortingReply, () => {
-          setTimeout(() => {
-            presentFirstQuestion(session);
-          }, 600);
-        });
-      } catch (err) {
-        setIsThinking(false);
-        setIsSmallTalkPhase(false);
-        setIsIntroPhase(false);
-        presentFirstQuestion(session);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
-    }
-
-    // Regular question turn
     try {
-      const token = await getToken();
-      const geminiKey = localStorage.getItem('custom_gemini_key');
-      const headers = { Authorization: `Bearer ${token}` };
-      if (geminiKey) headers['x-gemini-api-key'] = geminiKey;
-
-      const { data } = await api.post(
-        API.LIVE_INTERVIEW.TURN(session._id),
-        { questionIndex: currentQIndex, userAnswer: answerText, attempt, previousAnswer },
-        { headers }
-      );
-
-      const result = data.data;
-      setIsThinking(false);
-
-      if (result.isPanicOrFumble) {
-        setIsCalmingActive(true);
-        setTimeout(() => setIsCalmingActive(false), 9000);
-      }
-
-      if (result.action === 'retry') {
-        // Re-ask same question with Shristi's calming guidance
-        setPreviousAnswer(answerText);
-        setAttempt((a) => a + 1);
-        setShristiMessage(result.shristiResponse);
+      if (session.practiceMode === 'GUIDED_PRACTICE') {
+        const res = await evalixV1.submitPracticeAttempt(session.sessionId, {
+          idempotencyKey,
+          answerText: answerText.trim(),
+          questionId: session.currentQuestionId,
+        });
+        setIsThinking(false);
+        if (res.ignored) {
+          toast('Partial speech ignored; please complete your answer.');
+          return;
+        }
+        setAttempts((prev) => [...prev, res.attempt]);
+        setTypedAnswer('');
+        const coachingReply =
+          res.attempt?.coachingFeedback?.summary ||
+          res.attempt?.coachingFeedback?.encouragement ||
+          `Attempt #${res.attempt?.attemptNumber || 1} recorded. You can retry with improvements or continue to the next question.`;
+        deliverShristiMessage(coachingReply, { autoMic: false });
       } else {
-        // Move to next question (action = "next" or "followup")
-        const nextIndex = currentQIndex + 1;
-        if (nextIndex < session.totalQuestions) {
-          const nextQ = session.questions[nextIndex];
-          setCurrentQIndex(nextIndex);
-          setAttempt(1);
-          setPreviousAnswer(null);
-          setTypedAnswer('');
-          const lengthLabel = nextIndex === 0 ? 'Warm-up' : nextIndex === 1 ? 'Foundational' : 'Technical';
-          setShristiMessage(`${result.shristiResponse}\n\nQuestion ${nextIndex + 1} (${lengthLabel}): ${nextQ.question}`);
-        } else {
-          // All questions done — complete interview
-          setTypedAnswer('');
-          setShristiMessage(result.shristiResponse);
-          const completeDelay = isMuted ? 800 : Math.max(result.shristiResponse.length * 50, 1500);
-          setTimeout(async () => {
-            await handleComplete(result.shristiResponse);
-          }, completeDelay);
+        const res = await evalixV1.submitTurn(session.sessionId, {
+          idempotencyKey,
+          transcriptText: answerText.trim(),
+          transcriptStatus: 'FINAL',
+        });
+        setIsThinking(false);
+        setSession(res.session);
+        setTypedAnswer('');
+        if (typeof res.session?.currentQuestionIndex === 'number') {
+          setCurrentQIndex(res.session.currentQuestionIndex);
+        }
+        const replyText = res.aiTurn?.spokenText || res.session?.activePrompt?.text;
+        if (res.session?.status === 'COMPLETED') {
+          if (replyText) {
+            deliverShristiMessage(replyText, {
+              autoMic: false,
+              onSpoken: async () => {
+                await handleComplete(res.session.sessionId);
+              },
+            });
+          } else {
+            await handleComplete(res.session.sessionId);
+          }
+        } else if (replyText) {
+          deliverShristiMessage(replyText);
         }
       }
     } catch (err) {
       setIsThinking(false);
-      toast.error(err.response?.data?.error || 'Failed to evaluate answer. Please try again.');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to evaluate answer. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const introTimeoutRef = useRef(null);
-  const introFinishedRef = useRef(false);
-
-  // ── Voice recording
-  const handleTranscriptComplete = useCallback(async (t) => {
-    if (isTextMode) {
-      setTypedAnswer((prev) => (prev ? `${prev.trimEnd()} ${t}` : t));
-      toast.success('Speech transcribed to answer field! Review and press Send.');
-    } else {
-      setTypedAnswer(t);
-      setChatHistory(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: t }]);
-      await handleSubmitAnswer(t);
-    }
-  }, [isTextMode, isSmallTalkPhase, currentQIndex, attempt, previousAnswer, session]);
-
-  const { isRecording, isTranscribing, error: recorderError, toggleRecording, startRecording } = useVoiceRecorder({
-    onTranscriptComplete: handleTranscriptComplete,
-    getToken,
+  useEffect(() => {
+    handleTranscriptCompleteRef.current = async (t) => {
+      if (isTextMode) {
+        setTypedAnswer((prev) => (prev ? `${prev.trimEnd()} ${t}` : t));
+        toast.success('Speech transcribed to answer field! Review and press Send.');
+      } else {
+        setTypedAnswer(t);
+        setChatHistory(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: t }]);
+        await handleSubmitAnswer(t);
+      }
+    };
   });
 
   // ── Present First Question ONLY after Intro finishes
@@ -823,20 +929,10 @@ const LiveInterview = () => {
     setIsIntroPhase(false);
 
     const firstQ = s.questions[0];
-    const q1Text = `Question 1 (Warm-up): ${firstQ.question}`;
+    const q1Text = firstQ.question;
 
-    setChatHistory(prev => {
-      if (prev.some(m => m.id === 'q-0')) return prev;
-      return [...prev, { id: 'q-0', sender: 'shristi', text: q1Text }];
-    });
-
-    speak(q1Text, () => {
-      setShristiHasSpoken(true);
-      if (!isMuted && !isTextMode) {
-        startRecording();
-      }
-    });
-  }, [session, isMuted, isTextMode, speak, startRecording]);
+    deliverShristiMessage(q1Text, { messageId: 'q-0' });
+  }, [session, deliverShristiMessage]);
 
   // ── Skip Intro / Small Talk action
   const handleSkipIntro = useCallback(() => {
@@ -846,53 +942,93 @@ const LiveInterview = () => {
     presentFirstQuestion(session);
   }, [stopSpeaking, presentFirstQuestion, session]);
 
-  // ── Helper to request gentle hint / calming reassurance
+  // ── Guided Practice: Progressive Hint / Retry / Continue
   const handleAskHintOrCalm = async () => {
-    if (isSubmitting || isThinking) return;
-    const calmMsg = "I'm feeling a bit nervous and blanking out, could you help calm me down and give a small hint?";
-    setChatHistory(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: calmMsg }]);
-    await handleSubmitAnswer(calmMsg);
+    if (isSubmitting || isThinking || !session?.sessionId) return;
+    if (session.practiceMode === 'GUIDED_PRACTICE') {
+      setIsSubmitting(true);
+      try {
+        const res = await evalixV1.requestHint(session.sessionId, {
+          questionId: session.currentQuestionId,
+          idempotencyKey: `hint_${session.currentQuestionId}_${hints.length + 1}_${Date.now()}`,
+        });
+        setHints((prev) => [...prev, res.hint]);
+        const hintLabel = `Level ${res.hint.hintLevel} Hint (${res.hint.hintType}): ${res.hint.hintText}`;
+        deliverShristiMessage(hintLabel, { autoMic: false });
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'No more hints available for this question.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+    setIsCalmingActive(true);
+    setTimeout(() => setIsCalmingActive(false), 9000);
+    deliverShristiMessage(
+      'Take a slow breath — there is zero rush. Break your answer into what you built, why you chose that approach, and the trade-offs.',
+      { autoMic: false }
+    );
   };
 
-  // ── Step 1: Shristi Warm Indian Greeting & Non-Technical Small Talk
+  const handleRetryV1 = async () => {
+    if (!session?.sessionId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await evalixV1.prepareRetry(session.sessionId, session.currentQuestionId);
+      setAttempt(res.nextAttemptNumber || attempt + 1);
+      toast.success(`Ready for Attempt #${res.nextAttemptNumber}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Cannot retry this question');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleContinueV1 = async () => {
+    if (!session?.sessionId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await evalixV1.continuePracticeQuestion(
+        session.sessionId,
+        `cont_${session.currentQuestionId}_${Date.now()}`
+      );
+      setSession(res.session);
+      setHints([]);
+      setAttempts([]);
+      setAttempt(1);
+      if (typeof res.session?.currentQuestionIndex === 'number') {
+        setCurrentQIndex(res.session.currentQuestionIndex);
+      }
+      if (res.completed || res.session?.status === 'COMPLETED') {
+        await handleComplete(res.session.sessionId);
+      } else if (res.nextQuestion?.prompt || res.session?.activePrompt?.text) {
+        deliverShristiMessage(res.nextQuestion?.prompt || res.session.activePrompt.text);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Cannot continue yet');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Step 1: Shristi Opening Prompt Delivery (runs once per session)
   useEffect(() => {
-    if (screen === SCREEN.INTERVIEW && session && chatHistory.length === 0) {
-      introFinishedRef.current = false;
-      const smallTalkGreeting = session.smallTalkQuestion ||
-        `Namaste ${userName}! It is so lovely to meet you today. I'm Shristi! Before we jump into anything technical, please take a slow, comfortable breath and relax. How has your day been going so far? Did you manage to grab a nice cup of chai or coffee before joining?`;
+    if (screen === SCREEN.INTERVIEW && session && !smallTalkStartedRef.current) {
+      smallTalkStartedRef.current = true;
+      introFinishedRef.current = true;
+      setIsSmallTalkPhase(false);
+      setIsIntroPhase(false);
 
-      setIsSmallTalkPhase(true);
-      setIsIntroPhase(true);
-      setChatHistory([{ id: 'smalltalk-intro', sender: 'shristi', text: smallTalkGreeting }]);
+      const openingText =
+        session.openingPromptText ||
+        session.activePrompt?.text ||
+        `Hi ${userName}! Let's begin your ${jobRole} interview.`;
 
-      speak(smallTalkGreeting, () => {
-        setShristiHasSpoken(true);
-        setIsIntroPhase(false);
-        // Candidate is now encouraged to answer! If in voice mode, automatically start recording!
-        if (!isMuted && !isTextMode) {
-          startRecording();
-        }
+      deliverShristiMessage(openingText, {
+        messageId: `opening-${session.sessionId || 'v1'}`,
       });
     }
-  }, [screen, session, chatHistory.length, userName, difficulty, isMuted, isTextMode, speak, startRecording]);
-
-  // ── Speak Shristi's subsequent responses in interview
-  useEffect(() => {
-    if (shristiMessage && screen === SCREEN.INTERVIEW && !isIntroPhase) {
-      setChatHistory(prev => {
-        const last = prev[prev.length - 1];
-        if (last && last.sender === 'shristi' && last.text === shristiMessage) return prev;
-        return [...prev, { id: Date.now().toString(), sender: 'shristi', text: shristiMessage }];
-      });
-      speak(shristiMessage, () => {
-         setShristiHasSpoken(true);
-         // Automatically start listening when Shristi finishes speaking question
-         if (!isMuted && !isTextMode) {
-           startRecording();
-         }
-      });
-    }
-  }, [shristiMessage, screen, isIntroPhase, isMuted, isTextMode, speak, startRecording]);
+  }, [screen, session, userName, jobRole, deliverShristiMessage]);
 
   // Cleanup speech and pending timeouts on unmount
   useEffect(() => {
@@ -917,71 +1053,253 @@ const LiveInterview = () => {
     await handleSubmitAnswer(ans);
   };
 
-  // ─── Start interview
+  const ensureV1Profile = async (seniorityLevel, totalExperienceMonths) => {
+    if (v1Profile) return v1Profile;
+    try {
+      const existing = await evalixV1.getProfile();
+      setV1Profile(existing);
+      return existing;
+    } catch (_) {
+      const created = await evalixV1.createProfile({
+        fullName: userName || user?.fullName || 'Evalix Student',
+        email: user?.primaryEmailAddress?.emailAddress || 'student@evalix.dev',
+        currentJobTitle: jobRole || 'Software Engineer',
+        experienceLevel: seniorityLevel,
+        totalExperienceMonths,
+      });
+      setV1Profile(created);
+      return created;
+    }
+  };
+
+  const launchV1Session = async (targetIntakeId, bp) => {
+    let competencyId;
+    if (practiceMode === 'FOCUSED_SKILL_PRACTICE') {
+      const plan = bp?.competencyPlan || [];
+      const needle = focusCompetency.trim().toLowerCase();
+      const matched = needle
+        ? plan.find((c) => `${c.name || ''} ${c.competencyId || ''}`.toLowerCase().includes(needle))
+        : null;
+      competencyId = matched?.competencyId || plan[0]?.competencyId;
+    }
+
+    setPipelineStatus('Module 5/8: Starting live interview session...');
+    const created = await evalixV1.createSession(targetIntakeId, {
+      practiceMode,
+      ...(practiceMode === 'FOCUSED_SKILL_PRACTICE' && competencyId
+        ? { competencyId, maxQuestions: Number(totalQuestions) || 3 }
+        : {}),
+    });
+    const started = await evalixV1.startSession(created.sessionId, true);
+    const activeSession = {
+      ...started.session,
+      openingPromptText: started.openingTurn?.spokenText || started.session?.activePrompt?.text,
+    };
+
+    smallTalkStartedRef.current = false;
+    introFinishedRef.current = false;
+    setSession(activeSession);
+    setFinalSession(null);
+    setEvaluationReport(null);
+    setLearningInsights(null);
+    setDevelopmentPlan(null);
+    setHints([]);
+    setAttempts([]);
+    setIsSmallTalkPhase(false);
+    setIsIntroPhase(false);
+    setIsCalmingActive(false);
+    setChatHistory([]);
+    setCurrentQIndex(activeSession.currentQuestionIndex || 0);
+    setAttempt(1);
+    setPreviousAnswer(null);
+    setShristiMessage('');
+    setScreen(SCREEN.INTERVIEW);
+  };
+
+  // ─── Start interview (Modules 1–4 Pipeline -> Module 5/8 Session)
   const handleStart = async (e) => {
     e.preventDefault();
-    if (!userName || !jobRole || !jobDescription) return;
-    
+    if (!userName || !jobRole) {
+      toast.error('Please enter your name and target role.');
+      return;
+    }
+    if (!resumeFile) {
+      toast.error('Please upload your Resume (PDF, DOCX, or TXT) in the Resume placeholder.');
+      return;
+    }
+    if (!jdFile && !jobDescription.trim()) {
+      toast.error('Please paste a Job Description or upload a JD file.');
+      return;
+    }
+
     // Request Microphone permission first
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
     } catch (err) {
-      toast.error("Microphone permission recommended for voice mode. You can also type answers.");
+      toast.error('Microphone permission recommended for voice mode. You can also type answers.');
     }
 
-    // Go Fullscreen
     if (containerRef.current && !document.fullscreenElement) {
-       containerRef.current.requestFullscreen().catch(() => {});
+      containerRef.current.requestFullscreen().catch(() => {});
     }
+
+    const seniorityMap = {
+      easy: { seniorityLevel: 'JUNIOR', months: 6 },
+      medium: { seniorityLevel: 'MID', months: 24 },
+      hard: { seniorityLevel: 'SENIOR', months: 60 },
+    };
+    const { seniorityLevel, months } = seniorityMap[difficulty] || seniorityMap.medium;
 
     setScreen(SCREEN.LOADING);
     try {
-      const token = await getToken();
-      const geminiKey = localStorage.getItem('custom_gemini_key');
-      const headers = { Authorization: `Bearer ${token}` };
-      if (geminiKey) headers['x-gemini-api-key'] = geminiKey;
-      const { data } = await api.post(
-        API.LIVE_INTERVIEW.START,
-        { userName, jobRole, jobDescription, totalQuestions: Number(totalQuestions), difficulty },
-        { headers }
+      setPipelineStatus('Module 1: Creating candidate profile & interview intake...');
+      await ensureV1Profile(seniorityLevel, months);
+
+      const intake = await evalixV1.createIntake({
+        targetRole: jobRole,
+        seniorityLevel,
+        interviewPreferences: {
+          interviewType: 'MIXED',
+          durationMinutes: Number(totalQuestions) * 5 || 25,
+        },
+      });
+      const intakeId = intake._id || intake.id;
+
+      setPipelineStatus('Module 1: Uploading Resume & Job Description...');
+      await evalixV1.uploadResume(intakeId, resumeFile);
+      const jdUploadFile =
+        jdFile ||
+        new File([jobDescription.trim()], 'job-description.txt', { type: 'text/plain' });
+      await evalixV1.uploadJobDescription(intakeId, jdUploadFile);
+      await evalixV1.submitIntake(intakeId);
+
+      setPipelineStatus('Module 2: Extracting structured Resume & JD intelligence...');
+      await pollUntil(
+        () => evalixV1.getExtractionStatus(intakeId),
+        (s) => {
+          if (s?.overallStatus === 'FAILED' || s?.resume?.status === 'BLOCKED_SECURITY_SCAN') {
+            throw new Error(s?.resume?.error || 'Document extraction failed.');
+          }
+          return s?.overallStatus === 'COMPLETED' || s?.resume?.status === 'COMPLETED';
+        }
       );
-      setSession(data.data);
-      setIsSmallTalkPhase(true);
-      setIsIntroPhase(true);
-      setIsCalmingActive(false);
-      setChatHistory([]);
-      setCurrentQIndex(0);
-      setAttempt(1);
-      setPreviousAnswer(null);
-      setShristiMessage('');
-      setScreen(SCREEN.INTERVIEW);
+
+      setPipelineStatus('Module 3: Analyzing candidate fit & competency gaps...');
+      await evalixV1.analyzeCandidateIntelligence(intakeId);
+      await pollUntil(
+        () => evalixV1.getAnalysisStatus(intakeId),
+        (s) => {
+          if (s?.status === 'FAILED') throw new Error(s?.error || 'Candidate analysis failed.');
+          return s?.status === 'COMPLETED';
+        }
+      );
+
+      setPipelineStatus('Module 4: Generating & locking interview blueprint...');
+      await evalixV1.generateBlueprint(intakeId, {
+        targetQuestionCount: Number(totalQuestions) || 5,
+      });
+      await pollUntil(
+        () => evalixV1.getBlueprintStatus(intakeId),
+        (s) => {
+          if (s?.status === 'FAILED') throw new Error(s?.error || 'Blueprint generation failed.');
+          return s?.status === 'COMPLETED';
+        }
+      );
+
+      const bp = await evalixV1.getCurrentBlueprint(intakeId);
+      setBlueprint(bp);
+      await launchV1Session(intakeId, bp);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to start interview. Please try again.');
+      toast.error(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to start interview.');
       setScreen(SCREEN.SETUP);
     }
   };
 
-  // ─── Complete interview
-  const handleComplete = async (lastMessage = '') => {
+  const handleResumeExistingIntake = async (existingIntakeId) => {
+    if (containerRef.current && !document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(() => {});
+    }
+    setScreen(SCREEN.LOADING);
     try {
-      const token = await getToken();
-      const geminiKey = localStorage.getItem('custom_gemini_key');
-      const headers = { Authorization: `Bearer ${token}` };
-      if (geminiKey) headers['x-gemini-api-key'] = geminiKey;
-
-      const { data } = await api.post(API.LIVE_INTERVIEW.COMPLETE(session._id), {}, { headers });
-      setFinalSession(data.data);
-      stopSpeaking();
-      const finalMsg = `Thank you ${userName}! That concludes our interview. You did a great job. Your results are now ready.`;
-      speak(finalMsg, () => {
-         if (document.fullscreenElement) document.exitFullscreen();
-         setScreen(SCREEN.RESULTS);
-      });
-      setShristiMessage(finalMsg);
+      setPipelineStatus('Loading existing blueprint & starting live session...');
+      const bp = await evalixV1.getCurrentBlueprint(existingIntakeId);
+      setBlueprint(bp);
+      await launchV1Session(existingIntakeId, bp);
     } catch (err) {
-      toast.error('Failed to complete interview. Please try again.');
+      toast.error(err.response?.data?.message || 'Blueprint is not ready for this intake yet.');
+      setScreen(SCREEN.SETUP);
+    }
+  };
+
+  // ─── Complete interview (Module 6 Evaluation + Module 7 Coaching & Plan)
+  const handleComplete = async (overrideSessionId = null) => {
+    const targetSessionId = typeof overrideSessionId === 'string' ? overrideSessionId : session?.sessionId;
+    if (!targetSessionId) {
       setScreen(SCREEN.RESULTS);
+      return;
+    }
+
+    stopSpeaking();
+    setPipelineStatus('Module 6: Running evidence-based evaluation & report...');
+    setScreen(SCREEN.LOADING);
+
+    try {
+      if (session?.status !== 'COMPLETED') {
+        await evalixV1.endSession(targetSessionId).catch(() => null);
+      }
+
+      await evalixV1.requestEvaluation(targetSessionId);
+      await pollUntil(
+        () => evalixV1.getEvaluationStatus(targetSessionId),
+        (s) =>
+          ['COMPLETED', 'COMPLETED_WITH_WARNINGS', 'INSUFFICIENT_COVERAGE', 'NEEDS_REVIEW'].includes(
+            s?.status
+          )
+      );
+      const report = await evalixV1.getEvaluationReport(targetSessionId);
+      setEvaluationReport(report);
+      setFinalSession({ ...session, sessionId: targetSessionId });
+
+      setPipelineStatus('Module 7: Generating student coaching & development plan...');
+      const [insRes, planRes, histRes] = await Promise.allSettled([
+        evalixV1.generateLearningInsights(targetSessionId).then(() =>
+          evalixV1.getLearningInsights(targetSessionId)
+        ),
+        evalixV1.generateDevelopmentPlan(targetSessionId).then(() =>
+          evalixV1.getDevelopmentPlan(targetSessionId)
+        ),
+        evalixV1.getMyPracticeHistory(),
+      ]);
+
+      if (insRes.status === 'fulfilled') setLearningInsights(insRes.value);
+      if (planRes.status === 'fulfilled') setDevelopmentPlan(planRes.value);
+      if (histRes.status === 'fulfilled') setPracticeHistory(histRes.value);
+
+      const finalMsg = `Thank you ${userName}! Your evidence-based evaluation report and coaching plan are ready.`;
+      setShristiMessage(finalMsg);
+      speak(finalMsg, () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        setScreen(SCREEN.RESULTS);
+      });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to finalize evaluation.');
+      if (document.fullscreenElement) document.exitFullscreen();
+      setScreen(SCREEN.RESULTS);
+    }
+  };
+
+  const handleToggleObjective = async (objective) => {
+    if (!developmentPlan?._id && !developmentPlan?.id) return;
+    const planId = developmentPlan._id || developmentPlan.id;
+    const objId = objective.objectiveId || objective._id;
+    const nextStatus = objective.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED';
+    try {
+      const updated = await evalixV1.updateObjectiveProgress(planId, objId, { status: nextStatus });
+      setDevelopmentPlan(updated);
+      toast.success(`Objective marked ${nextStatus}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update objective');
     }
   };
 
@@ -1003,27 +1321,42 @@ const LiveInterview = () => {
     return `${mins}:${rem}`;
   };
 
-  // ─── Render: RESULTS (Phase 7 Editorial Scorecard) ───────────────────────────
-  if (screen === SCREEN.RESULTS && finalSession) {
-    const { overallFeedback, questions, turns, userName: name, jobRole: role } = finalSession;
-    const bestTurnByQ = {};
-    (turns || []).forEach((t) => {
-      if (!bestTurnByQ[t.questionIndex] || t.score > bestTurnByQ[t.questionIndex].score) {
-        bestTurnByQ[t.questionIndex] = t;
-      }
-    });
+  // ─── Render: RESULTS (Modules 6 & 7 Editorial Scorecard + Coaching Plan) ───────
+  if (screen === SCREEN.RESULTS && (evaluationReport || finalSession)) {
+    const overallScore = Math.round(
+      evaluationReport?.overallScore ??
+        evaluationReport?.overallReadinessScore ??
+        evaluationReport?.summary?.overallScore ??
+        0
+    );
+    const evalStatus = evaluationReport?.status || 'COMPLETED';
+    const strengths =
+      learningInsights?.strengths ||
+      evaluationReport?.strengths ||
+      evaluationReport?.summary?.strengths ||
+      [];
+    const improvements =
+      learningInsights?.areasForImprovement ||
+      learningInsights?.weaknesses ||
+      evaluationReport?.weaknesses ||
+      evaluationReport?.summary?.improvements ||
+      [];
+    const competencyScores = evaluationReport?.competencyEvaluations || evaluationReport?.competencies || [];
+    const objectives = developmentPlan?.objectives || [];
+    const historyItems = Array.isArray(practiceHistory)
+      ? practiceHistory
+      : practiceHistory?.attempts || practiceHistory?.history || [];
 
-    const avgScore = overallFeedback?.averageScore || 0;
     const verdictLabel =
-      avgScore >= 80
-        ? 'Strong Hire Signal'
-        : avgScore >= 60
-        ? 'Hire Ready — Minor Polish'
-        : 'Keep Training in Arena';
+      overallScore >= 80
+        ? 'Strong Readiness'
+        : overallScore >= 60
+        ? 'Interview Ready — Polish Gaps'
+        : 'Keep Practicing in Arena';
 
     return (
       <div className="max-w-6xl mx-auto space-y-8 pb-12 animate-fade-in">
-        <SEOHead title={`Live Interview Scorecard — ${role}`} />
+        <SEOHead title={`Live Interview Scorecard — ${jobRole}`} />
 
         {/* Top Scorecard Banner */}
         <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8 lg:p-10">
@@ -1031,22 +1364,22 @@ const LiveInterview = () => {
             <div className="space-y-3 max-w-2xl">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="px-3 py-1 rounded-[8px] bg-[#282828] text-[#C7F36B] font-mono text-xs uppercase font-bold">
-                  SESSION REPORT
+                  MODULE 6 EVALUATION REPORT
                 </span>
                 <span className="px-3 py-1 rounded-[8px] bg-[#FF6B35]/20 text-[#FF6B35] font-mono text-xs uppercase font-semibold">
-                  {finalSession.difficulty || difficulty} Difficulty
+                  {session?.practiceMode || practiceMode}
                 </span>
                 <span className="text-xs font-mono text-[#B5AFA6]">
-                  • {overallFeedback?.totalTurns || turns?.length || 0} Total Exchanges
+                  • {evalStatus}
                 </span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-white tracking-tight">
-                {role} — Live Voice Evaluation
+                {jobRole || 'Live Interview'} — Evaluation &amp; Coaching
               </h1>
 
               <p className="text-sm sm:text-base text-[#B5AFA6]">
-                Candidate: <strong className="text-white">{name}</strong> • Evaluated across technical accuracy, clarity, and depth.
+                Candidate: <strong className="text-white">{userName || 'Student'}</strong> • Evidence-based rubric evaluation with Module 7 coaching insights.
               </p>
 
               <div className="flex flex-wrap gap-3 pt-2">
@@ -1057,6 +1390,7 @@ const LiveInterview = () => {
                   onClick={() => {
                     setFinalSession(null);
                     setSession(null);
+                    setEvaluationReport(null);
                     setScreen(SCREEN.SETUP);
                   }}
                 >
@@ -1071,18 +1405,18 @@ const LiveInterview = () => {
             {/* Overall Score Dial Box */}
             <div className="rounded-[20px] bg-[#1F1F1F] border border-[#333333] p-6 flex flex-col items-center justify-center min-w-[220px] text-center">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#B5AFA6]">
-                OVERALL SCORE
+                READINESS SCORE
               </span>
               <div
                 className={`text-5xl sm:text-6xl font-editorial my-2 ${
-                  avgScore >= 75
+                  overallScore >= 75
                     ? 'text-[#C7F36B]'
-                    : avgScore >= 50
+                    : overallScore >= 50
                     ? 'text-[#FF6B35]'
                     : 'text-[#F87171]'
                 }`}
               >
-                {avgScore}%
+                {overallScore}%
               </div>
               <span className="px-3 py-1 rounded-[8px] bg-[#282828] text-xs font-display font-bold text-white">
                 {verdictLabel}
@@ -1091,18 +1425,16 @@ const LiveInterview = () => {
           </div>
         </div>
 
-        {/* Strengths, Improvements & Shristi's Verdict */}
+        {/* Strengths, Improvements & Coaching Summary */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 rounded-[18px] bg-bg-surface border border-border-subtle p-6 space-y-4">
-            <h3 className="text-lg font-display font-bold text-text-primary">
-              Key Strengths
-            </h3>
+            <h3 className="text-lg font-display font-bold text-text-primary">Key Strengths</h3>
             <ul className="space-y-2.5">
-              {overallFeedback?.strengths?.length > 0 ? (
-                overallFeedback.strengths.map((s, i) => (
+              {strengths.length > 0 ? (
+                strengths.map((s, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
                     <FiCheckCircle className="text-success mt-0.5 shrink-0" />
-                    <span>{s}</span>
+                    <span>{typeof s === 'string' ? s : s?.summary || s?.title || JSON.stringify(s)}</span>
                   </li>
                 ))
               ) : (
@@ -1112,15 +1444,13 @@ const LiveInterview = () => {
           </div>
 
           <div className="lg:col-span-4 rounded-[18px] bg-bg-surface border border-border-subtle p-6 space-y-4">
-            <h3 className="text-lg font-display font-bold text-text-primary">
-              Areas to Improve
-            </h3>
+            <h3 className="text-lg font-display font-bold text-text-primary">Areas to Improve</h3>
             <ul className="space-y-2.5">
-              {overallFeedback?.weaknesses?.length > 0 ? (
-                overallFeedback.weaknesses.map((w, i) => (
+              {improvements.length > 0 ? (
+                improvements.map((w, i) => (
                   <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
                     <span className="w-2 h-2 rounded-full bg-[#FF6B35] mt-2 shrink-0" />
-                    <span>{w}</span>
+                    <span>{typeof w === 'string' ? w : w?.summary || w?.title || JSON.stringify(w)}</span>
                   </li>
                 ))
               ) : (
@@ -1129,116 +1459,111 @@ const LiveInterview = () => {
             </ul>
           </div>
 
-          <div className="lg:col-span-4 rounded-[18px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[#C7F36B] block">
-                  INTERVIEWER NOTE
-                </span>
-                <h3 className="text-base font-display font-bold text-white mt-0.5">
-                  Shristi’s Summary
-                </h3>
-              </div>
-              <p className="text-xs sm:text-sm text-[#B5AFA6] leading-relaxed">
-                {overallFeedback?.recommendations ||
-                  'Focus on structuring technical answers with concrete metrics and architectural trade-offs.'}
-              </p>
+          <div className="lg:col-span-4 rounded-[18px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 space-y-4">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#C7F36B] font-bold">
+              <FiAward size={14} /> Module 7 Coaching Summary
             </div>
-            <div className="pt-3 border-t border-[#2E2E2E] flex items-center justify-between text-xs font-mono text-[#C7F36B]">
-              <span>Saved to Session History</span>
-              <span>✓ Saved</span>
-            </div>
+            <p className="text-sm text-[#B5AFA6] leading-relaxed">
+              {learningInsights?.executiveSummary ||
+                learningInsights?.summary ||
+                evaluationReport?.executiveSummary ||
+                'Review your competency breakdown and development objectives below to level up for your next round.'}
+            </p>
           </div>
         </div>
 
-        {/* Question-by-Question Breakdown */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-xs font-mono uppercase tracking-wider text-[#FF6B35] font-bold">
-                QUESTION-BY-QUESTION RUBRIC
-              </span>
-              <h2 className="text-2xl font-display font-bold text-text-primary">
-                Detailed Exchange Breakdown
-              </h2>
+        {/* Competency Rubric Breakdown */}
+        {competencyScores.length > 0 && (
+          <div className="rounded-[20px] bg-bg-surface border border-border-subtle p-6 space-y-4">
+            <h2 className="text-xl font-display font-bold text-text-primary">
+              Competency Rubric Breakdown
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {competencyScores.map((c, idx) => (
+                <div
+                  key={c.competencyId || idx}
+                  className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-display font-bold text-text-primary">
+                      {c.competencyName || c.name || c.competencyId}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-[8px] bg-[#151515] text-[#C7F36B] text-xs font-mono font-bold">
+                      {Math.round(c.score ?? c.normalizedScore ?? 0)}%
+                    </span>
+                  </div>
+                  {c.rationale && (
+                    <p className="text-xs text-text-secondary leading-relaxed">{c.rationale}</p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <div className="space-y-5">
-            {questions?.map((q, i) => {
-              const best = bestTurnByQ[i];
-              const allAttempts = (turns || []).filter((t) => t.questionIndex === i);
-              if (!best) return null;
-              return (
+        {/* Module 7 Development Plan Objectives */}
+        {objectives.length > 0 && (
+          <div className="rounded-[20px] bg-bg-surface border border-border-subtle p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-display font-bold text-text-primary">
+                Module 7 Development Plan
+              </h2>
+              <span className="text-xs font-mono text-text-muted">Click objective to toggle progress</span>
+            </div>
+            <div className="space-y-3">
+              {objectives.map((obj, idx) => (
                 <div
-                  key={i}
-                  className="rounded-[20px] bg-bg-surface border border-border-subtle p-6 space-y-4 shadow-xs"
+                  key={obj.objectiveId || obj._id || idx}
+                  onClick={() => handleToggleObjective(obj)}
+                  className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle hover:border-[#FF6B35] transition-colors cursor-pointer flex items-start justify-between gap-4"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-border-subtle">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 rounded-[6px] bg-[#151515] text-[#F8F5EF] font-mono text-xs font-bold">
-                          Q0{i + 1}
-                        </span>
-                        <Badge variant="secondary">{q.category}</Badge>
-                        {allAttempts.length > 1 && (
-                          <Badge variant="warning">{allAttempts.length} Attempts</Badge>
-                        )}
-                      </div>
-                      <h4 className="text-base sm:text-lg font-display font-bold text-text-primary pt-1">
-                        {q.question}
-                      </h4>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`px-3 py-1.5 rounded-[10px] font-mono text-sm font-bold ${
-                          best.score >= 7
-                            ? 'bg-[#C7F36B] text-[#151515]'
-                            : best.score >= 5
-                            ? 'bg-[#FF6B35]/15 text-[#FF6B35]'
-                            : 'bg-danger/15 text-danger'
-                        }`}
-                      >
-                        {best.score}/10
-                      </span>
-                    </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-display font-bold text-text-primary">
+                      {obj.title || obj.goal || obj.competencyName}
+                    </p>
+                    {obj.description && (
+                      <p className="text-xs text-text-secondary">{obj.description}</p>
+                    )}
                   </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-[8px] text-[11px] font-mono uppercase font-bold shrink-0 ${
+                      obj.status === 'COMPLETED'
+                        ? 'bg-[#C7F36B]/20 text-[#151515]'
+                        : 'bg-[#FF6B35]/15 text-[#FF6B35]'
+                    }`}
+                  >
+                    {obj.status || 'PENDING'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block">
-                        YOUR SPOKEN RESPONSE
-                      </span>
-                      {allAttempts.map((turn, ti) => (
-                        <div
-                          key={ti}
-                          className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle text-sm text-text-primary italic leading-relaxed"
-                        >
-                          {allAttempts.length > 1 && (
-                            <span className="text-[10px] font-mono uppercase font-bold text-[#FF6B35] block mb-1 not-italic">
-                              Attempt {turn.attempt}
-                            </span>
-                          )}
-                          “{turn.userAnswer}”
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-[#FF6B35] font-bold block">
-                        SHRISTI’S RUBRIC EVALUATION
-                      </span>
-                      <div className="p-4 rounded-[14px] bg-[#FF6B35]/8 border border-[#FF6B35]/25 text-sm text-text-primary leading-relaxed">
-                        {best.feedback}
-                      </div>
-                    </div>
+        {/* Longitudinal Practice History */}
+        {historyItems.length > 0 && (
+          <div className="rounded-[20px] bg-bg-surface border border-border-subtle p-6 space-y-3">
+            <h2 className="text-lg font-display font-bold text-text-primary">
+              Longitudinal Practice History ({historyItems.length} sessions)
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {historyItems.slice(0, 6).map((h, i) => (
+                <div
+                  key={h.sessionId || i}
+                  className="p-3.5 rounded-[12px] bg-bg-canvas border border-border-subtle text-xs space-y-1"
+                >
+                  <div className="font-display font-bold text-text-primary">
+                    {h.targetRole || jobRole}
+                  </div>
+                  <div className="font-mono text-text-muted">
+                    {h.practiceMode || 'REALISTIC_MOCK'} • Score:{' '}
+                    <strong className="text-[#FF6B35]">{Math.round(h.overallScore ?? 0)}%</strong>
                   </div>
                 </div>
-              );
-            })}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -1268,7 +1593,11 @@ const LiveInterview = () => {
             Preparing your {jobRole} interview...
           </h2>
           <p className="text-sm text-[#B5AFA6] leading-relaxed">
-            Generating <strong className="text-white">{totalQuestions} {difficulty}-level questions</strong> from your job description and connecting the voice room.
+            {pipelineStatus || (
+              <>
+                Generating <strong className="text-white">{totalQuestions} {difficulty}-level questions</strong> from your resume &amp; job description and connecting the voice room.
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -1277,7 +1606,9 @@ const LiveInterview = () => {
 
   // ─── Render: INTERVIEW (Phase 6 — 3-Zone Dark Interview Arena) ───────────────
   if (screen === SCREEN.INTERVIEW && session) {
-    const progress = Math.round(((currentQIndex + 1) / session.totalQuestions) * 100);
+    const v1TotalQuestions =
+      session.totalQuestions || blueprint?.questionCount || Number(totalQuestions) || 5;
+    const progress = Math.min(100, Math.round(((currentQIndex + 1) / v1TotalQuestions) * 100));
     const orbState = isSpeaking
       ? 'speaking'
       : isRecording
@@ -1287,6 +1618,8 @@ const LiveInterview = () => {
       : 'idle';
 
     const currentQuestionObj = session.questions?.[currentQIndex];
+    const activePromptText =
+      session.activePrompt?.text || currentQuestionObj?.question || shristiMessage;
 
     return renderArenaContainer(
       <div className="flex flex-col flex-1 w-full max-w-6xl mx-auto justify-between gap-4 min-h-0">
@@ -1297,16 +1630,14 @@ const LiveInterview = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base sm:text-lg font-display font-bold text-white">
-                    {session.jobRole}
+                    {session.targetRole || session.jobRole || jobRole}
                   </h2>
                   <span className="px-2 py-0.5 rounded-[6px] bg-[#282828] border border-[#383838] text-[11px] font-mono uppercase text-[#C7F36B]">
-                    {session.difficulty || difficulty}
+                    {session.practiceMode || practiceMode}
                   </span>
                 </div>
                 <p className="text-xs font-mono text-[#B5AFA6]">
-                  {isSmallTalkPhase
-                    ? 'Warm-Up Check-in with Shristi'
-                    : `Question ${currentQIndex + 1} of ${session.totalQuestions} • Attempt #${attempt}`}
+                  {`Question ${currentQIndex + 1} of ${v1TotalQuestions} • Attempt #${attempt}`}
                 </p>
               </div>
             </div>
@@ -1343,10 +1674,11 @@ const LiveInterview = () => {
 
               <button
                 type="button"
-                onClick={exitInterview}
+                onClick={() => handleComplete()}
                 className="px-3 py-1.5 rounded-[10px] bg-[#282828] hover:bg-[#DC2626] text-[#F8F5EF] border border-[#383838] text-xs font-display font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="End session and generate Module 6 evaluation & Module 7 coaching plan"
               >
-                <FiX size={14} /> End
+                <FiX size={14} /> End &amp; Evaluate
               </button>
             </div>
           </div>
@@ -1418,26 +1750,45 @@ const LiveInterview = () => {
           <div className="lg:col-span-8 rounded-[20px] bg-[#1F1F1F] border border-[#333333] flex flex-col overflow-hidden min-h-0">
             {/* Pinned Current Question Header */}
             <div className="p-4 sm:p-5 bg-[#242424] border-b border-[#333333] shrink-0">
-              <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-[#FF6B35] font-bold">
-                  {isSmallTalkPhase
-                    ? 'WARM-UP ICEBREAKER'
-                    : `ACTIVE PROMPT • ${currentQuestionObj?.category || 'Technical'}`}
+                  {`ACTIVE PROMPT • ${session.activePrompt?.competencyName || currentQuestionObj?.category || session.practiceMode || 'Interview'}`}
                 </span>
-                {isSmallTalkPhase && (
-                  <button
-                    type="button"
-                    onClick={handleSkipIntro}
-                    className="px-2.5 py-1 rounded-[8px] bg-[#FF6B35] text-white text-xs font-display font-semibold hover:bg-[#EB5822] transition-colors cursor-pointer"
-                  >
-                    Skip to Question 1 →
-                  </button>
+                {session.practiceMode === 'GUIDED_PRACTICE' && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAskHintOrCalm}
+                      disabled={isSubmitting || isThinking || hints.length >= 3}
+                      className="px-2.5 py-1 rounded-[8px] bg-[#282828] border border-[#383838] text-[#C7F36B] text-xs font-mono hover:border-[#C7F36B] disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                    >
+                      <FiHelpCircle size={12} /> Hint ({hints.length}/3)
+                    </button>
+                    {attempts.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleRetryV1}
+                          disabled={isSubmitting || isThinking}
+                          className="px-2.5 py-1 rounded-[8px] bg-[#282828] border border-[#383838] text-[#F8F5EF] text-xs font-mono hover:border-[#FF6B35] cursor-pointer"
+                        >
+                          Retry
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleContinueV1}
+                          disabled={isSubmitting || isThinking}
+                          className="px-2.5 py-1 rounded-[8px] bg-[#FF6B35] text-white text-xs font-display font-semibold hover:bg-[#EB5822] cursor-pointer"
+                        >
+                          Next Question →
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
               <p className="text-sm sm:text-base font-display font-semibold text-white leading-snug">
-                {isSmallTalkPhase
-                  ? 'Take a slow breath and say hello to Shristi — or skip directly to Question 1 whenever you feel ready.'
-                  : currentQuestionObj?.question}
+                {activePromptText}
               </p>
             </div>
 
@@ -1645,7 +1996,7 @@ const LiveInterview = () => {
             Live AI Voice Interview
           </h1>
           <p className="text-sm sm:text-base text-text-secondary mt-1">
-            Practice a <strong className="text-text-primary font-semibold">multi-turn spoken interview</strong> with <strong className="text-text-primary font-semibold">Shristi AI</strong> tailored to your target role and job description.
+            Upload your <strong className="text-text-primary font-semibold">Resume &amp; Job Details</strong> to run a realistic mock, guided practice, or focused skill voice interview with <strong className="text-text-primary font-semibold">Shristi AI</strong>.
           </p>
         </div>
       </div>
@@ -1700,24 +2051,141 @@ const LiveInterview = () => {
               ))}
             </div>
 
-            {/* Job Description / Resume Context */}
-            <div className="space-y-1.5">
-              <label
-                className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block"
-                htmlFor="jobDescription"
-              >
-                3. Job Description or Resume Project Highlights *
+            {/* Resume Upload Placeholder (Module 1 & 2) */}
+            <div className="space-y-2">
+              <label className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block">
+                3. Upload Resume (PDF, DOCX, or TXT) *
               </label>
+              <label
+                htmlFor="resumeUpload"
+                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-[14px] border-2 border-dashed cursor-pointer transition-colors ${
+                  resumeFile
+                    ? 'border-[#C7F36B] bg-[#C7F36B]/10'
+                    : 'border-border-subtle bg-bg-canvas hover:border-[#FF6B35]'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-[10px] bg-[#151515] text-[#C7F36B] flex items-center justify-center shrink-0">
+                    <FiUpload size={18} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-display font-bold text-text-primary">
+                      {resumeFile ? resumeFile.name : 'Click to attach your Resume'}
+                    </p>
+                    <p className="text-xs font-mono text-text-muted">
+                      {resumeFile
+                        ? `${Math.max(1, Math.round(resumeFile.size / 1024))} KB • Ready for extraction`
+                        : 'Placeholder: PDF, DOCX, or TXT (used for Module 2–4 personalized blueprint)'}
+                    </p>
+                  </div>
+                </div>
+                <span className="px-3 py-1.5 rounded-[8px] bg-bg-surface border border-border-subtle text-xs font-mono font-semibold text-text-primary shrink-0">
+                  {resumeFile ? 'Change File' : 'Browse Resume'}
+                </span>
+                <input
+                  id="resumeUpload"
+                  type="file"
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Job Description (Text or File) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block"
+                  htmlFor="jobDescription"
+                >
+                  4. Job Description &amp; Role Requirements *
+                </label>
+                <label
+                  htmlFor="jdFileUpload"
+                  className="text-xs font-mono text-[#FF6B35] hover:underline cursor-pointer"
+                >
+                  {jdFile ? `Attached: ${jdFile.name}` : '+ Attach JD File (optional)'}
+                  <input
+                    id="jdFileUpload"
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    onChange={(e) => setJdFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+              </div>
               <textarea
                 id="jobDescription"
-                rows={5}
-                placeholder="Paste the target job description, required tech stack, or key projects from your resume. Shristi will tailor her questions and follow-ups to this context..."
+                rows={4}
+                placeholder="Paste the target job description, required tech stack, and responsibilities. Shristi will build your Module 4 interview blueprint from your Resume + JD..."
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
-                required
+                required={!jdFile}
                 className="w-full px-4 py-3 rounded-[11px] border border-border-subtle bg-bg-surface text-text-primary placeholder-text-muted resize-y text-sm focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/15 focus:outline-none transition-all"
               />
             </div>
+
+            {/* Practice Mode Selector (Module 8) */}
+            <div className="space-y-2">
+              <label className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block">
+                5. Practice Mode
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {[
+                  { id: 'REALISTIC_MOCK', label: 'Realistic Mock', sub: 'Full timed simulation' },
+                  { id: 'GUIDED_PRACTICE', label: 'Guided Practice', sub: '3-level hints & retries' },
+                  { id: 'FOCUSED_SKILL_PRACTICE', label: 'Focused Skill', sub: 'Target 1 competency' },
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPracticeMode(m.id)}
+                    className={`p-3 rounded-[12px] border text-left transition-all cursor-pointer ${
+                      practiceMode === m.id
+                        ? 'bg-[#151515] text-[#F8F5EF] border-[#151515]'
+                        : 'bg-bg-canvas border-border-subtle text-text-secondary hover:border-[#FF6B35]'
+                    }`}
+                  >
+                    <div className="text-xs font-display font-bold">{m.label}</div>
+                    <div className="text-[10px] font-mono opacity-75 mt-0.5">{m.sub}</div>
+                  </button>
+                ))}
+              </div>
+              {practiceMode === 'FOCUSED_SKILL_PRACTICE' && (
+                <Input
+                  id="focusCompetency"
+                  label="Target Competency (optional)"
+                  placeholder="e.g., System Design, React State, Node.js Concurrency"
+                  value={focusCompetency}
+                  onChange={(e) => setFocusCompetency(e.target.value)}
+                  icon={FiTarget}
+                />
+              )}
+            </div>
+
+            {recentIntakes.length > 0 && (
+              <div className="p-3.5 rounded-[12px] bg-bg-canvas border border-border-subtle space-y-2">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted font-bold block">
+                  Quick Start from Previous Resume/JD Intake
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {recentIntakes.slice(0, 4).map((item) => {
+                    const id = item._id || item.id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => handleResumeExistingIntake(id)}
+                        className="px-3 py-1.5 rounded-[8px] bg-bg-surface border border-border-subtle hover:border-[#FF6B35] text-xs font-mono text-text-primary cursor-pointer"
+                      >
+                        {item.targetRole || 'Saved Intake'} ({item.seniorityLevel || 'MID'}) →
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Difficulty & Question Count */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

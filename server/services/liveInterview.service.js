@@ -30,17 +30,33 @@ const evaluateSmallTalk = async (
 };
 
 /**
- * Evaluate a live answer and get Shristi's adaptive response
+ * Evaluate a live answer and get Shristi's adaptive, agentic response
  */
-const evaluateLiveAnswer = async (
+const evaluateLiveAnswer = async ({
   question,
   userAnswer,
   jobRole,
-  attempt,
+  jobDescription = '',
+  difficulty = 'medium',
+  attempt = 1,
   previousAnswer = null,
-  customApiKey = null
-) => {
-  const prompt = liveAnswerEvalPrompt(question, userAnswer, jobRole, attempt, previousAnswer);
+  conversationHistory = [],
+  nextPlannedQuestion = null,
+  followUpCount = 0,
+  customApiKey = null,
+}) => {
+  const prompt = liveAnswerEvalPrompt({
+    question,
+    userAnswer,
+    jobRole,
+    jobDescription,
+    difficulty,
+    attempt,
+    previousAnswer,
+    conversationHistory,
+    nextPlannedQuestion,
+    followUpCount,
+  });
   const result = await generateContent(prompt, customApiKey);
   return result;
 };

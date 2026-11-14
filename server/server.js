@@ -1,72 +1,28 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const { clerkMiddleware } = require('@clerk/express');
-const { connectDB, isDBConnected } = require('./config/db');
-const errorHandler = require('./middleware/errorHandler');
+const mongoose = require('mongoose');
+const { connectDB } = require('./config/db');
+const app = require('./app');
+const { ExtractionWorker } = require('./modules/document-intelligence/jobs/extraction.worker');
+const { AnalysisWorker } = require('./modules/candidate-intelligence/jobs/analysis.worker');
+const { BlueprintWorker } = require('./modules/interview-blueprint/jobs/blueprint.worker');
+const { EvaluationWorker } = require('./modules/interview-evaluation/jobs/evaluation.worker');
+const { DecisionIntelligenceWorker } = require('./modules/decision-intelligence/jobs/decision-intelligence.worker');
 
 // Connect to database
 connectDB();
 
-const app = express();
-
-// Middleware
-app.use(cors({
-  origin: [
-    'http://localhost:30001',
-    'http://localhost:5173',
-    process.env.CLIENT_URL,
-    'https://interview-ai-ten-psi.vercel.app',
-  ].filter(Boolean),
-  credentials: true,
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(helmet({
-  crossOriginResourcePolicy: false,
-}));
-if (process.env.LOAD_TEST !== 'true') {
-  app.use(morgan('dev'));
-}
-app.use(clerkMiddleware());
-
-// Routes
-const jobAnalysisRoutes = require('./routes/jobAnalysis.routes');
-const mcqRoutes = require('./routes/mcq.routes');
-const assessmentRoutes = require('./routes/assessment.routes');
-const interviewRoutes = require('./routes/interview.routes');
-const mockInterviewRoutes = require('./routes/mockInterview.routes');
-const resumeRoutes = require('./routes/resume.routes');
-const dashboardRoutes = require('./routes/dashboard.routes');
-const historyRoutes = require('./routes/history.routes');
-const studyRoutes = require('./routes/study.routes');
-const transcriptionRoutes = require('./routes/transcription.routes');
-const liveInterviewRoutes = require('./routes/liveInterview.routes');
-
-app.use('/api/job-analysis', jobAnalysisRoutes);
-app.use('/api/mcqs', mcqRoutes);
-app.use('/api/assessments', assessmentRoutes);
-app.use('/api/interview', interviewRoutes);
-app.use('/api/mock-interview', mockInterviewRoutes);
-app.use('/api/resume', resumeRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/history', historyRoutes);
-app.use('/api/study', studyRoutes);
-app.use('/api/transcribe', transcriptionRoutes);
-app.use('/api/live-interview', liveInterviewRoutes);
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    message: 'Server is running',
-    database: isDBConnected() ? 'connected' : 'disconnected',
-  });
+const worker = new ExtractionWorker();
+const analysisWorker = new AnalysisWorker();
+const blueprintWorker = new BlueprintWorker();
+const evaluationWorker = new EvaluationWorker();
+const decisionWorker = new DecisionIntelligenceWorker();
+mongoose.connection.once('connected', () => {
+  void worker.start();
+  void analysisWorker.start();
+  void blueprintWorker.start();
+  void evaluationWorker.start();
+  void decisionWorker.start();
 });
-
-// Error Handler Middleware
-app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
@@ -76,3 +32,15 @@ const server = app.listen(PORT, '0.0.0.0', 4096, () => {
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
+
+const shutdown = async () => {
+  await worker.stop();
+  await analysisWorker.stop();
+  await blueprintWorker.stop();
+  await evaluationWorker.stop();
+  await decisionWorker.stop();
+  server.close(() => process.exit(0));
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

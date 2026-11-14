@@ -50,7 +50,10 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(error.statusCode || 500).json({
     success: false,
+    message: error.message || 'Server Error',
     error: error.message || 'Server Error',
+    ...(err.code && typeof err.code === 'string' && { code: err.code }),
+    ...(err.details && { details: err.details }),
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 };
