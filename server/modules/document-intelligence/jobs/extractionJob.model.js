@@ -103,6 +103,24 @@ const DocumentExtractionJobSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    leaseToken: {
+      type: String,
+      default: null,
+    },
+    stateVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastRecoveredAt: {
+      type: Date,
+      default: null,
+    },
+    recoveryCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     lastErrorCode: {
       type: String,
       default: null,

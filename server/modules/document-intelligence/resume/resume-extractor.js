@@ -21,6 +21,7 @@ const extractResumeIntelligence = async ({
   parsedDoc,
   llmProvider,
   requestId = 'resume-extract',
+  signal = undefined,
 }) => {
   if (!parsedDoc || parsedDoc.status !== 'PARSED' || !parsedDoc.blocks?.length) {
     throw new AppError(400, 'Parsed resume blocks are required for extraction', 'INVALID_PARSED_DOCUMENT');
@@ -33,6 +34,11 @@ const extractResumeIntelligence = async ({
   let modelName = null;
 
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) {
+      const err = new Error('Extraction aborted due to lease loss');
+      err.code = 'LEASE_LOST';
+      throw err;
+    }
     const formattedBlocks = formatBlocksForPrompt(chunks[i]);
     const userPrompt = buildResumeExtractionPrompt({
       documentId: parsedDoc.documentId,
@@ -43,6 +49,7 @@ const extractResumeIntelligence = async ({
       systemInstruction: RESUME_SYSTEM_INSTRUCTION,
       userPrompt,
       requestId: `${requestId}-chunk-${i + 1}`,
+      signal,
     });
 
     providerName = llmRes.provider;

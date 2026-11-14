@@ -556,4 +556,222 @@ describe('Module 2: Integration, Worker & Security Tests', () => {
       env.DOCUMENT_EXTRACTION_ALLOW_UNSCANNED = prevAllow;
     }
   });
+
+  it('52. Enforces lease-token fencing, concurrent reclaim exclusion, terminal protection, and exhausted lease recovery', async () => {
+    const intakeId = await setupSubmittedIntake(USER_A);
+    await enqueueIntakeIntelligence(intakeId);
+
+    // Claim job 1 with worker A
+    const workerAJob = await jobRepo.claimNextJob({ workerId: 'worker-A', leaseMs: 5000 });
+    assert.ok(workerAJob.leaseToken, 'claimNextJob must issue a unique leaseToken');
+    const oldToken = workerAJob.leaseToken;
+
+    // Renew lease with matching token succeeds; wrong token is fenced out
+    const renewed = await jobRepo.renewJobLease(workerAJob._id, {
+      workerId: 'worker-A',
+      leaseToken: oldToken,
+      leaseMs: 5000,
+    });
+    assert.ok(renewed);
+    const badRenew = await jobRepo.renewJobLease(workerAJob._id, {
+      workerId: 'worker-A',
+      leaseToken: 'wrong-token',
+      leaseMs: 5000,
+    });
+    assert.strictEqual(badRenew, null);
+
+    // Simulate worker A lease expiration and two workers racing to reclaim the SAME job
+    await DocumentExtractionJob.updateOne(
+      { _id: workerAJob._id },
+      { $set: { leaseExpiresAt: new Date(Date.now() - 2000) } }
+    );
+    const [reclaim1, reclaim2] = await Promise.all([
+      jobRepo.claimNextJob({
+        workerId: 'worker-B1',
+        leaseMs: 5000,
+        documentType: workerAJob.documentType,
+      }),
+      jobRepo.claimNextJob({
+        workerId: 'worker-B2',
+        leaseMs: 5000,
+        documentType: workerAJob.documentType,
+      }),
+    ]);
+    const reclaims = [reclaim1, reclaim2].filter(Boolean);
+    assert.strictEqual(reclaims.length, 1, 'Only one worker may reclaim an expired lease');
+    const winnerJob = reclaims[0];
+    assert.notStrictEqual(winnerJob.leaseToken, oldToken);
+
+    // Old worker A attempting to complete/fail with stale leaseToken is fenced out
+    const staleComplete = await jobRepo.markJobCompleted(workerAJob._id, {
+      extractionId: workerAJob._id,
+      leaseToken: oldToken,
+    });
+    assert.strictEqual(staleComplete, null);
+    const staleOrchestratorRes = await processExtractionJob(workerAJob, {
+      llmProvider: makeFakeLlmProvider(),
+      workerId: 'worker-A',
+    });
+    assert.strictEqual(staleOrchestratorRes.status, 'LEASE_LOST');
+    assert.strictEqual(staleOrchestratorRes.fenced, true);
+
+    // Winning worker completes the job; subsequent terminal transition attempts return null
+    const winnerRes = await processExtractionJob(winnerJob, {
+      llmProvider: makeFakeLlmProvider(),
+      workerId: winnerJob.lockedBy,
+    });
+    assert.strictEqual(winnerRes.status, 'COMPLETED');
+
+    const reopenAttempt = await jobRepo.markJobRetryWait(winnerJob._id, {
+      nextAttemptAt: new Date(),
+      errorCode: 'SHOULD_NOT_HAPPEN',
+      errorMessage: 'Terminal job cannot reopen',
+    });
+    assert.strictEqual(reopenAttempt, null);
+
+    // Exhausted PROCESSING job whose lease expires is recovered to FAILED by recoverExpiredLeases
+    const secondJob = await jobRepo.claimNextJob({ workerId: 'worker-C', leaseMs: 5000 });
+    await DocumentExtractionJob.updateOne(
+      { _id: secondJob._id },
+      {
+        $set: {
+          attemptCount: secondJob.maximumAttempts,
+          leaseExpiresAt: new Date(Date.now() - 2000),
+        },
+      }
+    );
+    const cannotReclaimExhausted = await jobRepo.claimNextJob({
+      workerId: 'worker-D',
+      leaseMs: 5000,
+      documentType: secondJob.documentType,
+    });
+    assert.strictEqual(cannotReclaimExhausted, null);
+
+    const recoveredCount = await jobRepo.recoverExpiredLeases();
+    assert.strictEqual(recoveredCount, 1);
+    const recoveredDoc = await DocumentExtractionJob.findById(secondJob._id).lean();
+    assert.strictEqual(recoveredDoc.status, 'FAILED');
+    assert.strictEqual(recoveredDoc.lastErrorCode, 'LEASE_EXPIRED_MAX_ATTEMPTS');
+    assert.strictEqual(recoveredDoc.recoveryCount, 1);
+  });
+
+  it('53. Automatic lease heartbeat keeps long-running jobs alive, blocks rival claims, and stops cleanly on completion/retry/failure/shutdown', async () => {
+    const intakeId = await setupSubmittedIntake(USER_A);
+    await enqueueIntakeIntelligence(intakeId);
+
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+    let rivalClaimDuringRun = null;
+
+    // Long-running provider (320ms > 150ms leaseMs), heartbeat every 45ms keeps lease alive
+    const slowProvider = {
+      providerName: 'fake-slow',
+      async generateStructuredJson(req) {
+        await delay(180);
+        // Rival worker attempts to reclaim mid-flight while heartbeat is active
+        rivalClaimDuringRun = await jobRepo.claimNextJob({
+          workerId: 'rival-worker',
+          leaseMs: 150,
+          documentType: 'RESUME',
+        });
+        await delay(140);
+        return makeFakeLlmProvider().generateStructuredJson(req);
+      },
+    };
+
+    const worker = new ExtractionWorker({
+      workerId: 'hb-worker-1',
+      concurrency: 1,
+      leaseMs: 150,
+      heartbeatIntervalMs: 45,
+      pollIntervalMs: 10000,
+      reconcileIntervalMs: 60000,
+      llmProvider: slowProvider,
+    });
+
+    worker.running = true;
+    await worker.tick();
+    // Wait until both jobs finish
+    for (let i = 0; i < 40; i++) {
+      const doneCount = await DocumentExtractionJob.countDocuments({ intakeId, status: 'COMPLETED' });
+      if (doneCount === 2 && worker.activeHeartbeats.size === 0) break;
+      await delay(40);
+    }
+
+    assert.strictEqual(rivalClaimDuringRun, null, 'Rival worker must not reclaim while heartbeat is active');
+    assert.strictEqual(worker.activeHeartbeats.size, 0, 'Heartbeat timers must stop after completion');
+    assert.strictEqual(await DocumentExtractionJob.countDocuments({ intakeId, status: 'COMPLETED' }), 2);
+
+    // Heartbeat stops after retry/failure as well
+    const intakeFail = await setupSubmittedIntake(USER_A);
+    await enqueueIntakeIntelligence(intakeFail);
+    const failWorker = new ExtractionWorker({
+      workerId: 'hb-fail-worker',
+      concurrency: 1,
+      leaseMs: 200,
+      heartbeatIntervalMs: 50,
+      pollIntervalMs: 10000,
+      reconcileIntervalMs: 60000,
+      llmProvider: makeFakeLlmProvider({ failOnType: 'RESUME' }),
+    });
+    failWorker.running = true;
+    await failWorker.tick();
+    await delay(120);
+    await failWorker.stop();
+    assert.strictEqual(failWorker.activeHeartbeats.size, 0, 'Heartbeat timers must stop on retry/failure and shutdown');
+  });
+
+  it('54. Heartbeat fails on expired lease or changed leaseToken, aborts stale worker, and prevents stale DB/run writes', async () => {
+    const intakeId = await setupSubmittedIntake(USER_A);
+    await enqueueIntakeIntelligence(intakeId);
+
+    const job = await jobRepo.claimNextJob({ workerId: 'stale-worker', leaseMs: 120, documentType: 'RESUME' });
+    const runBefore = await IntakeIntelligenceRun.findById(job.runId).lean();
+
+    // 4. Cannot revive an already expired lease
+    await DocumentExtractionJob.updateOne(
+      { _id: job._id },
+      { $set: { leaseExpiresAt: new Date(Date.now() - 500) } }
+    );
+    const expiredRenew = await jobRepo.renewJobLease(job._id, {
+      workerId: 'stale-worker',
+      leaseToken: job.leaseToken,
+      leaseMs: 120,
+    });
+    assert.strictEqual(expiredRenew, null, 'renewJobLease must reject expired leases');
+
+    // 3. Heartbeat detects changed leaseToken after another worker reclaims, aborts signal & stops timer
+    const winnerJob = await jobRepo.claimNextJob({
+      workerId: 'winner-worker',
+      leaseMs: 5000,
+      documentType: 'RESUME',
+    });
+    assert.ok(winnerJob && winnerJob.leaseToken !== job.leaseToken);
+
+    const hbWorker = new ExtractionWorker({
+      workerId: 'stale-worker',
+      leaseMs: 500,
+      heartbeatIntervalMs: 25,
+    });
+    hbWorker.running = true;
+    const hb = hbWorker._startJobHeartbeat(job);
+    await new Promise((r) => setTimeout(r, 80));
+    assert.strictEqual(hb.isLeaseLost(), true);
+    assert.strictEqual(hb.signal.aborted, true);
+    assert.strictEqual(hbWorker.activeHeartbeats.size, 0, 'Heartbeat timer must stop on lease loss');
+
+    // 5 & 6. Stale worker finishing after reclamation cannot persist extraction or overwrite run/job
+    const extCountBefore = await DocumentExtraction.countDocuments({});
+    const staleResult = await processExtractionJob(job, {
+      llmProvider: makeFakeLlmProvider(),
+      workerId: 'stale-worker',
+      signal: hb.signal,
+      isLeaseLost: hb.isLeaseLost,
+    });
+    assert.strictEqual(staleResult.status, 'LEASE_LOST');
+    assert.strictEqual(await DocumentExtraction.countDocuments({}), extCountBefore);
+    const runAfterStale = await IntakeIntelligenceRun.findById(job.runId).lean();
+    assert.strictEqual(runAfterStale.status, runBefore.status);
+
+    await hbWorker.stop();
+  });
 });

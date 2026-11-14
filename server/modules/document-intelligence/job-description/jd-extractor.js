@@ -21,6 +21,7 @@ const extractJdIntelligence = async ({
   parsedDoc,
   llmProvider,
   requestId = 'jd-extract',
+  signal = undefined,
 }) => {
   if (!parsedDoc || parsedDoc.status !== 'PARSED' || !parsedDoc.blocks?.length) {
     throw new AppError(400, 'Parsed job description blocks are required for extraction', 'INVALID_PARSED_DOCUMENT');
@@ -33,6 +34,11 @@ const extractJdIntelligence = async ({
   let modelName = null;
 
   for (let i = 0; i < chunks.length; i++) {
+    if (signal?.aborted) {
+      const err = new Error('Extraction aborted due to lease loss');
+      err.code = 'LEASE_LOST';
+      throw err;
+    }
     const formattedBlocks = formatBlocksForPrompt(chunks[i]);
     const userPrompt = buildJdExtractionPrompt({
       documentId: parsedDoc.documentId,
@@ -43,6 +49,7 @@ const extractJdIntelligence = async ({
       systemInstruction: JD_SYSTEM_INSTRUCTION,
       userPrompt,
       requestId: `${requestId}-chunk-${i + 1}`,
+      signal,
     });
 
     providerName = llmRes.provider;

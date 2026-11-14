@@ -44,14 +44,21 @@ class GeminiExtractionProvider {
     this.timeoutMs = timeoutMs;
   }
 
-  async generateStructuredJson({ systemInstruction, userPrompt, requestId }) {
+  async generateStructuredJson({ systemInstruction, userPrompt, requestId, signal = undefined }) {
     if (!this.apiKey) {
       throw new LlmProviderError('No Gemini API key configured', 'AUTH_ERROR');
+    }
+    if (signal?.aborted) {
+      throw new LlmProviderError('Extraction aborted due to lease loss', 'TIMEOUT');
     }
 
     const ai = new GoogleGenAI({ apiKey: this.apiKey });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const onAbort = () => controller.abort(signal.reason);
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
 
     try {
       const response = await ai.models.generateContent({
@@ -100,6 +107,9 @@ class GeminiExtractionProvider {
       throw new LlmProviderError(err?.message || 'LLM extraction failed', category, err);
     } finally {
       clearTimeout(timer);
+      if (signal) {
+        signal.removeEventListener('abort', onAbort);
+      }
     }
   }
 }

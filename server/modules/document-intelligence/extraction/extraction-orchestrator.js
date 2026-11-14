@@ -12,6 +12,7 @@ const { RESUME_EXTRACTOR_VERSION, extractResumeIntelligence } = require('../resu
 const { JD_EXTRACTOR_VERSION, extractJdIntelligence } = require('../job-description/jd-extractor');
 const extractionRepo = require('./extraction.repository');
 const jobRepo = require('../jobs/extraction-job.repository');
+const { extractionStateMachine } = require('./extraction-state-machine');
 
 const PARSER_VERSION = '1.0.0';
 const SCHEMA_VERSION = '1.0';
@@ -373,8 +374,18 @@ const verifyIntakeDocumentSecurityGate = async (job) => {
 /**
  * Process a single claimed DocumentExtractionJob end-to-end.
  */
-const processExtractionJob = async (job, { llmProvider = new GeminiExtractionProvider(), workerId = 'worker' } = {}) => {
+const processExtractionJob = async (
+  job,
+  { llmProvider = new GeminiExtractionProvider(), workerId = 'worker', signal = undefined, isLeaseLost = null } = {}
+) => {
   const startedAt = new Date();
+  const leaseToken = job.leaseToken || null;
+  const checkLeaseLost = () => Boolean(isLeaseLost?.() || signal?.aborted);
+
+  if (checkLeaseLost()) {
+    return { status: 'LEASE_LOST', fenced: true };
+  }
+
   logTelemetry('EXTRACTION_JOB_STARTED', {
     jobId: String(job._id),
     intakeId: String(job.intakeId),
@@ -384,11 +395,34 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
     workerId,
   });
 
-  await extractionRepo.updateRun(job.runId, { status: 'PROCESSING', startedAt });
-
   try {
     // 0. Intake-level document security gate (protects RESUME and JOB_DESCRIPTION jobs before cache/parse/LLM)
     await verifyIntakeDocumentSecurityGate(job);
+    if (checkLeaseLost()) return { status: 'LEASE_LOST', fenced: true };
+
+    // 0b. Terminal-state protection (supports idempotent cache reads on COMPLETED without mutating terminal state)
+    if (extractionStateMachine.isTerminal(job.status)) {
+      if (job.status === 'COMPLETED') {
+        const cachedTerminal = await extractionRepo.findExtractionByIdempotency({
+          documentId: job.documentId,
+          documentChecksum: job.documentChecksum,
+          extractorVersion: job.extractorVersion,
+          schemaVersion: job.schemaVersion,
+        });
+        return {
+          status: 'COMPLETED',
+          cached: true,
+          extractionId: cachedTerminal?._id || job.extractionId || null,
+        };
+      }
+      return {
+        status: job.status,
+        terminal: true,
+        errorCode: job.lastErrorCode || job.status,
+      };
+    }
+
+    await extractionRepo.updateRun(job.runId, { status: 'PROCESSING', startedAt });
 
     // 1. Check idempotent extraction cache first
     const cached = await extractionRepo.findExtractionByIdempotency({
@@ -399,7 +433,13 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
     });
 
     if (cached) {
-      await jobRepo.markJobCompleted(job._id, { extractionId: cached._id });
+      const updated = await jobRepo.markJobCompleted(job._id, {
+        extractionId: cached._id,
+        leaseToken,
+      });
+      if (!updated) {
+        return { status: 'LEASE_LOST', fenced: true };
+      }
       await refreshRunStatus(job.runId);
       logTelemetry('EXTRACTION_CACHE_HIT', {
         jobId: String(job._id),
@@ -461,6 +501,7 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
     }
 
     // 3. Handle scanned / image-only PDFs explicitly without fabricating data
+    if (checkLeaseLost()) return { status: 'LEASE_LOST', fenced: true };
     if (parsedDoc.status === 'OCR_REQUIRED') {
       const ocrExtraction = await extractionRepo.upsertExtraction(
         {
@@ -488,11 +529,15 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
         }
       );
 
-      await jobRepo.markJobTerminal(job._id, {
+      const updatedOcr = await jobRepo.markJobTerminal(job._id, {
         status: 'NEEDS_OCR',
         errorCode: 'OCR_REQUIRED',
         errorMessage: 'Document contains no extractable text; OCR required',
+        leaseToken,
       });
+      if (!updatedOcr) {
+        return { status: 'LEASE_LOST', fenced: true };
+      }
       await refreshRunStatus(job.runId);
       logTelemetry('EXTRACTION_OCR_REQUIRED', {
         jobId: String(job._id),
@@ -504,18 +549,23 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
     }
 
     // 4. Run LLM extraction + Zod + EvidenceValidator
+    if (checkLeaseLost()) return { status: 'LEASE_LOST', fenced: true };
     const result =
       job.documentType === 'RESUME'
         ? await extractResumeIntelligence({
             parsedDoc,
             llmProvider,
             requestId: String(job._id),
+            signal,
           })
         : await extractJdIntelligence({
             parsedDoc,
             llmProvider,
             requestId: String(job._id),
+            signal,
           });
+
+    if (checkLeaseLost()) return { status: 'LEASE_LOST', fenced: true };
 
     const completedAt = new Date();
     const savedExtraction = await extractionRepo.upsertExtraction(
@@ -547,7 +597,13 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
       }
     );
 
-    await jobRepo.markJobCompleted(job._id, { extractionId: savedExtraction._id });
+    const completedJob = await jobRepo.markJobCompleted(job._id, {
+      extractionId: savedExtraction._id,
+      leaseToken,
+    });
+    if (!completedJob) {
+      return { status: 'LEASE_LOST', fenced: true };
+    }
     await refreshRunStatus(job.runId);
 
     logTelemetry('EXTRACTION_COMPLETED', {
@@ -564,15 +620,28 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
 
     return { status: 'COMPLETED', cached: false, extractionId: savedExtraction._id };
   } catch (err) {
+    if (checkLeaseLost() || err?.code === 'LEASE_LOST') {
+      return { status: 'LEASE_LOST', fenced: true };
+    }
     const classification = classifyJobFailure(err);
 
-    if (!classification.retryable || job.attemptCount >= job.maximumAttempts) {
+    const canRetry = extractionStateMachine.canRetryAutomatically({
+      attemptCount: job.attemptCount,
+      maximumAttempts: job.maximumAttempts,
+      retryable: classification.retryable,
+    });
+
+    if (!canRetry) {
       const terminalStatus = classification.terminalStatus || 'FAILED';
-      await jobRepo.markJobTerminal(job._id, {
+      const updatedTerminal = await jobRepo.markJobTerminal(job._id, {
         status: terminalStatus,
         errorCode: classification.code,
         errorMessage: err?.message || 'Extraction failed',
+        leaseToken,
       });
+      if (!updatedTerminal) {
+        return { status: 'LEASE_LOST', fenced: true };
+      }
       await refreshRunStatus(job.runId);
       logTelemetry('EXTRACTION_FAILED', {
         jobId: String(job._id),
@@ -585,13 +654,20 @@ const processExtractionJob = async (job, { llmProvider = new GeminiExtractionPro
       return { status: terminalStatus, errorCode: classification.code };
     }
 
-    const backoffMs = env.DOCUMENT_EXTRACTION_RETRY_DELAY_MS * Math.pow(2, Math.max(0, job.attemptCount - 1));
+    const backoffMs = extractionStateMachine.computeRetryDelayMs({
+      attemptCount: job.attemptCount,
+      baseDelayMs: env.DOCUMENT_EXTRACTION_RETRY_DELAY_MS,
+    });
     const nextAttemptAt = new Date(Date.now() + backoffMs);
-    await jobRepo.markJobRetryWait(job._id, {
+    const updatedRetry = await jobRepo.markJobRetryWait(job._id, {
       nextAttemptAt,
       errorCode: classification.code,
       errorMessage: err?.message || 'Transient extraction failure',
+      leaseToken,
     });
+    if (!updatedRetry) {
+      return { status: 'LEASE_LOST', fenced: true };
+    }
     await refreshRunStatus(job.runId);
 
     logTelemetry('EXTRACTION_RETRY_SCHEDULED', {

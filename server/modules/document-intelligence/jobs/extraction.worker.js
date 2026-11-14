@@ -20,6 +20,7 @@ class ExtractionWorker {
     workerId = `worker-${process.pid}-${crypto.randomUUID().slice(0, 6)}`,
     concurrency = env.DOCUMENT_EXTRACTION_WORKER_CONCURRENCY,
     leaseMs = env.DOCUMENT_EXTRACTION_JOB_LEASE_MS,
+    heartbeatIntervalMs = undefined,
     pollIntervalMs = 3000,
     reconcileIntervalMs = 30000,
     llmProvider = undefined,
@@ -27,6 +28,10 @@ class ExtractionWorker {
     this.workerId = workerId;
     this.concurrency = concurrency;
     this.leaseMs = leaseMs;
+    this.heartbeatIntervalMs =
+      heartbeatIntervalMs !== undefined
+        ? heartbeatIntervalMs
+        : Math.max(25, Math.min(env.DOCUMENT_EXTRACTION_HEARTBEAT_INTERVAL_MS, Math.floor(leaseMs / 3)));
     this.pollIntervalMs = pollIntervalMs;
     this.reconcileIntervalMs = reconcileIntervalMs;
     this.llmProvider = llmProvider;
@@ -36,6 +41,7 @@ class ExtractionWorker {
     this.pollTimer = null;
     this.reconcileTimer = null;
     this._onIntakeSubmitted = null;
+    this.activeHeartbeats = new Map();
   }
 
   async start() {
@@ -52,18 +58,77 @@ class ExtractionWorker {
     };
     intakeEventBus.on(INTAKE_EVENTS.INTERVIEW_INTAKE_SUBMITTED, this._onIntakeSubmitted);
 
-    // Reconcile any READY_FOR_ANALYSIS intakes missed during downtime
+    // Reconcile any READY_FOR_ANALYSIS intakes missed during downtime & recover exhausted expired leases
     await reconcilePendingIntakes().catch((err) =>
       console.warn('Startup intake reconciliation error:', err.message)
     );
-
-    this.pollTimer = setInterval(() => void this.tick(), this.pollIntervalMs);
-    this.reconcileTimer = setInterval(
-      () => void reconcilePendingIntakes().catch(() => {}),
-      this.reconcileIntervalMs
+    await jobRepo.recoverExpiredLeases().catch((err) =>
+      console.warn('Startup lease recovery error:', err.message)
     );
 
+    this.pollTimer = setInterval(() => void this.tick(), this.pollIntervalMs);
+    this.reconcileTimer = setInterval(() => {
+      void reconcilePendingIntakes().catch(() => {});
+      void jobRepo.recoverExpiredLeases().catch(() => {});
+    }, this.reconcileIntervalMs);
+
     void this.tick();
+  }
+
+  _startJobHeartbeat(job) {
+    const jobKey = String(job._id);
+    const controller = new AbortController();
+    const state = {
+      timer: null,
+      inFlight: false,
+      leaseLost: false,
+      stopped: false,
+      controller,
+      renewalCount: 0,
+    };
+
+    const stop = () => {
+      if (state.stopped) return;
+      state.stopped = true;
+      if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+      }
+      this.activeHeartbeats.delete(jobKey);
+    };
+
+    const beat = async () => {
+      if (state.stopped || state.inFlight || state.leaseLost || !this.running) return;
+      state.inFlight = true;
+      try {
+        const renewed = await jobRepo.renewJobLease(job._id, {
+          workerId: this.workerId,
+          leaseToken: job.leaseToken,
+          leaseMs: this.leaseMs,
+        });
+        if (!renewed) {
+          state.leaseLost = true;
+          stop();
+          controller.abort(new Error('LEASE_LOST'));
+        } else {
+          state.renewalCount += 1;
+        }
+      } catch (_) {
+        // Transient DB error: do not overlap; next beat will retry before expiry
+      } finally {
+        state.inFlight = false;
+      }
+    };
+
+    state.timer = setInterval(() => void beat(), this.heartbeatIntervalMs);
+    if (typeof state.timer.unref === 'function') state.timer.unref();
+    this.activeHeartbeats.set(jobKey, { state, stop });
+
+    return {
+      signal: controller.signal,
+      isLeaseLost: () => state.leaseLost,
+      stop,
+    };
   }
 
   async tick() {
@@ -78,14 +143,19 @@ class ExtractionWorker {
       if (!job) break;
 
       this.activeCount += 1;
+      const hb = this._startJobHeartbeat(job);
+
       processExtractionJob(job, {
         llmProvider: this.llmProvider,
         workerId: this.workerId,
+        signal: hb.signal,
+        isLeaseLost: hb.isLeaseLost,
       })
         .catch((err) => {
           console.error('Unexpected worker job error:', err.message);
         })
         .finally(() => {
+          hb.stop();
           this.activeCount = Math.max(0, this.activeCount - 1);
           if (this.running) void this.tick();
         });
@@ -102,6 +172,11 @@ class ExtractionWorker {
       clearInterval(this.reconcileTimer);
       this.reconcileTimer = null;
     }
+    for (const entry of [...this.activeHeartbeats.values()]) {
+      entry.stop();
+      entry.state.controller.abort(new Error('WORKER_STOPPED'));
+    }
+    this.activeHeartbeats.clear();
     if (this._onIntakeSubmitted) {
       intakeEventBus.off(INTAKE_EVENTS.INTERVIEW_INTAKE_SUBMITTED, this._onIntakeSubmitted);
       this._onIntakeSubmitted = null;
