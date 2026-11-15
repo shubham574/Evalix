@@ -38,7 +38,12 @@ module.exports = {
   DOCUMENT_RETENTION_DAYS: Number(process.env.DOCUMENT_RETENTION_DAYS) || 90,
   DOCUMENT_SIGNING_SECRET:
     process.env.DOCUMENT_SIGNING_SECRET || process.env.JWT_SECRET || 'evalix-doc-signing-dev-secret',
-  MALWARE_SCAN_ENABLED: process.env.MALWARE_SCAN_ENABLED === 'true',
+  // Built-in static malware scanner runs by default; set MALWARE_SCAN_ENABLED=false to disable (not recommended).
+  MALWARE_SCAN_ENABLED: process.env.MALWARE_SCAN_ENABLED !== 'false',
+  // Optional ClamAV (clamd) engine, used in addition to the built-in scanner when CLAMAV_HOST is set.
+  CLAMAV_HOST: process.env.CLAMAV_HOST || '',
+  CLAMAV_PORT: Number(process.env.CLAMAV_PORT) || 3310,
+  CLAMAV_TIMEOUT_MS: Number(process.env.CLAMAV_TIMEOUT_MS) || 30000,
 
   // Module 2: Resume & Job Description Intelligence Engine
   DOCUMENT_EXTRACTION_ENABLED: process.env.DOCUMENT_EXTRACTION_ENABLED !== 'false',

@@ -3,6 +3,7 @@ const env = require('../../config/env');
 const AppError = require('../common/errors/AppError');
 const { getStorageAdapter } = require('./storage.adapter');
 const { validateUploadedDocument } = require('./document.validation');
+const { scanDocument } = require('./malware-scanner');
 const { cleanupTempFile } = require('./uploadMiddleware');
 const documentRepo = require('./document.repository');
 
@@ -56,6 +57,13 @@ const storeCandidateDocument = async ({
       maxSizeBytes: env.MAX_DOCUMENT_SIZE_BYTES,
     });
 
+    // Malware scan (rejects with 422 MALWARE_DETECTED / 503 fail-closed before anything is stored)
+    let securityStatus = 'SIGNATURE_VERIFIED_NO_AV';
+    if (env.MALWARE_SCAN_ENABLED) {
+      await scanDocument({ filePath: file.path, ext });
+      securityStatus = 'MALWARE_SCANNED_CLEAN';
+    }
+
     // Idempotent retry check: if identical file was already uploaded for this candidate & type, reuse it
     const existing = await documentRepo.findByChecksum(
       { candidateProfileId, documentType, checksum },
@@ -63,6 +71,15 @@ const storeCandidateDocument = async ({
     );
     if (existing) {
       await cleanupTempFile(file.path);
+      if (
+        securityStatus === 'MALWARE_SCANNED_CLEAN' &&
+        existing.securityStatus !== 'MALWARE_SCANNED_CLEAN' &&
+        existing.securityStatus !== 'QUARANTINED'
+      ) {
+        // Same bytes, now verified clean: upgrade the earlier unscanned record.
+        const upgraded = await documentRepo.markSecurityStatus(existing._id, securityStatus, session);
+        return { document: upgraded || existing, deduplicated: true };
+      }
       return { document: existing, deduplicated: true };
     }
 
@@ -75,10 +92,6 @@ const storeCandidateDocument = async ({
     const retentionExpiresAt = new Date(
       Date.now() + env.DOCUMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000
     );
-
-    const securityStatus = env.MALWARE_SCAN_ENABLED
-      ? 'MALWARE_SCANNED_CLEAN'
-      : 'SIGNATURE_VERIFIED_NO_AV';
 
     const doc = await documentRepo.createDocument(
       {

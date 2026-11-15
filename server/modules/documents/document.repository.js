@@ -44,8 +44,17 @@ const markDeleted = async (documentId, userId, session = null) => {
   );
 };
 
+const markSecurityStatus = async (documentId, securityStatus, session = null) => {
+  return CandidateDocument.findOneAndUpdate(
+    { _id: documentId },
+    { $set: { securityStatus } },
+    { new: true, ...(session ? { session } : {}) }
+  );
+};
+
 module.exports = {
   createDocument,
+  markSecurityStatus,
   findByIdAndUser,
   findByChecksum,
   listByCandidateProfile,
