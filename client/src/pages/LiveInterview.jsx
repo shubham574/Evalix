@@ -1167,7 +1167,7 @@ const LiveInterview = () => {
           difficulty: String(difficulty || 'medium').toUpperCase(),
         },
       });
-      const intakeId = intake._id || intake.id;
+      const intakeId = intake.intakeId || intake._id || intake.id;
 
       setPipelineStatus('Module 1: Uploading Resume & Job Description...');
       await evalixV1.uploadResume(intakeId, resumeFile);
