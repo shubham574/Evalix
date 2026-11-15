@@ -1157,11 +1157,14 @@ const LiveInterview = () => {
       await ensureV1Profile(seniorityLevel, months);
 
       const intake = await evalixV1.createIntake({
-        targetRole: jobRole,
-        seniorityLevel,
+        targetJob: {
+          role: jobRole.trim(),
+          jobDescription: jobDescription.trim(),
+        },
         interviewPreferences: {
           interviewType: 'MIXED',
-          durationMinutes: Number(totalQuestions) * 5 || 25,
+          durationMinutes: Math.min(120, Math.max(15, Number(totalQuestions) * 5 || 25)),
+          difficulty: String(difficulty || 'medium').toUpperCase(),
         },
       });
       const intakeId = intake._id || intake.id;
