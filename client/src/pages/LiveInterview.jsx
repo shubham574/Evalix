@@ -1210,10 +1210,9 @@ const LiveInterview = () => {
 
       setPipelineStatus('Module 1: Uploading Resume & Job Description...');
       await evalixV1.uploadResume(intakeId, resumeFile);
-      const jdUploadFile =
-        jdFile ||
-        textToPdfFile(jobDescription.trim());
-      await evalixV1.uploadJobDescription(intakeId, jdUploadFile);
+      if (jdFile) {
+        await evalixV1.uploadJobDescription(intakeId, jdFile);
+      }
       await evalixV1.submitIntake(intakeId);
 
       setPipelineStatus('Module 2: Extracting structured Resume & JD intelligence...');
