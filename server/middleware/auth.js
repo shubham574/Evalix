@@ -20,6 +20,13 @@ const PLATFORM_ADMIN_ROLES = new Set([
 
 const protect = (req, res, next) => {
   try {
+    // Several routers share one mount path (each calls protect). protect overwrites
+    // req.auth with a plain object, which breaks Clerk's getAuth on later calls,
+    // so skip if already authenticated by an earlier protect in this request.
+    if (req.auth && req.auth.__protected === true) {
+      return next();
+    }
+
     // Allow test auth bypass ONLY in non-production or when explicitly enabled
     if (
       (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_AUTH === 'true') &&
@@ -33,6 +40,7 @@ const protect = (req, res, next) => {
         orgRole: testRole ? String(testRole) : null,
         orgPermissions: [],
         isTestAuth: true,
+        __protected: true,
       };
       return next();
     }
@@ -58,6 +66,7 @@ const protect = (req, res, next) => {
       orgRole,
       orgPermissions,
       isTestAuth: false,
+      __protected: true,
     };
     next();
   } catch (err) {
