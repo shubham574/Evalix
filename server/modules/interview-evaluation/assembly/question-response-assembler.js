@@ -25,6 +25,7 @@ const assembleQuestionResponses = ({ session, internalBlueprint, validTurns = []
     : [];
   const askedSet = new Set(session.askedQuestionIds || []);
   const completedSet = new Set(session.completedQuestionIds || []);
+  const skippedSet = new Set(session.skippedQuestionIds || []);
   const skippedStages = new Set(
     (session.stageProgress || [])
       .filter((s) => s.status === 'SKIPPED')
@@ -52,6 +53,20 @@ const assembleQuestionResponses = ({ session, internalBlueprint, validTurns = []
     const excludedByStage = skippedStages.has(q.stageId) || excludedByFocusedScope;
     const hasInvalidTranscript = candidateTurns.length === 0 && qInvalidTurns.length > 0;
 
+    const wasSkippedByCandidate =
+      skippedSet.has(qId) ||
+      candidateTurns.some((t) => t.sttMetadata?.classification?.intent === 'REQUEST_SKIP');
+
+    const substantiveCandidateTurns = candidateTurns.filter((t) => {
+      const intent = t.sttMetadata?.classification?.intent;
+      if (intent) {
+        return intent === 'SUBSTANTIVE_ANSWER';
+      }
+      const text = (t.spokenText || t.rawTranscript || '').trim().toLowerCase();
+      return !['yes', 'yeah', 'ok', 'okay', 'no', 'sure', 'got it', 'pass', 'skip'].includes(text);
+    });
+    const hasSubstantiveAnswer = substantiveCandidateTurns.length > 0;
+
     const promptingContext = detectPromptingContext({ aiTurns, candidateTurns });
 
     const codeArtifacts = candidateTurns
@@ -70,6 +85,8 @@ const assembleQuestionResponses = ({ session, internalBlueprint, validTurns = []
       wasAsked,
       wasCompleted,
       wasInterrupted,
+      wasSkippedByCandidate,
+      hasSubstantiveAnswer,
       excludedByStage,
       hasInvalidTranscript,
       promptingContext,

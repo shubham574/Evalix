@@ -1,9 +1,10 @@
 const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
 const { interviewerDecisionSchema } = require('./conversation.schema');
 const { formatMemoryForPrompt } = require('../memory/memory.service');
+const { getRelevantContextForQuestion } = require('../context/candidate-context-builder');
 const env = require('../../../config/env');
 
-const PROMPT_VERSION = 'module5.interviewer.v1';
+const PROMPT_VERSION = 'module5.interviewer.v2';
 
 const buildSystemInstruction = ({ blueprint, currentStage, currentQuestion, followUpPolicy }) => {
   const excluded = Array.isArray(blueprint.excludedRequirements)
@@ -20,6 +21,8 @@ const buildSystemInstruction = ({ blueprint, currentStage, currentQuestion, foll
     '5. If the candidate asks to repeat or clarify the question, choose CLARIFY_OR_REPEAT.',
     '6. If the candidate asks for a moment to think, choose PAUSE_FOR_THINKING.',
     '7. Only choose ASK_FOLLOW_UP if remaining follow-ups > 0 and a specific claim/gap needs probing.',
+    '8. CONTEXTUAL GROUNDING & ADAPTIVE FOLLOW-UPS: When asking a follow-up, ground it STRICTLY in what the candidate explicitly mentioned in their transcript (e.g. if they mention using MongoDB, ask how they designed collections or handled relationships). NEVER invent technologies the candidate did not mention.',
+    '9. ANSWER INTENT & CLARIFICATION: Check the RESPONSE_CLASSIFICATION provided. If intent is OFF_TOPIC, UNCLEAR, or ACKNOWLEDGEMENT, do NOT treat it as a substantive completed answer. If off-topic or unclear, choose CLARIFY_OR_REPEAT to politely guide them back.',
     '',
     `Role: ${blueprint.targetRole} (${blueprint.seniorityLevel}) | Type: ${blueprint.interviewType}`,
     `Current Stage: ${currentStage?.title || currentStage?.stageId || 'N/A'} (${currentStage?.stageType || 'N/A'})`,
@@ -40,12 +43,18 @@ const buildUserPrompt = ({
   session,
   memory,
   currentQuestion,
+  currentStage,
   nextQuestionCandidate,
   nextStageCandidate,
   timeSnapshot,
+  candidateContext = null,
+  classification = null,
 }) => {
   const memoryPayload = formatMemoryForPrompt(memory);
   const currentFollowUpCount = Number(session.currentFollowUpCount || 0);
+  const relevantContext = candidateContext
+    ? getRelevantContextForQuestion(candidateContext, currentQuestion, currentStage)
+    : {};
 
   return [
     'INTERVIEW STATE:',
@@ -69,6 +78,20 @@ const buildUserPrompt = ({
               title: nextStageCandidate.title,
             }
           : null,
+      },
+      null,
+      2
+    ),
+    '',
+    'RELEVANT CANDIDATE CONTEXT (VERIFIED):',
+    JSON.stringify(relevantContext, null, 2),
+    '',
+    'RESPONSE CLASSIFICATION:',
+    JSON.stringify(
+      classification || {
+        intent: 'SUBSTANTIVE_ANSWER',
+        relevanceToCurrentQuestion: 'HIGH',
+        answerCompleteness: 'COMPLETE',
       },
       null,
       2
@@ -103,6 +126,8 @@ const createInterviewerAgent = ({ llmProvider = null } = {}) => {
     timeSnapshot,
     candidateTranscript,
     requestId,
+    candidateContext = null,
+    classification = null,
   }) => {
     const systemInstruction = buildSystemInstruction({
       blueprint,
@@ -116,9 +141,12 @@ const createInterviewerAgent = ({ llmProvider = null } = {}) => {
       session,
       memory,
       currentQuestion,
+      currentStage,
       nextQuestionCandidate,
       nextStageCandidate,
       timeSnapshot,
+      candidateContext,
+      classification,
     });
 
     const startedAt = Date.now();

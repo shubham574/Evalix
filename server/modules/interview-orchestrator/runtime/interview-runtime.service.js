@@ -55,6 +55,9 @@ const { resolveAdaptiveDecision } = require('../adaptive/adaptive-engine');
 const { createSttAdapter } = require('../voice/stt.adapter');
 const { createTtsAdapter } = require('../voice/tts.adapter');
 const { recordTtsInterruption } = require('../voice/interruption-handler');
+const { CandidateJobAnalysis } = require('../../candidate-intelligence/analysis/candidateJobAnalysis.model');
+const { buildCandidateContext } = require('../context/candidate-context-builder');
+const { createAnswerClassifier } = require('../conversation/answer-classifier');
 
 const computeBlueprintChecksum = (bp) => {
   const canonical = JSON.stringify({
@@ -79,10 +82,12 @@ const createInterviewRuntimeService = ({
   llmProvider = null,
   sttProvider = null,
   ttsProvider = null,
+  answerClassifier = null,
 } = {}) => {
   const interviewerAgent = createInterviewerAgent({ llmProvider });
   const sttAdapter = createSttAdapter({ sttProvider });
   const ttsAdapter = createTtsAdapter({ ttsProvider });
+  const classifier = answerClassifier || createAnswerClassifier({ llmProvider });
 
   const loadAuthorizedSession = async (sessionIdentifier, userId, { bypassOwnership = false } = {}) => {
     const session = await findSessionByIdentifier(sessionIdentifier);
@@ -792,6 +797,24 @@ const createInterviewRuntimeService = ({
     const followUpPolicy = getFollowUpPolicy(internalBlueprint, currentQuestion?.questionId);
     const timeSnapshot = getTimeSnapshot(session, now);
 
+    // Load candidate intelligence analysis snapshot for contextual grounding
+    let analysisDoc = null;
+    if (session.candidateAnalysisId) {
+      analysisDoc = await CandidateJobAnalysis.findById(session.candidateAnalysisId).lean();
+    }
+    if (!analysisDoc && session.intakeId) {
+      analysisDoc = await CandidateJobAnalysis.findOne({ intakeId: session.intakeId }).lean();
+    }
+    const candidateContext = buildCandidateContext({ session, internalBlueprint, analysisDoc });
+
+    // Classify candidate speech for intent, relevance, and language
+    const classification = await classifier.classifyAnswer({
+      transcript: sttResult.transcript,
+      currentQuestion,
+      currentStage,
+      requestId: idempotencyKey,
+    });
+
     // Call LLM outside DB transaction
     const agentResult = await interviewerAgent.decideNextTurn({
       blueprint: internalBlueprint,
@@ -804,6 +827,8 @@ const createInterviewRuntimeService = ({
       followUpPolicy,
       timeSnapshot,
       candidateTranscript: sttResult.transcript,
+      candidateContext,
+      classification,
       requestId: idempotencyKey,
     });
 
@@ -817,10 +842,16 @@ const createInterviewRuntimeService = ({
       nextStageCandidate,
       followUpPolicy,
       timeSnapshot,
+      candidateContext,
+      classification,
     });
 
-    // Synthesize TTS before final DB write so we know TTS outcome without holding DB locks
-    const ttsResult = await ttsAdapter.synthesizeSpeech({ text: resolved.spokenResponse });
+    if (classification?.intent === 'REQUEST_SKIP' && currentQuestion) {
+      session.skippedQuestionIds = session.skippedQuestionIds || [];
+      if (!session.skippedQuestionIds.includes(currentQuestion.questionId)) {
+        session.skippedQuestionIds.push(currentQuestion.questionId);
+      }
+    }
 
     // Apply deterministic state updates in memory, then persist with optimistic concurrency lock
     accumulateActiveTime(session, now);
@@ -867,6 +898,12 @@ const createInterviewRuntimeService = ({
           nextActiveQuestion = firstInNext;
           aiTurnType = 'CORE_QUESTION';
           isNewCoreQuestion = true;
+          // Ensure prompt is spoken so the AI does not announce a stage silently
+          const spoken = String(resolved.spokenResponse || '').trim();
+          const firstPrompt = String(firstInNext.prompt || firstInNext.questionText || '').trim();
+          if (firstPrompt && !spoken.toLowerCase().includes(firstPrompt.toLowerCase().slice(0, 30))) {
+            resolved.spokenResponse = `${spoken} ${firstPrompt}`.trim();
+          }
         } else {
           nextActiveQuestion = null;
           aiTurnType = 'TRANSITION';
@@ -879,6 +916,9 @@ const createInterviewRuntimeService = ({
       aiTurnType = 'CLOSING';
       sessionWillComplete = true;
     }
+
+    // Synthesize TTS before final DB write so we know TTS outcome without holding DB locks
+    const ttsResult = await ttsAdapter.synthesizeSpeech({ text: resolved.spokenResponse });
 
     session.totalTurnCount = aiTurnNumber;
     session.lastCompletedTurnNumber = aiTurnNumber;
@@ -899,8 +939,10 @@ const createInterviewRuntimeService = ({
         timeSnapshot.timeMode === 'TIME_EXPIRED' ? 'TIME_EXPIRED' : 'COMPLETED';
     }
 
-    const { savedSession, candTurn, aiTurn } = await withTransaction(async (dbSession) => {
-      const updateFields = {
+    let transactionResult;
+    try {
+      transactionResult = await withTransaction(async (dbSession) => {
+        const updateFields = {
         status: session.status,
         currentStageId: session.currentStageId,
         currentStageIndex: session.currentStageIndex,
@@ -912,6 +954,7 @@ const createInterviewRuntimeService = ({
         stageProgress: session.stageProgress,
         askedQuestionIds: session.askedQuestionIds,
         completedQuestionIds: session.completedQuestionIds,
+        skippedQuestionIds: session.skippedQuestionIds || [],
         coveredCompetencyIds: session.coveredCompetencyIds,
         followUpsPerQuestion: session.followUpsPerQuestion,
         activePrompt: session.activePrompt,
@@ -928,6 +971,24 @@ const createInterviewRuntimeService = ({
       );
 
       if (!lockedSession) {
+        const raceTurn = await InterviewTurn.findOne({
+          sessionId: session._id,
+          idempotencyKey,
+        });
+        if (raceTurn) {
+          const pairedAiTurn = await InterviewTurn.findOne({
+            sessionId: session._id,
+            turnNumber: raceTurn.turnNumber + 1,
+            speaker: 'AI',
+          });
+          const latestSession = await InterviewSession.findById(session._id);
+          return {
+            savedSession: latestSession,
+            candTurn: raceTurn,
+            aiTurn: pairedAiTurn,
+            isIdempotentRace: true,
+          };
+        }
         throw new ApiError(409, 'Optimistic concurrency conflict: session was modified concurrently');
       }
 
@@ -945,7 +1006,10 @@ const createInterviewRuntimeService = ({
           rawTranscript: sttResult.transcript,
           transcriptStatus: sttResult.transcriptStatus,
           processingStatus: 'PROCESSED',
-          sttMetadata: sttResult.metadata,
+          sttMetadata: {
+            ...(sttResult.metadata || {}),
+            classification,
+          },
           startedAt: now,
           endedAt: now,
         },
@@ -969,6 +1033,7 @@ const createInterviewRuntimeService = ({
             policyValidated: resolved.policyValidated,
             fallbackUsed: resolved.fallbackUsed,
             validationWarnings: resolved.validationWarnings || [],
+            classification,
           },
           llmMetadata: agentResult.llmMetadata,
           startedAt: now,
@@ -1078,13 +1143,49 @@ const createInterviewRuntimeService = ({
         aiTurn: createdTurns[1],
       };
     });
+    } catch (err) {
+      if (err.code === 11000 || err.statusCode === 409) {
+        const raceTurn = await InterviewTurn.findOne({
+          sessionId: session._id,
+          idempotencyKey,
+        });
+        if (raceTurn) {
+          const pairedAiTurn = await InterviewTurn.findOne({
+            sessionId: session._id,
+            turnNumber: raceTurn.turnNumber + 1,
+            speaker: 'AI',
+          });
+          const latestSession = await InterviewSession.findById(session._id);
+          return {
+            idempotentReplay: true,
+            ignored: raceTurn.processingStatus === 'IGNORED',
+            session: latestSession,
+            candidateTurn: raceTurn,
+            aiTurn: pairedAiTurn,
+            tts: null,
+          };
+        }
+      }
+      throw err;
+    }
+
+    if (transactionResult.isIdempotentRace) {
+      return {
+        idempotentReplay: true,
+        ignored: transactionResult.candTurn.processingStatus === 'IGNORED',
+        session: transactionResult.savedSession,
+        candidateTurn: transactionResult.candTurn,
+        aiTurn: transactionResult.aiTurn,
+        tts: null,
+      };
+    }
 
     return {
       idempotentReplay: false,
       ignored: false,
-      session: savedSession,
-      candidateTurn: candTurn,
-      aiTurn,
+      session: transactionResult.savedSession,
+      candidateTurn: transactionResult.candTurn,
+      aiTurn: transactionResult.aiTurn,
       tts: ttsResult,
     };
   };

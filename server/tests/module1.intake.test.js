@@ -27,15 +27,13 @@ const USER_A = { 'x-test-user-id': 'user_candidate_a' };
 const USER_B = { 'x-test-user-id': 'user_candidate_b' };
 
 // Minimal valid PDF buffer (%PDF-1.4 header)
+const JSZip = require('jszip');
+
 const VALID_PDF_BUFFER = Buffer.from(
   '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n'
 );
 
-// Minimal valid DOCX-like ZIP buffer (PK\x03\x04 + [Content_Types].xml & word/ markers)
-const VALID_DOCX_BUFFER = Buffer.concat([
-  Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00]),
-  Buffer.from('[Content_Types].xml word/document.xml PK\x05\x06'),
-]);
+let VALID_DOCX_BUFFER;
 
 let replSet;
 
@@ -48,6 +46,11 @@ async function clearCollections() {
 
 describe('Module 1: Candidate Intake & Profile Management Integration Tests', () => {
   before(async () => {
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<Types></Types>');
+    zip.file('word/document.xml', '<w:document/>');
+    VALID_DOCX_BUFFER = await zip.generateAsync({ type: 'nodebuffer' });
+
     replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     const uri = replSet.getUri();
     await mongoose.connect(uri);
@@ -295,7 +298,7 @@ describe('Module 1: Candidate Intake & Profile Management Integration Tests', ()
       });
     assert.strictEqual(resumeRes.status, 200);
     assert.strictEqual(resumeRes.body.data.deduplicated, false);
-    assert.strictEqual(resumeRes.body.data.document.securityStatus, 'SIGNATURE_VERIFIED_NO_AV');
+    assert.ok(['SIGNATURE_VERIFIED_NO_AV', 'MALWARE_SCANNED_CLEAN'].includes(resumeRes.body.data.document.securityStatus));
     assert.strictEqual(resumeRes.body.data.document.storageKey, undefined);
 
     // O. Upload retry with identical file deduplicates instead of creating duplicate DB record

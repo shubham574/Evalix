@@ -11,6 +11,7 @@
     "test:module3": "node --test tests/module3.unit.test.js tests/module3.integration.test.js",
     "test:module4": "node --test tests/module4.unit.test.js tests/module4.integration.test.js",
     "test:module5": "node --test tests/module5.unit.test.js tests/module5.integration.test.js",
+    "test:module5:context": "node --test tests/module5.contextual-intelligence.test.js",
     "test:module6": "node --test tests/module6.unit.test.js tests/module6.integration.test.js",
     "test:module7": "node --test tests/module7.unit.test.js tests/module7.integration.test.js",
     "test:module8": "node --test tests/module8.unit.test.js tests/module8.integration.test.js",

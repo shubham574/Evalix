@@ -138,7 +138,11 @@ const createAnswerEvaluator = ({ llmProvider = null } = {}) => {
       };
     }
 
-    if (questionAssembly.candidateTurns.length === 0) {
+    if (
+      questionAssembly.candidateTurns.length === 0 ||
+      questionAssembly.wasSkippedByCandidate ||
+      questionAssembly.hasSubstantiveAnswer === false
+    ) {
       return {
         ...baseResult,
         rubricId: questionAssembly.evaluationRubricId,
@@ -151,8 +155,12 @@ const createAnswerEvaluator = ({ llmProvider = null } = {}) => {
         unverifiedEvidenceReferences: [],
         strengths: [],
         developmentAreas: [],
-        missingEvidence: [],
-        explanation: 'Question was asked, but no final candidate answer was recorded.',
+        missingEvidence: questionAssembly.wasSkippedByCandidate
+          ? ['Candidate chose to skip this question.']
+          : ['No substantive answer provided to evaluate.'],
+        explanation: questionAssembly.wasSkippedByCandidate
+          ? 'Question was skipped by candidate during the interview.'
+          : 'Question was asked, but no substantive candidate answer was recorded.',
         reviewRequired: false,
         reviewFlags: ['INCOMPLETE_ASSESSMENT'],
       };

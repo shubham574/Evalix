@@ -170,6 +170,10 @@ const interviewSessionSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    skippedQuestionIds: {
+      type: [String],
+      default: [],
+    },
     coveredCompetencyIds: {
       type: [String],
       default: [],
