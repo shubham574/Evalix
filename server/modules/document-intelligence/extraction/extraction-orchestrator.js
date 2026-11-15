@@ -41,7 +41,7 @@ const enqueueIntakeIntelligence = async (intakeId) => {
   if (!intake) {
     throw new AppError(404, 'Interview intake not found', 'INTAKE_NOT_FOUND');
   }
-  if (!['READY_FOR_ANALYSIS', 'ANALYSIS_PENDING'].includes(intake.status)) {
+  if (!['READY_FOR_ANALYSIS', 'ANALYSIS_PENDING', 'SUBMITTED', 'DRAFT'].includes(intake.status)) {
     return null;
   }
 

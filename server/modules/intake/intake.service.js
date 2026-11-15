@@ -389,14 +389,15 @@ const submitInterviewIntake = async (userId, intakeId) => {
   }
 
   const submittedAt = new Date();
-  const eventPayload = emitIntakeSubmitted({
-    intakeId: intake._id,
-    candidateProfileId: profile._id,
-    resumeDocumentId: resumeDoc._id,
-    targetJobProfileId: targetJob._id,
-    jobDescriptionDocumentId: jdDoc ? jdDoc._id : null,
-    submittedAt,
-  });
+  const eventPayload = {
+    event: 'INTERVIEW_INTAKE_SUBMITTED',
+    intakeId: String(intake._id),
+    candidateProfileId: String(profile._id),
+    resumeDocumentId: String(resumeDoc._id),
+    targetJobProfileId: String(targetJob._id),
+    jobDescriptionDocumentId: jdDoc ? String(jdDoc._id) : null,
+    submittedAt: submittedAt.toISOString(),
+  };
 
   const updated = await intakeRepo.updateByIdAndUser(
     intake._id,
@@ -416,6 +417,16 @@ const submitInterviewIntake = async (userId, intakeId) => {
       'CONCURRENT_MODIFICATION'
     );
   }
+
+  // Emit event AFTER intake is updated to READY_FOR_ANALYSIS in DB
+  emitIntakeSubmitted({
+    intakeId: intake._id,
+    candidateProfileId: profile._id,
+    resumeDocumentId: resumeDoc._id,
+    targetJobProfileId: targetJob._id,
+    jobDescriptionDocumentId: jdDoc ? jdDoc._id : null,
+    submittedAt,
+  });
 
   return {
     intakeId: String(updated._id),
