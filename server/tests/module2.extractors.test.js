@@ -205,4 +205,57 @@ describe('Module 2: Resume & JD Extractors (TDD)', () => {
       (err) => err.code === 'EXTRACTION_SCHEMA_INVALID'
     );
   });
+
+  it('Resiliently coerces LLM objects into flat strings for employmentType, location, competencies, and qualifications', async () => {
+    // Simulates the exact LLM shape from Gemini that previously caused EXTRACTION_SCHEMA_INVALID
+    const realGeminiShapeProvider = makeFakeProvider(() => ({
+      jobInformation: {
+        jobTitle: { value: 'Senior Backend Engineer', evidence: [{ documentId: 'DOC_JD_1', blockId: 'TEXT_BLOCK_0', paragraphIndex: 0, quote: 'Backend Developer', sourceType: 'JOB_DESCRIPTION' }] },
+        companyName: { value: 'Evalix Corp', evidence: [] },
+        seniorityLevel: { value: 'Senior', evidence: [] },
+        minimumExperienceMonths: { value: 36, evidence: [] },
+        maximumExperienceMonths: { value: null, evidence: [] },
+        employmentType: { type: 'Full-time' },
+        location: { city: 'Bengaluru', country: 'India' },
+        workArrangement: { type: 'Hybrid' },
+      },
+      responsibilities: [{ text: 'Architect scalable backend systems', priority: 'CORE', evidence: [] }],
+      skills: [{ name: 'Node.js', requirementType: 'MUST_HAVE', importance: 'HIGH', evidence: [{ documentId: 'DOC_JD_1', blockId: 'TEXT_BLOCK_0', paragraphIndex: 0, quote: 'Node.js', sourceType: 'JOB_DESCRIPTION' }] }],
+      technicalCompetencies: [
+        { competency: 'Microservices Architecture', level: 'Advanced' },
+        { name: 'Distributed Systems' },
+      ],
+      behaviouralCompetencies: [
+        { competency: 'Team Mentorship' },
+      ],
+      requiredQualifications: [
+        { qualification: 'B.Tech in Computer Science' },
+      ],
+      preferredQualifications: [
+        { qualification: 'AWS Certified Solutions Architect' },
+      ],
+      domainKnowledge: [
+        { domain: 'Fintech and Payments' },
+      ],
+      expectedOutcomes: ['Deliver 99.99% uptime'],
+      ambiguities: [],
+      missingInformation: [],
+      validationWarnings: [],
+    }));
+
+    const { extraction } = await extractJdIntelligence({
+      parsedDoc: JD_PARSED,
+      llmProvider: realGeminiShapeProvider,
+    });
+
+    assert.strictEqual(extraction.jobInformation.employmentType, 'Full-time');
+    assert.strictEqual(extraction.jobInformation.location, 'Bengaluru');
+    assert.strictEqual(extraction.jobInformation.workArrangement, 'Hybrid');
+    assert.deepStrictEqual(extraction.technicalCompetencies, ['Microservices Architecture', 'Distributed Systems']);
+    assert.deepStrictEqual(extraction.behaviouralCompetencies, ['Team Mentorship']);
+    assert.deepStrictEqual(extraction.requiredQualifications, ['B.Tech in Computer Science']);
+    assert.deepStrictEqual(extraction.preferredQualifications, ['AWS Certified Solutions Architect']);
+    assert.deepStrictEqual(extraction.domainKnowledge, ['Fintech and Payments']);
+    assert.strictEqual(extraction.extractionStatus, 'COMPLETED_WITH_WARNINGS');
+  });
 });

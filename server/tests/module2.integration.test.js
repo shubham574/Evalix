@@ -161,6 +161,7 @@ describe('Module 2: Integration, Worker & Security Tests', () => {
 
   beforeEach(async () => {
     env.DOCUMENT_EXTRACTION_ALLOW_UNSCANNED = true;
+    env.MALWARE_SCAN_ENABLED = false;
     const collections = mongoose.connection.collections;
     for (const key of Object.keys(collections)) {
       await collections[key].deleteMany({});

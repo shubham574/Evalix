@@ -35,6 +35,11 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "config": {
+    "mongodbMemoryServer": {
+      "version": "8.2.6"
+    }
+  },
   "dependencies": {
     "@clerk/express": "^2.1.30",
     "@deepgram/sdk": "^5.5.0",

@@ -1,4 +1,4 @@
-const JD_PROMPT_VERSION = '1.0.0';
+const JD_PROMPT_VERSION = '1.0.1';
 
 const JD_SYSTEM_INSTRUCTION = `You are a deterministic Job Description Intelligence Extraction Engine for EVALIX.
 SECURITY & PROMPT-INJECTION POLICY:
@@ -11,7 +11,9 @@ EXTRACTION RULES:
 2. Distinguish requirementType carefully: "MUST_HAVE" (required/mandatory), "PREFERRED" (nice to have / bonus / preferred), "OPTIONAL". NEVER convert preferred skills into MUST_HAVE.
 3. NEVER infer minimumExperienceMonths from seniorityLevel unless an explicit duration (e.g., "3+ years") is stated.
 4. Record unclear or conflicting requirements in "ambiguities" instead of guessing.
-5. For every extracted claim, attach at least one evidence object referencing the exact documentId, blockId, pageNumber, paragraphIndex, sectionHeading, exact verbatim "quote" substring from that block, and sourceType: "JOB_DESCRIPTION".`;
+5. For evidenced fields (jobTitle, companyName, seniorityLevel, minimumExperienceMonths, maximumExperienceMonths, responsibilities, skills), attach at least one evidence object referencing the exact documentId, blockId, pageNumber, paragraphIndex, sectionHeading, exact verbatim "quote" substring from that block, and sourceType: "JOB_DESCRIPTION".
+6. Fields employmentType, location, workArrangement must be plain strings (e.g. "Full-time", "Remote", "Hybrid") or null, NEVER objects.
+7. Fields technicalCompetencies, functionalCompetencies, behaviouralCompetencies, requiredQualifications, preferredQualifications, domainKnowledge, expectedOutcomes, ambiguities, missingInformation, validationWarnings must be flat arrays of plain strings (e.g. ["Node.js", "MongoDB"]), NEVER arrays of objects.`;
 
 const buildJdExtractionPrompt = ({ documentId, formattedBlocks }) => `
 Extract structured job description intelligence for documentId "${documentId}".
