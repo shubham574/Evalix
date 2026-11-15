@@ -33,6 +33,8 @@ export const evalixV1 = {
   // Module 3: Candidate Intelligence
   analyzeCandidateIntelligence: async (intakeId) =>
     unwrap(await api.post(API.V1.INTAKES.ANALYZE(intakeId), {})),
+  completeCandidateReview: async (intakeId) =>
+    unwrap(await api.post(API.V1.INTAKES.COMPLETE_REVIEW(intakeId), {})),
   getAnalysisStatus: async (intakeId) =>
     unwrap(await api.get(API.V1.INTAKES.ANALYSIS_STATUS(intakeId))),
   getCompleteAnalysis: async (intakeId) =>

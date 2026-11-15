@@ -1220,10 +1220,16 @@ const LiveInterview = () => {
       await pollUntil(
         () => evalixV1.getExtractionStatus(intakeId),
         (s) => {
-          if (s?.overallStatus === 'FAILED' || s?.resume?.status === 'BLOCKED_SECURITY_SCAN') {
-            throw new Error(s?.resume?.error || 'Document extraction failed.');
+          if (
+            ['FAILED', 'NEEDS_REVIEW'].includes(s?.status) ||
+            ['BLOCKED_SECURITY_SCAN', 'REJECTED', 'NEEDS_OCR'].includes(s?.resume?.status) ||
+            ['BLOCKED_SECURITY_SCAN', 'REJECTED', 'NEEDS_OCR'].includes(s?.jobDescription?.status)
+          ) {
+            throw new Error(
+              s?.resume?.lastErrorCode || s?.jobDescription?.lastErrorCode || 'Document extraction failed.'
+            );
           }
-          return s?.overallStatus === 'COMPLETED' || s?.resume?.status === 'COMPLETED';
+          return ['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(s?.status);
         }
       );
 
@@ -1233,9 +1239,11 @@ const LiveInterview = () => {
         () => evalixV1.getAnalysisStatus(intakeId),
         (s) => {
           if (s?.status === 'FAILED') throw new Error(s?.error || 'Candidate analysis failed.');
-          return s?.status === 'COMPLETED';
+          return ['AWAITING_CANDIDATE_REVIEW', 'READY_FOR_INTERVIEW_PLANNING', 'NEEDS_REVIEW', 'PARTIALLY_COMPLETED'].includes(s?.status);
         }
       );
+      // Skip manual claim review: accept extracted profile as-is so the blueprint can be planned.
+      await evalixV1.completeCandidateReview(intakeId);
 
       setPipelineStatus('Module 4: Generating & locking interview blueprint...');
       await evalixV1.generateBlueprint(intakeId, {
@@ -1245,7 +1253,7 @@ const LiveInterview = () => {
         () => evalixV1.getBlueprintStatus(intakeId),
         (s) => {
           if (s?.status === 'FAILED') throw new Error(s?.error || 'Blueprint generation failed.');
-          return s?.status === 'COMPLETED';
+          return ['READY', 'NEEDS_REVIEW'].includes(s?.status);
         }
       );
 
