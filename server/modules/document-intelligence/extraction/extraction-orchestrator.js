@@ -620,6 +620,7 @@ const processExtractionJob = async (
 
     return { status: 'COMPLETED', cached: false, extractionId: savedExtraction._id };
   } catch (err) {
+    console.error(`[Extraction Job ${job._id}] Error:`, err?.message, err?.stack || err);
     if (checkLeaseLost() || err?.code === 'LEASE_LOST') {
       return { status: 'LEASE_LOST', fenced: true };
     }

@@ -66,7 +66,7 @@ const textToPdfFile = (text, name = 'job-description.pdf') => {
   return new File([pdf], name, { type: 'application/pdf' });
 };
 
-const pollUntil = async (fn, isDone, { intervalMs = 1500, timeoutMs = 90000 } = {}) => {
+const pollUntil = async (fn, isDone, { intervalMs = 1500, timeoutMs = 180000 } = {}) => {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const res = await fn();
