@@ -70,7 +70,13 @@ const storeCandidateDocument = async ({
       session
     );
     if (existing) {
-      await cleanupTempFile(file.path);
+      // The record may outlive its file on ephemeral disks (redeploy/restart). If the bytes are
+      // gone, restore them from this (identical, freshly scanned) upload instead of reusing a dangling record.
+      if (!(await storageAdapter.exists(existing.storageKey))) {
+        await storageAdapter.putFromTempFile(file.path, existing.storageKey);
+      } else {
+        await cleanupTempFile(file.path);
+      }
       if (
         securityStatus === 'MALWARE_SCANNED_CLEAN' &&
         existing.securityStatus !== 'MALWARE_SCANNED_CLEAN' &&

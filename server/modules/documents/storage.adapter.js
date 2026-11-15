@@ -69,6 +69,18 @@ class LocalPrivateStorageAdapter {
   }
 
   /**
+   * Check whether a stored file still exists (ephemeral disks, e.g. Render, lose files on redeploy).
+   */
+  async exists(storageKey) {
+    try {
+      await fsp.access(this.resolveSafePath(storageKey), fs.constants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Open a readable stream for an existing stored document.
    */
   async getReadStream(storageKey) {
