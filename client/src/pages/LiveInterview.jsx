@@ -27,6 +27,45 @@ import { evalixV1 } from '../api/evalixV1';
 import { MOCK_QUESTION_COUNTS } from '../utils/constants';
 import { getGradeColor } from '../utils/helpers';
 
+// Build a minimal text PDF from pasted text (server accepts only PDF/DOCX uploads).
+const textToPdfFile = (text, name = 'job-description.pdf') => {
+  const clean = text.replace(/[^\x20-\x7E\n]/g, '?').replace(/\r/g, '');
+  const lines = [];
+  clean.split('\n').forEach((para) => {
+    let line = '';
+    para.split(/\s+/).forEach((w) => {
+      if ((line + ' ' + w).trim().length > 90) { lines.push(line); line = w; }
+      else line = (line + ' ' + w).trim();
+    });
+    lines.push(line);
+  });
+  const perPage = 50;
+  const pages = [];
+  for (let i = 0; i < lines.length; i += perPage) pages.push(lines.slice(i, i + perPage));
+  if (!pages.length) pages.push(['']);
+  const esc = (s) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const objs = [];
+  objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  objs[2] = `<< /Type /Pages /Kids [${pages.map((_, i) => `${5 + i * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`;
+  objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  pages.forEach((pl, i) => {
+    const stream = `BT /F1 11 Tf 14 TL 50 750 Td ${pl.map((l) => `(${esc(l)}) Tj T*`).join(' ')} ET`;
+    objs[4 + i * 2] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+    objs[5 + i * 2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${4 + i * 2} 0 R /Resources << /Font << /F1 3 0 R >> >> >>`;
+  });
+  let pdf = '%PDF-1.4\n';
+  const offsets = [];
+  for (let i = 1; i < objs.length; i++) {
+    offsets[i] = pdf.length;
+    pdf += `${i} 0 obj\n${objs[i]}\nendobj\n`;
+  }
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for (let i = 1; i < objs.length; i++) pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  pdf += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new File([pdf], name, { type: 'application/pdf' });
+};
+
 const pollUntil = async (fn, isDone, { intervalMs = 1500, timeoutMs = 90000 } = {}) => {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -1124,7 +1163,7 @@ const LiveInterview = () => {
       return;
     }
     if (!resumeFile) {
-      toast.error('Please upload your Resume (PDF, DOCX, or TXT) in the Resume placeholder.');
+      toast.error('Please upload your Resume (PDF or DOCX) in the Resume placeholder.');
       return;
     }
     if (!jdFile && !jobDescription.trim()) {
@@ -1173,7 +1212,7 @@ const LiveInterview = () => {
       await evalixV1.uploadResume(intakeId, resumeFile);
       const jdUploadFile =
         jdFile ||
-        new File([jobDescription.trim()], 'job-description.txt', { type: 'text/plain' });
+        textToPdfFile(jobDescription.trim());
       await evalixV1.uploadJobDescription(intakeId, jdUploadFile);
       await evalixV1.submitIntake(intakeId);
 
@@ -2057,7 +2096,7 @@ const LiveInterview = () => {
             {/* Resume Upload Placeholder (Module 1 & 2) */}
             <div className="space-y-2">
               <label className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary block">
-                3. Upload Resume (PDF, DOCX, or TXT) *
+                3. Upload Resume (PDF or DOCX) *
               </label>
               <label
                 htmlFor="resumeUpload"
@@ -2078,7 +2117,7 @@ const LiveInterview = () => {
                     <p className="text-xs font-mono text-text-muted">
                       {resumeFile
                         ? `${Math.max(1, Math.round(resumeFile.size / 1024))} KB • Ready for extraction`
-                        : 'Placeholder: PDF, DOCX, or TXT (used for Module 2–4 personalized blueprint)'}
+                        : 'Placeholder: PDF or DOCX (used for Module 2–4 personalized blueprint)'}
                     </p>
                   </div>
                 </div>
@@ -2088,7 +2127,7 @@ const LiveInterview = () => {
                 <input
                   id="resumeUpload"
                   type="file"
-                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                   onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
                   className="hidden"
                 />
@@ -2112,7 +2151,7 @@ const LiveInterview = () => {
                   <input
                     id="jdFileUpload"
                     type="file"
-                    accept=".pdf,.docx,.txt"
+                    accept=".pdf,.docx"
                     onChange={(e) => setJdFile(e.target.files?.[0] || null)}
                     className="hidden"
                   />
