@@ -1,5 +1,4 @@
 const { z } = require('zod');
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
 const env = require('../../../config/env');
 const { mapRequirementInsights } = require('./requirement-summary.service');
 

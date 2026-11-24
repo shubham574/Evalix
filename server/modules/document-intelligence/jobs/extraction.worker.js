@@ -42,6 +42,8 @@ class ExtractionWorker {
     this.reconcileTimer = null;
     this._onIntakeSubmitted = null;
     this.activeHeartbeats = new Map();
+    this._ticking = false;
+    this._tickRequested = false;
   }
 
   async start() {
@@ -133,7 +135,29 @@ class ExtractionWorker {
 
   async tick() {
     if (!this.running) return;
+    // tick() is triggered by the poll interval, intake events and every finished job. Running
+    // several claim loops at once let them all pass the concurrency check before any of them
+    // incremented activeCount, over-claiming jobs. Serialize: remember the request and re-run.
+    if (this._ticking) {
+      this._tickRequested = true;
+      return;
+    }
+    this._ticking = true;
+    try {
+      do {
+        this._tickRequested = false;
+        await this._claimAvailable();
+      } while (this._tickRequested && this.running);
+    } catch (err) {
+      // A failed claim (e.g. MongoDB unavailable) must not become an unhandled rejection;
+      // the poll interval retries.
+      console.error('Extraction worker claim failed:', err.message);
+    } finally {
+      this._ticking = false;
+    }
+  }
 
+  async _claimAvailable() {
     while (this.running && this.activeCount < this.concurrency) {
       const job = await jobRepo.claimNextJob({
         workerId: this.workerId,

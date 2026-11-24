@@ -106,7 +106,14 @@ const makeBlueprintIdempotencyKey = ({
 
 const enqueueBlueprintGeneration = async (
   intakeId,
-  { userId = null, interviewType, durationMinutes, regenerate = false, regenerationReason = null } = {}
+  {
+    userId = null,
+    interviewType,
+    durationMinutes,
+    regenerate = false,
+    regenerationReason = null,
+    requeueFailed = false,
+  } = {}
 ) => {
   const { intake, analysis } = await verifyModule3Readiness(intakeId, userId);
   const config = resolveInterviewConfig(intake, { interviewType, durationMinutes });
@@ -160,7 +167,7 @@ const enqueueBlueprintGeneration = async (
     nextAttemptAt: new Date(),
     regenerationReason: regenerate ? regenerationReason || 'Manual blueprint regeneration' : null,
     requestedConfig: config,
-  });
+  }, { requeueFailed });
 
   return {
     reused: false,
@@ -303,7 +310,7 @@ const processBlueprintJob = async (job, { llmProvider = null } = {}) => {
       return created;
     });
 
-    await blueprintJobRepo.markJobCompleted(job._id, { blueprintId: createdBlueprint._id });
+    await blueprintJobRepo.markJobCompleted(job, { blueprintId: createdBlueprint._id });
     return { status: 'COMPLETED', blueprintId: createdBlueprint._id, blueprintStatus: finalStatus };
   } catch (err) {
     const isPermanent =
@@ -314,7 +321,7 @@ const processBlueprintJob = async (job, { llmProvider = null } = {}) => {
 
     if (!isPermanent && job.attemptCount < job.maximumAttempts) {
       const delay = env.INTERVIEW_BLUEPRINT_RETRY_DELAY_MS * Math.pow(2, Math.max(0, job.attemptCount - 1));
-      await blueprintJobRepo.markJobRetryWait(job._id, {
+      await blueprintJobRepo.markJobRetryWait(job, {
         nextAttemptAt: new Date(Date.now() + delay),
         failureStage: stageMarker,
         errorCode: err.code || err.category || 'TRANSIENT_ERROR',
@@ -323,7 +330,7 @@ const processBlueprintJob = async (job, { llmProvider = null } = {}) => {
       return { status: 'RETRY_WAIT' };
     }
 
-    await blueprintJobRepo.markJobFailed(job._id, {
+    await blueprintJobRepo.markJobFailed(job, {
       failureStage: stageMarker,
       errorCode: err.code || err.category || 'BLUEPRINT_FAILED',
       errorMessage: err.message,

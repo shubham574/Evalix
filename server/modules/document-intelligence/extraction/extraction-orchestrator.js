@@ -1,3 +1,4 @@
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const crypto = require('crypto');
 const env = require('../../../config/env');
 const AppError = require('../../common/errors/AppError');
@@ -7,7 +8,7 @@ const { CandidateDocument } = require('../../documents/candidateDocument.model')
 const { TargetJobProfile } = require('../../job-profile/targetJobProfile.model');
 const { getStorageAdapter } = require('../../documents/storage.adapter');
 const { parseDocument, parsePlainTextDocument } = require('../parsers/parser.factory');
-const { GeminiExtractionProvider, LlmProviderError } = require('../providers/llm.provider');
+const { LlmProviderError } = require('../providers/llm.provider');
 const { RESUME_EXTRACTOR_VERSION, extractResumeIntelligence } = require('../resume/resume-extractor');
 const { JD_EXTRACTOR_VERSION, extractJdIntelligence } = require('../job-description/jd-extractor');
 const extractionRepo = require('./extraction.repository');
@@ -376,7 +377,7 @@ const verifyIntakeDocumentSecurityGate = async (job) => {
  */
 const processExtractionJob = async (
   job,
-  { llmProvider = new GeminiExtractionProvider(), workerId = 'worker', signal = undefined, isLeaseLost = null } = {}
+  { llmProvider = createLlmProvider(), workerId = 'worker', signal = undefined, isLeaseLost = null } = {}
 ) => {
   const startedAt = new Date();
   const leaseToken = job.leaseToken || null;

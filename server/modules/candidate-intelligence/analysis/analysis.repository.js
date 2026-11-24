@@ -49,7 +49,7 @@ const createAnalysis = async (doc, session = null) => {
 };
 
 const updateAnalysisById = async (analysisId, update, session = null) =>
-  CandidateJobAnalysis.findByIdAndUpdate(analysisId, update, { new: true, session }).lean();
+  CandidateJobAnalysis.findByIdAndUpdate(analysisId, update, { returnDocument: 'after', session }).lean();
 
 const upsertRequirementAssessments = async (analysisId, intakeId, userId, assessments, session = null) => {
   if (!assessments || assessments.length === 0) return [];

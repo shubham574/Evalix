@@ -1,5 +1,6 @@
 const os = require('os');
 const env = require('../../../config/env');
+const { LeasePollingWorker } = require('../../common/jobs/polling-worker');
 const jobRepo = require('./decision-intelligence-job.repository');
 const {
   executeStudentLearningInsightsGeneration,
@@ -23,21 +24,21 @@ const processDecisionIntelligenceJob = async (job, { llmProvider = null } = {}) 
       );
     }
 
-    await jobRepo.markJobCompleted(job._id);
+    await jobRepo.markJobCompleted(job);
     return true;
   } catch (err) {
     const canRetry = job.attemptCount < job.maximumAttempts;
     if (canRetry) {
       const backoffMs =
         env.DECISION_INTELLIGENCE_RETRY_DELAY_MS * Math.pow(2, Math.max(0, job.attemptCount - 1));
-      await jobRepo.markJobRetryWait(job._id, {
+      await jobRepo.markJobRetryWait(job, {
         nextAttemptAt: new Date(Date.now() + backoffMs),
         failureStage: job.jobType,
         errorCode: err.code || 'DI_TRANSIENT_ERROR',
         errorMessage: err.message,
       });
     } else {
-      await jobRepo.markJobFailed(job._id, {
+      await jobRepo.markJobFailed(job, {
         failureStage: job.jobType,
         errorCode: err.code || 'DI_FAILED',
         errorMessage: err.message,
@@ -47,7 +48,7 @@ const processDecisionIntelligenceJob = async (job, { llmProvider = null } = {}) 
   }
 };
 
-class DecisionIntelligenceWorker {
+class DecisionIntelligenceWorker extends LeasePollingWorker {
   constructor({
     workerId = `di-worker-${os.hostname()}-${process.pid}`,
     concurrency = env.DECISION_INTELLIGENCE_WORKER_CONCURRENCY,
@@ -55,63 +56,19 @@ class DecisionIntelligenceWorker {
     pollIntervalMs = 2000,
     llmProvider = null,
   } = {}) {
-    this.workerId = workerId;
-    this.concurrency = concurrency;
-    this.leaseMs = leaseMs;
-    this.pollIntervalMs = pollIntervalMs;
+    super({
+      name: 'Decision intelligence worker',
+      workerId,
+      concurrency,
+      leaseMs,
+      pollIntervalMs,
+      enabled: env.DECISION_INTELLIGENCE_ENABLED,
+      claim: (args) => jobRepo.claimNextJob(args),
+      process: (job) => processDecisionIntelligenceJob(job, { llmProvider: this.llmProvider }),
+      renew: (job, ms) => jobRepo.renewJobLease(job, ms),
+      recover: () => jobRepo.recoverExpiredLeases(),
+    });
     this.llmProvider = llmProvider;
-    this.running = false;
-    this.activeCount = 0;
-    this.timer = null;
-  }
-
-  async start() {
-    if (!env.DECISION_INTELLIGENCE_ENABLED || this.running) return;
-    this.running = true;
-    this.scheduleNextTick(50);
-  }
-
-  scheduleNextTick(delayMs = this.pollIntervalMs) {
-    if (!this.running) return;
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      void this.tick();
-    }, delayMs);
-    if (typeof this.timer.unref === 'function') this.timer.unref();
-  }
-
-  async tick() {
-    if (!this.running) return;
-
-    while (this.running && this.activeCount < this.concurrency) {
-      const job = await jobRepo.claimNextJob({
-        workerId: this.workerId,
-        leaseMs: this.leaseMs,
-      });
-      if (!job) break;
-
-      this.activeCount += 1;
-      void processDecisionIntelligenceJob(job, { llmProvider: this.llmProvider })
-        .catch((err) => {
-          console.error('DecisionIntelligenceWorker job error:', err.message);
-        })
-        .finally(() => {
-          this.activeCount -= 1;
-          if (this.running) this.scheduleNextTick(10);
-        });
-    }
-
-    if (this.running) {
-      this.scheduleNextTick(this.pollIntervalMs);
-    }
-  }
-
-  async stop() {
-    this.running = false;
-    clearTimeout(this.timer);
-    while (this.activeCount > 0) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
   }
 }
 

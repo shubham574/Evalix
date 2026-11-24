@@ -30,12 +30,27 @@ const turnRateLimiter = rateLimit({
   },
 });
 
+if (!env.INTERNAL_ORCHESTRATOR_SECRET) {
+  console.warn(
+    '[interview-orchestrator] INTERNAL_ORCHESTRATOR_SECRET is not set; internal orchestrator routes are disabled (503).'
+  );
+}
+
 const requireInternalOrchestrator = (req, _res, next) => {
-  const provided = String(req.headers['x-internal-orchestrator-token'] || '');
   const expected = String(env.INTERNAL_ORCHESTRATOR_SECRET || '');
+  if (!expected) {
+    return next(
+      new AppError(
+        503,
+        'Internal interview orchestrator routes are disabled (INTERNAL_ORCHESTRATOR_SECRET not configured)',
+        'INTERNAL_ORCHESTRATOR_DISABLED'
+      )
+    );
+  }
+  const provided = String(req.headers['x-internal-orchestrator-token'] || '');
   const a = Buffer.from(provided, 'utf8');
   const b = Buffer.from(expected, 'utf8');
-  if (!expected || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
     return next(
       new AppError(
         403,
@@ -92,12 +107,20 @@ const endSessionSchema = optionalObject({
   abandon: z.boolean().optional(),
 });
 
+// Multipart (audio upload) bodies deliver every field as a string; coerce numeric fields,
+// treating '' / null as "not provided" (z.coerce alone would turn '' into 0).
+const optionalCoercedNumber = (schema) =>
+  z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : val),
+    z.coerce.number().pipe(schema).optional()
+  );
+
 const submitTurnSchema = z.object({
   idempotencyKey: z.string().trim().min(1).max(200),
   transcriptText: z.string().max(8000).optional(),
   transcriptStatus: z.enum(['PARTIAL', 'FINAL', 'CONFIRMED']).optional(),
-  confidence: z.number().min(0).max(1).optional(),
-  expectedStateVersion: z.number().int().min(0).optional(),
+  confidence: optionalCoercedNumber(z.number().min(0).max(1)),
+  expectedStateVersion: optionalCoercedNumber(z.number().int().min(0)),
 });
 
 const interruptSchema = optionalObject({

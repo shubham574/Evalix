@@ -1,5 +1,5 @@
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const { z } = require('zod');
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
 const env = require('../../../config/env');
 const { RATING_LABELS } = require('../models/questionEvaluation.model');
 const { loadRubricForQuestion } = require('../rubric/rubric-loader');
@@ -59,7 +59,7 @@ const buildSystemInstruction = () =>
 const createAnswerEvaluator = ({ llmProvider = null } = {}) => {
   const provider =
     llmProvider ||
-    new GeminiExtractionProvider({
+    createLlmProvider({
       model: env.AI_EXTRACTION_MODEL,
       timeoutMs: 30000,
     });

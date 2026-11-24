@@ -35,6 +35,7 @@ const {
 } = require('./question-manager');
 const {
   buildFocusedPracticeSnapshot,
+  buildFocusedEffectiveBlueprint,
   getEffectiveBlueprintForSession,
 } = require('../practice/focused-practice.service');
 const {
@@ -51,13 +52,13 @@ const {
   updateSessionMemoryAfterTurn,
 } = require('../memory/memory.service');
 const { createInterviewerAgent } = require('../conversation/interviewer.agent');
-const { resolveAdaptiveDecision } = require('../adaptive/adaptive-engine');
 const { createSttAdapter } = require('../voice/stt.adapter');
 const { createTtsAdapter } = require('../voice/tts.adapter');
 const { recordTtsInterruption } = require('../voice/interruption-handler');
 const { CandidateJobAnalysis } = require('../../candidate-intelligence/analysis/candidateJobAnalysis.model');
 const { buildCandidateContext } = require('../context/candidate-context-builder');
 const { createAnswerClassifier } = require('../conversation/answer-classifier');
+const { createTurnDecider } = require('./turn-decision.graph');
 
 const computeBlueprintChecksum = (bp) => {
   const canonical = JSON.stringify({
@@ -78,16 +79,45 @@ const findSessionByIdentifier = async (sessionIdOrObjectId) => {
   return InterviewSession.findOne(query);
 };
 
+const concurrencyConflict = (message = 'Interview session was modified concurrently; please retry') =>
+  new ApiError(409, message);
+
+/**
+ * If a candidate turn with this idempotency key already exists (e.g. a concurrent retry won
+ * the race), return the idempotent-replay response for it; otherwise null.
+ */
+const replayExistingTurn = async (sessionObjectId, idempotencyKey) => {
+  const raceTurn = await InterviewTurn.findOne({ sessionId: sessionObjectId, idempotencyKey });
+  if (!raceTurn) return null;
+  const pairedAiTurn = await InterviewTurn.findOne({
+    sessionId: sessionObjectId,
+    turnNumber: raceTurn.turnNumber + 1,
+    speaker: 'AI',
+  });
+  const latestSession = await InterviewSession.findById(sessionObjectId);
+  return {
+    idempotentReplay: true,
+    ignored: raceTurn.processingStatus === 'IGNORED',
+    session: latestSession,
+    candidateTurn: raceTurn,
+    aiTurn: pairedAiTurn,
+    tts: null,
+  };
+};
+
 const createInterviewRuntimeService = ({
   llmProvider = null,
   sttProvider = null,
   ttsProvider = null,
   answerClassifier = null,
+  turnEngine = env.INTERVIEW_TURN_ENGINE,
 } = {}) => {
   const interviewerAgent = createInterviewerAgent({ llmProvider });
   const sttAdapter = createSttAdapter({ sttProvider });
   const ttsAdapter = createTtsAdapter({ ttsProvider });
   const classifier = answerClassifier || createAnswerClassifier({ llmProvider });
+  // classify -> interviewer agent -> adaptive policy, as a LangGraph StateGraph (or sequentially)
+  const turnDecider = createTurnDecider({ classifier, interviewerAgent, engine: turnEngine });
 
   const loadAuthorizedSession = async (sessionIdentifier, userId, { bypassOwnership = false } = {}) => {
     const session = await findSessionByIdentifier(sessionIdentifier);
@@ -210,11 +240,9 @@ const createInterviewRuntimeService = ({
       });
       focusedCompetencyId = focused.executionSnapshot.focusedCompetencyId;
       executionSnapshot = focused.executionSnapshot;
-      effectiveBlueprint = {
-        ...internalBlueprint,
-        stagePlan: executionSnapshot.stagePlan,
-        questionPlan: executionSnapshot.questionPlan,
-      };
+      // Restrict stages AND every question source to the focused snapshot so stage
+      // progress and question selection can never reach non-focused questions.
+      effectiveBlueprint = buildFocusedEffectiveBlueprint(internalBlueprint, executionSnapshot);
     } else if (practiceMode === 'GUIDED_PRACTICE') {
       executionSnapshot = {
         practiceMode: 'GUIDED_PRACTICE',
@@ -318,7 +346,22 @@ const createInterviewRuntimeService = ({
       return { session, openingTurn: existingTurn, tts: null };
     }
 
+    if (session.status === SESSION_STATUSES.PAUSED) {
+      throw new ApiError(
+        409,
+        'Interview session is paused; use /resume to continue it instead of /start'
+      );
+    }
+    // Only a session that has never started may be started (READY / CREATED).
+    if (![SESSION_STATUSES.READY, SESSION_STATUSES.CREATED].includes(session.status)) {
+      throw new ApiError(
+        409,
+        `Cannot start interview session while in status '${session.status}'`
+      );
+    }
     assertSessionTransition(session.status, SESSION_STATUSES.IN_PROGRESS);
+    const loadedStatus = session.status;
+    const loadedVersion = Number(session.stateVersion) || 0;
 
     if (session.consentRequired && consentGranted !== true) {
       throw new ApiError(
@@ -362,44 +405,48 @@ const createInterviewRuntimeService = ({
 
     const ttsResult = await ttsAdapter.synthesizeSpeech({ text: openingText });
 
-    const updatedSession = await withTransaction(async (dbSession) => {
-      session.status = SESSION_STATUSES.IN_PROGRESS;
-      session.consentGranted = Boolean(consentGranted || !session.consentRequired);
-      session.consentRecordedAt = now;
-      session.startedAt = now;
-      session.lastActivityAt = now;
-      session.totalTurnCount = 1;
-      session.lastCompletedTurnNumber = 1;
-      session.stateVersion += 1;
+    // Apply in-memory state once, outside the transaction callback, so a transient-error
+    // retry of the callback cannot double-apply it (e.g. stateVersion += 1 twice).
+    session.status = SESSION_STATUSES.IN_PROGRESS;
+    session.consentGranted = Boolean(consentGranted || !session.consentRequired);
+    session.consentRecordedAt = now;
+    session.startedAt = now;
+    session.lastActivityAt = now;
+    session.totalTurnCount = 1;
+    session.lastCompletedTurnNumber = 1;
+    session.stateVersion = loadedVersion + 1;
 
-      if (firstQuestion) {
-        markQuestionAsked(session, firstQuestion);
-      }
+    if (firstQuestion) {
+      markQuestionAsked(session, firstQuestion);
+    }
 
-      if (session.practiceMode === 'GUIDED_PRACTICE') {
-        session.guidedState = {
-          ...(session.guidedState || {}),
-          currentQuestionId: firstQuestion?.questionId || null,
-          currentAttemptCount: 0,
-          hintsUsedForCurrentQuestion: 0,
-          awaitingContinue: false,
-          selectedAttemptIdByQuestion: session.guidedState?.selectedAttemptIdByQuestion || {},
-          continuedQuestionIds: session.guidedState?.continuedQuestionIds || [],
-        };
-      }
-
-      session.activePrompt = {
-        turnNumber: 1,
-        stageId: currentStage?.stageId || null,
-        questionId: firstQuestion?.questionId || null,
-        competencyId: firstQuestion?.competencyId || null,
-        isFollowUp: false,
-        text: openingText,
-        startedAt: now,
+    if (session.practiceMode === 'GUIDED_PRACTICE') {
+      session.guidedState = {
+        ...(session.guidedState || {}),
+        currentQuestionId: firstQuestion?.questionId || null,
+        currentAttemptCount: 0,
+        hintsUsedForCurrentQuestion: 0,
+        awaitingContinue: false,
+        selectedAttemptIdByQuestion: session.guidedState?.selectedAttemptIdByQuestion || {},
+        continuedQuestionIds: session.guidedState?.continuedQuestionIds || [],
       };
+    }
 
+    session.activePrompt = {
+      turnNumber: 1,
+      stageId: currentStage?.stageId || null,
+      questionId: firstQuestion?.questionId || null,
+      competencyId: firstQuestion?.competencyId || null,
+      isFollowUp: false,
+      text: openingText,
+      startedAt: now,
+    };
+
+    const updatedSession = await withTransaction(async (dbSession) => {
+      // Conditional on the loaded status/version: a concurrent /start (double click) or any
+      // other transition makes this miss and yields a clean 409 instead of an E11000.
       const savedStartSession = await InterviewSession.findOneAndUpdate(
-        { _id: session._id },
+        { _id: session._id, status: loadedStatus, stateVersion: loadedVersion },
         {
           $set: {
             status: SESSION_STATUSES.IN_PROGRESS,
@@ -422,6 +469,11 @@ const createInterviewRuntimeService = ({
         },
         { returnDocument: 'after', session: dbSession || undefined }
       );
+      if (!savedStartSession) {
+        throw concurrencyConflict(
+          'Interview session was already started or modified concurrently'
+        );
+      }
 
       const turnDoc = {
         sessionId: session._id,
@@ -507,13 +559,29 @@ const createInterviewRuntimeService = ({
     const session = await loadAuthorizedSession(sessionId, userId);
     assertSessionTransition(session.status, SESSION_STATUSES.PAUSED);
     const now = new Date();
+    const loadedStatus = session.status;
+    const loadedVersion = Number(session.stateVersion) || 0;
 
     accumulateActiveTime(session, now);
-    session.status = SESSION_STATUSES.PAUSED;
-    session.pausedAt = now;
-    session.lastActivityAt = now;
-    session.stateVersion += 1;
-    await session.save();
+    // Conditional write: a concurrent turn/end that changed status or stateVersion makes
+    // this miss (409) instead of silently overwriting e.g. a COMPLETED session.
+    const updated = await InterviewSession.findOneAndUpdate(
+      { _id: session._id, status: loadedStatus, stateVersion: loadedVersion },
+      {
+        $set: {
+          status: SESSION_STATUSES.PAUSED,
+          pausedAt: now,
+          lastActivityAt: now,
+          activeDurationSeconds: session.activeDurationSeconds,
+          stageProgress: session.stageProgress,
+        },
+        $inc: { stateVersion: 1 },
+      },
+      { returnDocument: 'after' }
+    );
+    if (!updated) {
+      throw concurrencyConflict();
+    }
 
     await InterviewEvent.create({
       eventId: `evt_${crypto.randomUUID()}`,
@@ -524,31 +592,58 @@ const createInterviewRuntimeService = ({
       outboxStatus: 'INTERNAL',
     });
 
-    return session;
+    return updated;
   };
 
   const resumeSession = async ({ sessionId, userId }) => {
     const session = await loadAuthorizedSession(sessionId, userId);
-    assertSessionTransition(session.status, SESSION_STATUSES.IN_PROGRESS);
+    // Only a PAUSED session can be resumed. READY -> IN_PROGRESS must go through /start,
+    // which enforces consent and creates the opening turn.
+    if (session.status !== SESSION_STATUSES.PAUSED) {
+      throw new ApiError(
+        409,
+        `Cannot resume interview session while in status '${session.status}'; only PAUSED sessions can be resumed`
+      );
+    }
     const now = new Date();
+    const loadedVersion = Number(session.stateVersion) || 0;
 
     accumulatePausedTime(session, now);
-    session.status = SESSION_STATUSES.IN_PROGRESS;
-    session.pausedAt = null;
-    session.lastActivityAt = now;
-    session.stateVersion += 1;
-    await session.save();
+    const updated = await InterviewSession.findOneAndUpdate(
+      { _id: session._id, status: SESSION_STATUSES.PAUSED, stateVersion: loadedVersion },
+      {
+        $set: {
+          status: SESSION_STATUSES.IN_PROGRESS,
+          pausedAt: null,
+          lastActivityAt: now,
+          pausedDurationSeconds: session.pausedDurationSeconds,
+        },
+        $inc: { stateVersion: 1 },
+      },
+      { returnDocument: 'after' }
+    );
+    if (!updated) {
+      throw concurrencyConflict();
+    }
 
     await InterviewEvent.create({
       eventId: `evt_${crypto.randomUUID()}`,
       sessionId: session._id,
       intakeId: session.intakeId,
       eventType: 'SESSION_RESUMED',
-      payload: { resumedAt: now, pausedDurationSeconds: session.pausedDurationSeconds },
+      payload: { resumedAt: now, pausedDurationSeconds: updated.pausedDurationSeconds },
       outboxStatus: 'INTERNAL',
     });
 
-    return session;
+    return updated;
+  };
+
+  const getTerminalEndResult = async (terminalSession) => {
+    const completedEvent = await InterviewEvent.findOne({
+      sessionId: terminalSession._id,
+      eventType: 'INTERVIEW_SESSION_COMPLETED',
+    });
+    return { session: terminalSession, completedEvent };
   };
 
   const endSession = async ({
@@ -560,66 +655,78 @@ const createInterviewRuntimeService = ({
   }) => {
     const session = await loadAuthorizedSession(sessionId, userId, { bypassOwnership });
 
-    if (session.practiceMode === 'GUIDED_PRACTICE') {
-      throw new ApiError(
-        409,
-        'Guided practice sessions do not use live turn submission; use /attempts, /hint, /retry, and /continue'
-      );
-    }
+    // GUIDED_PRACTICE sessions may also be ended or abandoned explicitly.
     if (isTerminalStatus(session.status)) {
-      const completedEvent = await InterviewEvent.findOne({
-        sessionId: session._id,
-        eventType: 'INTERVIEW_SESSION_COMPLETED',
-      });
-      return { session, completedEvent };
+      return getTerminalEndResult(session);
     }
 
     const targetStatus = abandon ? SESSION_STATUSES.ABANDONED : SESSION_STATUSES.COMPLETED;
     assertSessionTransition(session.status, targetStatus);
     const now = new Date();
+    const loadedStatus = session.status;
+    const loadedVersion = Number(session.stateVersion) || 0;
 
-    const result = await withTransaction(async (dbSession) => {
-      if (session.status === SESSION_STATUSES.IN_PROGRESS) {
-        accumulateActiveTime(session, now);
-      } else if (session.status === SESSION_STATUSES.PAUSED) {
-        accumulatePausedTime(session, now);
-      }
+    // In-memory time accounting happens once, outside the (retryable) transaction callback.
+    if (loadedStatus === SESSION_STATUSES.IN_PROGRESS) {
+      accumulateActiveTime(session, now);
+    } else if (loadedStatus === SESSION_STATUSES.PAUSED) {
+      accumulatePausedTime(session, now);
+    }
 
-      session.status = targetStatus;
-      session.terminationReason = reason;
-      session.lastActivityAt = now;
-      session.stateVersion += 1;
-      if (abandon) {
-        session.abandonedAt = now;
-      } else {
-        session.completedAt = now;
-      }
+    const setFields = {
+      status: targetStatus,
+      terminationReason: reason,
+      lastActivityAt: now,
+      activeDurationSeconds: session.activeDurationSeconds,
+      pausedDurationSeconds: session.pausedDurationSeconds,
+      stageProgress: session.stageProgress,
+      pausedAt: null,
+      ...(abandon ? { abandonedAt: now } : { completedAt: now }),
+    };
 
-      await session.save(dbSession ? { session: dbSession } : undefined);
-
-      let completedEvent = null;
-      if (abandon) {
-        const evtDoc = {
-          eventId: `evt_${crypto.randomUUID()}`,
-          sessionId: session._id,
-          intakeId: session.intakeId,
-          eventType: 'SESSION_ABANDONED',
-          payload: { reason, abandonedAt: now },
-          outboxStatus: 'INTERNAL',
-        };
-        if (dbSession) {
-          await InterviewEvent.create([evtDoc], { session: dbSession });
-        } else {
-          await InterviewEvent.create(evtDoc);
+    try {
+      return await withTransaction(async (dbSession) => {
+        const saved = await InterviewSession.findOneAndUpdate(
+          { _id: session._id, status: loadedStatus, stateVersion: loadedVersion },
+          { $set: setFields, $inc: { stateVersion: 1 } },
+          { returnDocument: 'after', session: dbSession || undefined }
+        );
+        if (!saved) {
+          throw concurrencyConflict();
         }
-      } else {
-        completedEvent = await emitCompletedOutboxEvent(session, dbSession);
+
+        let completedEvent = null;
+        if (abandon) {
+          const evtDoc = {
+            eventId: `evt_${crypto.randomUUID()}`,
+            sessionId: session._id,
+            intakeId: session.intakeId,
+            eventType: 'SESSION_ABANDONED',
+            payload: { reason, abandonedAt: now },
+            outboxStatus: 'INTERNAL',
+          };
+          if (dbSession) {
+            await InterviewEvent.create([evtDoc], { session: dbSession });
+          } else {
+            await InterviewEvent.create(evtDoc);
+          }
+        } else {
+          completedEvent = await emitCompletedOutboxEvent(saved, dbSession);
+        }
+
+        return { session: saved, completedEvent };
+      });
+    } catch (err) {
+      // Lost the race to a concurrent transition. If that left the session terminal (e.g. the
+      // final turn completed it), report the terminal state instead of re-entering it.
+      if (err?.statusCode === 409) {
+        const latest = await InterviewSession.findById(session._id);
+        if (latest && isTerminalStatus(latest.status)) {
+          return getTerminalEndResult(latest);
+        }
       }
-
-      return { session, completedEvent };
-    });
-
-    return result;
+      throw err;
+    }
   };
 
   const processTurn = async ({
@@ -675,6 +782,12 @@ const createInterviewRuntimeService = ({
         `Session cannot accept turns while in status '${session.status}'`
       );
     }
+    if (!canAcceptTurn(session.status, session)) {
+      throw new ApiError(
+        409,
+        'Session cannot accept turns before candidate consent is recorded; start the session with consent first'
+      );
+    }
 
     if (
       expectedStateVersion !== null &&
@@ -718,23 +831,20 @@ const createInterviewRuntimeService = ({
 
       const ttsResult = await ttsAdapter.synthesizeSpeech({ text: clarifyText });
 
-      const updatedSession = await InterviewSession.findOneAndUpdate(
-        { _id: session._id, stateVersion: expectedVersion },
-        {
-          $set: {
-            lastActivityAt: now,
-            totalTurnCount: aiTurnNumber,
-            lastCompletedTurnNumber: aiTurnNumber,
-          },
-          $inc: { stateVersion: 1 },
-        },
-        { returnDocument: 'after' }
-      );
-      if (!updatedSession) {
-        throw new ApiError(409, 'Concurrent turn modification detected');
-      }
+      // Credit the time spent before this (silent) submission, and point activePrompt at the
+      // clarification turn so a barge-in during its TTS targets the right AI turn.
+      accumulateActiveTime(session, now);
+      const clarifyPrompt = {
+        turnNumber: aiTurnNumber,
+        stageId: session.currentStageId,
+        questionId: session.currentQuestionId,
+        competencyId: session.activePrompt?.competencyId || null,
+        isFollowUp: Boolean(session.activePrompt?.isFollowUp),
+        text: clarifyText,
+        startedAt: now,
+      };
 
-      const [candTurn, aiTurn] = await InterviewTurn.create([
+      const emptyTurnDocs = [
         {
           sessionId: session._id,
           turnNumber: candidateTurnNumber,
@@ -766,15 +876,54 @@ const createInterviewRuntimeService = ({
           startedAt: now,
           endedAt: now,
         },
-      ]);
+      ];
+
+      // Session update + both turns commit atomically, so a failed turn insert can never
+      // leave totalTurnCount advanced without turns (turn-number gap).
+      let emptyResult;
+      try {
+        emptyResult = await withTransaction(async (dbSession) => {
+          const updatedSession = await InterviewSession.findOneAndUpdate(
+            { _id: session._id, stateVersion: expectedVersion },
+            {
+              $set: {
+                lastActivityAt: now,
+                totalTurnCount: aiTurnNumber,
+                lastCompletedTurnNumber: aiTurnNumber,
+                activeDurationSeconds: session.activeDurationSeconds,
+                stageProgress: session.stageProgress,
+                activePrompt: clarifyPrompt,
+              },
+              $inc: { stateVersion: 1 },
+            },
+            { returnDocument: 'after', session: dbSession || undefined }
+          );
+          if (!updatedSession) {
+            throw concurrencyConflict('Concurrent turn modification detected');
+          }
+
+          const created = dbSession
+            ? await InterviewTurn.create(emptyTurnDocs, { session: dbSession, ordered: true })
+            : await InterviewTurn.create(emptyTurnDocs);
+
+          return { updatedSession, candTurn: created[0], aiTurn: created[1] };
+        });
+      } catch (err) {
+        // A concurrent retry with the same idempotencyKey won the race: replay its result.
+        if (err?.code === 11000 || err?.statusCode === 409) {
+          const replay = await replayExistingTurn(session._id, idempotencyKey);
+          if (replay) return replay;
+        }
+        throw err;
+      }
 
       return {
         idempotentReplay: false,
         ignored: false,
         emptyTranscript: true,
-        session: updatedSession,
-        candidateTurn: candTurn,
-        aiTurn,
+        session: emptyResult.updatedSession,
+        candidateTurn: emptyResult.candTurn,
+        aiTurn: emptyResult.aiTurn,
         tts: ttsResult,
       };
     }
@@ -807,16 +956,9 @@ const createInterviewRuntimeService = ({
     }
     const candidateContext = buildCandidateContext({ session, internalBlueprint, analysisDoc });
 
-    // Classify candidate speech for intent, relevance, and language
-    const classification = await classifier.classifyAnswer({
-      transcript: sttResult.transcript,
-      currentQuestion,
-      currentStage,
-      requestId: idempotencyKey,
-    });
-
-    // Call LLM outside DB transaction
-    const agentResult = await interviewerAgent.decideNextTurn({
+    // Per-turn decision (outside any DB transaction): classify the answer, ask the interviewer
+    // agent for a proposal (skipped when policy would discard it), then validate / fall back.
+    const { classification, agentResult, resolved } = await turnDecider.decide({
       blueprint: internalBlueprint,
       session,
       memory,
@@ -828,22 +970,7 @@ const createInterviewRuntimeService = ({
       timeSnapshot,
       candidateTranscript: sttResult.transcript,
       candidateContext,
-      classification,
       requestId: idempotencyKey,
-    });
-
-    const resolved = resolveAdaptiveDecision({
-      agentResult,
-      session,
-      blueprint: internalBlueprint,
-      currentStage,
-      currentQuestion,
-      nextQuestionCandidate,
-      nextStageCandidate,
-      followUpPolicy,
-      timeSnapshot,
-      candidateContext,
-      classification,
     });
 
     if (classification?.intent === 'REQUEST_SKIP' && currentQuestion) {

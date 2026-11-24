@@ -130,7 +130,7 @@ const enqueueStudentLearningInsightsJob = async ({ sessionIdOrUuid, userId }) =>
     status: 'QUEUED',
     maximumAttempts: env.DECISION_INTELLIGENCE_MAX_ATTEMPTS,
     nextAttemptAt: new Date(),
-  });
+  }, { requeueFailed: true });
 
   return { deduplicated: false, report: null, job };
 };
@@ -257,7 +257,7 @@ const enqueueDevelopmentPlanJob = async ({ sessionIdOrUuid, userId }) => {
     status: 'QUEUED',
     maximumAttempts: env.DECISION_INTELLIGENCE_MAX_ATTEMPTS,
     nextAttemptAt: new Date(),
-  });
+  }, { requeueFailed: true });
 
   return { deduplicated: false, plan: null, job };
 };

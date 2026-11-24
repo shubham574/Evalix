@@ -1,56 +1,67 @@
 const mongoose = require('mongoose');
 
-let isConnected = false;
+const LOCAL_URI = 'mongodb://127.0.0.1:27017/evalix';
+let retryTimer = null;
+let connecting = false;
 
+/**
+ * Connect to MongoDB and keep retrying in the background on failure.
+ *
+ * The local fallback is opt-in (MONGODB_ALLOW_LOCAL_FALLBACK=true) and never used in production:
+ * silently switching from the configured cluster to an empty local database would make the API
+ * and the job workers read and write the wrong data while reporting "connected".
+ */
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/evalix';
+  if (connecting || mongoose.connection.readyState === 1) return;
+  connecting = true;
+  clearTimeout(retryTimer);
+
+  const uri = process.env.MONGODB_URI || LOCAL_URI;
   const options = {
-    serverSelectionTimeoutMS: 3000,
+    // Atlas replica-set discovery regularly needs more than 3s on a cold start.
+    serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS) || 15000,
     maxPoolSize: 25, // Optimized pool size per PM2 cluster worker
     minPoolSize: 5,
   };
+  const allowLocalFallback =
+    process.env.MONGODB_ALLOW_LOCAL_FALLBACK === 'true' && process.env.NODE_ENV !== 'production';
+
   try {
     const conn = await mongoose.connect(uri, options);
-    isConnected = true;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    if (uri !== 'mongodb://127.0.0.1:27017/evalix') {
+    if (allowLocalFallback && uri !== LOCAL_URI) {
       try {
-        console.log('Attempting local MongoDB connection (mongodb://127.0.0.1:27017/evalix)...');
-        const localConn = await mongoose.connect('mongodb://127.0.0.1:27017/evalix', options);
-        isConnected = true;
+        console.warn(`MongoDB connection failed (${error.message}); using local fallback ${LOCAL_URI}`);
+        const localConn = await mongoose.connect(LOCAL_URI, options);
         console.log(`MongoDB Connected (local fallback): ${localConn.connection.host}`);
         return;
-      } catch (localErr) {
-        // Continue to retry logic
+      } catch (_localErr) {
+        // fall through to retry
       }
     }
-    isConnected = false;
     console.error(`MongoDB connection failed: ${error.message}`);
     console.error('The server will continue running. Retrying in 30 seconds...');
-    // Retry connection after 30 seconds
-    setTimeout(connectDB, 30000);
+    retryTimer = setTimeout(() => void connectDB(), 30000);
+    if (typeof retryTimer.unref === 'function') retryTimer.unref();
+  } finally {
+    connecting = false;
   }
 };
 
 mongoose.connection.on('connected', () => {
-  isConnected = true;
   console.log('MongoDB connected');
 });
 
 mongoose.connection.on('disconnected', () => {
-  isConnected = false;
   console.log('MongoDB disconnected');
 });
 
 mongoose.connection.on('error', (err) => {
-  isConnected = false;
   console.error(`MongoDB connection error: ${err}`);
 });
 
 // Helper to check if DB is ready
-const isDBConnected = () => {
-  return mongoose.connection.readyState === 1;
-};
+const isDBConnected = () => mongoose.connection.readyState === 1;
 
 module.exports = { connectDB, isDBConnected };

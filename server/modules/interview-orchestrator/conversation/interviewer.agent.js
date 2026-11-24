@@ -1,4 +1,4 @@
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const { interviewerDecisionSchema } = require('./conversation.schema');
 const { formatMemoryForPrompt } = require('../memory/memory.service');
 const { getRelevantContextForQuestion } = require('../context/candidate-context-builder');
@@ -109,7 +109,7 @@ const buildUserPrompt = ({
 const createInterviewerAgent = ({ llmProvider = null } = {}) => {
   const provider =
     llmProvider ||
-    new GeminiExtractionProvider({
+    createLlmProvider({
       model: env.AI_EXTRACTION_MODEL,
       timeoutMs: env.INTERVIEW_ORCHESTRATOR_LLM_TIMEOUT_MS,
     });

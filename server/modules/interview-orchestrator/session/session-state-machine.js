@@ -24,9 +24,10 @@ const ALLOWED_TRANSITIONS = Object.freeze({
     SESSION_STATUSES.ABANDONED,
     SESSION_STATUSES.FAILED,
   ],
+  // READY -> IN_PROGRESS is performed only by startSession (which records consent and the
+  // opening turn). A session that has never started cannot be paused.
   [SESSION_STATUSES.READY]: [
     SESSION_STATUSES.IN_PROGRESS,
-    SESSION_STATUSES.PAUSED,
     SESSION_STATUSES.ABANDONED,
     SESSION_STATUSES.FAILED,
   ],
@@ -69,7 +70,15 @@ const assertSessionTransition = (fromStatus, toStatus) => {
   }
 };
 
-const canAcceptTurn = (status) => status === SESSION_STATUSES.IN_PROGRESS;
+const hasRequiredConsent = (session) =>
+  !session || session.consentRequired !== true || session.consentGranted === true;
+
+/**
+ * A session accepts candidate turns only while IN_PROGRESS and, when consent is required,
+ * only after consent was recorded. `session` is optional for status-only checks.
+ */
+const canAcceptTurn = (status, session = null) =>
+  status === SESSION_STATUSES.IN_PROGRESS && hasRequiredConsent(session);
 
 module.exports = {
   SESSION_STATUSES,
@@ -79,4 +88,5 @@ module.exports = {
   canTransitionSession,
   assertSessionTransition,
   canAcceptTurn,
+  hasRequiredConsent,
 };

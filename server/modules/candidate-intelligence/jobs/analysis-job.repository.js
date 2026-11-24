@@ -1,13 +1,11 @@
 const { CandidateAnalysisJob } = require('./analysisJob.model');
+const lease = require('../../common/jobs/lease');
 
-const createJobIdempotent = async (jobPayload) => {
-  const result = await CandidateAnalysisJob.findOneAndUpdate(
-    { idempotencyKey: jobPayload.idempotencyKey },
-    { $setOnInsert: jobPayload },
-    { upsert: true, new: true }
-  ).lean();
-  return result;
-};
+const createJobIdempotent = async (payload, options = {}) =>
+  lease.createJobIdempotent(CandidateAnalysisJob, payload, {
+    ...options,
+    resetSet: {},
+  });
 
 const findLatestJobByIntakeAndUser = async (intakeId, userId) =>
   CandidateAnalysisJob.findOne({ intakeId, userId }).sort({ createdAt: -1 }).lean();
@@ -17,13 +15,7 @@ const claimNextJob = async ({ workerId, leaseMs }) => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
 
   return CandidateAnalysisJob.findOneAndUpdate(
-    {
-      $or: [
-        { status: 'QUEUED', nextAttemptAt: { $lte: now } },
-        { status: 'RETRY_WAIT', nextAttemptAt: { $lte: now } },
-        { status: 'PROCESSING', leaseExpiresAt: { $lte: now } },
-      ],
-    },
+    lease.claimableFilter(now),
     {
       $set: {
         status: 'PROCESSING',
@@ -35,14 +27,14 @@ const claimNextJob = async ({ workerId, leaseMs }) => {
     },
     {
       sort: { nextAttemptAt: 1, createdAt: 1 },
-      new: true,
+      returnDocument: 'after',
     }
   ).exec();
 };
 
 const markJobCompleted = async (jobId, { analysisId }) =>
-  CandidateAnalysisJob.findByIdAndUpdate(
-    jobId,
+  CandidateAnalysisJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'COMPLETED',
@@ -54,12 +46,12 @@ const markJobCompleted = async (jobId, { analysisId }) =>
         lastErrorMessage: null,
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 
 const markJobRetryWait = async (jobId, { nextAttemptAt, errorCode, errorMessage }) =>
-  CandidateAnalysisJob.findByIdAndUpdate(
-    jobId,
+  CandidateAnalysisJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'RETRY_WAIT',
@@ -71,12 +63,12 @@ const markJobRetryWait = async (jobId, { nextAttemptAt, errorCode, errorMessage 
         lastErrorMessage: (errorMessage || '').slice(0, 500),
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 
 const markJobFailed = async (jobId, { errorCode, errorMessage }) =>
-  CandidateAnalysisJob.findByIdAndUpdate(
-    jobId,
+  CandidateAnalysisJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'FAILED',
@@ -87,8 +79,14 @@ const markJobFailed = async (jobId, { errorCode, errorMessage }) =>
         lastErrorMessage: (errorMessage || '').slice(0, 500),
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
+
+/** Extend the lease of a job this worker still owns; null when the lease was lost. */
+const renewJobLease = (job, leaseMs) => lease.renewLease(CandidateAnalysisJob, job, leaseMs);
+
+/** Fail PROCESSING jobs whose lease expired on their final attempt. */
+const recoverExpiredLeases = () => lease.failExhaustedExpiredLeases(CandidateAnalysisJob);
 
 module.exports = {
   createJobIdempotent,
@@ -97,4 +95,6 @@ module.exports = {
   markJobCompleted,
   markJobRetryWait,
   markJobFailed,
+  renewJobLease,
+  recoverExpiredLeases,
 };

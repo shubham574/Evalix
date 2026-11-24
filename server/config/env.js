@@ -77,6 +77,19 @@ module.exports = {
   DOCUMENT_EXTRACTION_MAX_DOCX_UNCOMPRESSED_BYTES:
     Number(process.env.DOCUMENT_EXTRACTION_MAX_DOCX_UNCOMPRESSED_BYTES) || 20 * 1024 * 1024,
   AI_EXTRACTION_MODEL: process.env.AI_EXTRACTION_MODEL || 'gemini-3.5-flash',
+  // Structured-LLM engine for the v1 modules: 'langchain' (default) or 'native' (@google/genai).
+  LLM_ENGINE: process.env.LLM_ENGINE === 'native' ? 'native' : 'langchain',
+  // Module 5 per-turn decision: 'langgraph' (StateGraph) or 'legacy' (plain sequential calls)
+  INTERVIEW_TURN_ENGINE: process.env.INTERVIEW_TURN_ENGINE === 'legacy' ? 'legacy' : 'langgraph',
+  // Optional second Gemini model tried when the primary fails (e.g. overloaded / rate limited).
+  LLM_FALLBACK_MODEL: process.env.LLM_FALLBACK_MODEL || '',
+  LLM_MAX_RETRIES:
+    process.env.LLM_MAX_RETRIES !== undefined ? Number(process.env.LLM_MAX_RETRIES) : 2,
+  // Optional cross-provider fallbacks (also need `npm i @langchain/openai` / `@langchain/anthropic`).
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+  LLM_FALLBACK_OPENAI_MODEL: process.env.LLM_FALLBACK_OPENAI_MODEL || '',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+  LLM_FALLBACK_ANTHROPIC_MODEL: process.env.LLM_FALLBACK_ANTHROPIC_MODEL || '',
 
   // Module 3: Candidate Intelligence & Job Requirement Analysis Engine
   CANDIDATE_INTELLIGENCE_ENABLED: process.env.CANDIDATE_INTELLIGENCE_ENABLED !== 'false',
@@ -111,8 +124,12 @@ module.exports = {
     process.env.INTERVIEW_BLUEPRINT_REGENERATE_RATE_MAX !== undefined
       ? Number(process.env.INTERVIEW_BLUEPRINT_REGENERATE_RATE_MAX)
       : 5,
+  // No hardcoded fallback: when unset, internal service routes are disabled (503).
+  // Under NODE_ENV=test only, a random per-process secret is generated so test suites
+  // can exercise the internal routes by reading this value.
   INTERNAL_ORCHESTRATOR_SECRET:
-    process.env.INTERNAL_ORCHESTRATOR_SECRET || 'evalix-internal-orchestrator-dev-secret',
+    process.env.INTERNAL_ORCHESTRATOR_SECRET ||
+    (nodeEnv === 'test' ? `test-${require('crypto').randomBytes(24).toString('hex')}` : ''),
 
   // Module 5: Live AI Interview Orchestration Engine
   INTERVIEW_ORCHESTRATOR_ENABLED:
@@ -123,6 +140,13 @@ module.exports = {
     Number(process.env.INTERVIEW_ORCHESTRATOR_THINKING_GRACE_MS) || 30000,
   INTERVIEW_ORCHESTRATOR_INACTIVITY_TIMEOUT_MS:
     Number(process.env.INTERVIEW_ORCHESTRATOR_INACTIVITY_TIMEOUT_MS) || 300000,
+  // How long a session may sit idle before the inactivity sweeper abandons it. Deliberately much
+  // longer than the 5-minute inactivity timeout above: candidates legitimately think, step away or
+  // take a paused break, and abandoning is permanent.
+  INTERVIEW_ORCHESTRATOR_ABANDON_AFTER_MS:
+    Number(process.env.INTERVIEW_ORCHESTRATOR_ABANDON_AFTER_MS) || 2 * 60 * 60 * 1000,
+  INTERVIEW_ORCHESTRATOR_PAUSED_ABANDON_AFTER_MS:
+    Number(process.env.INTERVIEW_ORCHESTRATOR_PAUSED_ABANDON_AFTER_MS) || 24 * 60 * 60 * 1000,
   INTERVIEW_ORCHESTRATOR_MEMORY_SNAPSHOT_INTERVAL:
     Number(process.env.INTERVIEW_ORCHESTRATOR_MEMORY_SNAPSHOT_INTERVAL) || 3,
   INTERVIEW_ORCHESTRATOR_LLM_TIMEOUT_MS:

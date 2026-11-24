@@ -1,5 +1,6 @@
 const os = require('os');
 const env = require('../../../config/env');
+const { LeasePollingWorker } = require('../../common/jobs/polling-worker');
 const jobRepo = require('./evaluation-job.repository');
 const InterviewEvent = require('../../interview-orchestrator/events/interviewEvent.model');
 const { InterviewEvaluationRun } = require('../models/interviewEvaluationRun.model');
@@ -13,11 +14,12 @@ const { calculateCoverage } = require('../scoring/coverage-calculator');
 const { calculateOverallScore } = require('../scoring/overall-scorer');
 const { generateReports } = require('../reporting/report-generator');
 const { createEvaluationRunAndJob } = require('../interview-evaluation.service');
+const AppError = require('../../common/errors/AppError');
 
 const processEvaluationJob = async (job, { llmProvider = null } = {}) => {
   const run = await InterviewEvaluationRun.findById(job.evaluationRunId);
   if (!run) {
-    await jobRepo.markJobFailed(job._id, {
+    await jobRepo.markJobFailed(job, {
       failureStage: 'LOAD_RUN',
       errorCode: 'RUN_NOT_FOUND',
       errorMessage: 'InterviewEvaluationRun not found',
@@ -161,27 +163,40 @@ const processEvaluationJob = async (job, { llmProvider = null } = {}) => {
       }
     );
 
-    await jobRepo.markJobCompleted(job._id);
+    await jobRepo.markJobCompleted(job);
     return run;
   } catch (err) {
     const canRetry = job.attemptCount < job.maximumAttempts;
+    // Persist the run status best-effort: if this save fails (DB blip, version conflict) the job
+    // must still leave PROCESSING, otherwise it sits locked until its lease expires.
+    const saveRunStatus = async (fields) => {
+      try {
+        Object.assign(run, fields);
+        await run.save();
+      } catch (saveErr) {
+        console.error('Evaluation run status save failed:', saveErr.message);
+      }
+    };
     if (canRetry) {
       const backoffMs =
         env.INTERVIEW_EVALUATION_RETRY_DELAY_MS * Math.pow(2, Math.max(0, job.attemptCount - 1));
-      run.status = 'PARTIALLY_EVALUATED';
-      await run.save();
-      await jobRepo.markJobRetryWait(job._id, {
+      await saveRunStatus({ status: 'PARTIALLY_EVALUATED' });
+      await jobRepo.markJobRetryWait(job, {
         nextAttemptAt: new Date(Date.now() + backoffMs),
         failureStage: currentStage,
         errorCode: err.code || 'EVALUATION_TRANSIENT_ERROR',
         errorMessage: err.message,
       });
     } else {
-      run.status = 'FAILED';
-      run.failureCode = err.code || 'EVALUATION_FAILED';
-      run.failureMessage = String(err.message || '').slice(0, 500);
-      await run.save();
-      await jobRepo.markJobFailed(job._id, {
+      await saveRunStatus({
+        status: 'FAILED',
+        failureCode: err.code || 'EVALUATION_FAILED',
+        failureMessage: String(err.message || '').slice(0, 500),
+      });
+      await markSessionOutbox(run.sessionId, 'FAILED', {
+        failureCode: err.code || 'EVALUATION_FAILED',
+      });
+      await jobRepo.markJobFailed(job, {
         failureStage: currentStage,
         errorCode: err.code || 'EVALUATION_FAILED',
         errorMessage: err.message,
@@ -191,27 +206,75 @@ const processEvaluationJob = async (job, { llmProvider = null } = {}) => {
   }
 };
 
+const TERMINAL_RUN_STATUSES = new Set([
+  'COMPLETED',
+  'COMPLETED_WITH_WARNINGS',
+  'NEEDS_REVIEW',
+  'INSUFFICIENT_COVERAGE',
+]);
+
+/** Close a session's pending INTERVIEW_SESSION_COMPLETED outbox entry. */
+const markSessionOutbox = async (sessionId, outboxStatus, details = {}) => {
+  try {
+    await InterviewEvent.updateMany(
+      {
+        sessionId,
+        eventType: 'INTERVIEW_SESSION_COMPLETED',
+        outboxStatus: 'PENDING_DISPATCH',
+      },
+      {
+        $set: {
+          outboxStatus,
+          dispatchedAt: new Date(),
+          ...Object.fromEntries(
+            Object.entries(details).map(([k, v]) => [`payload.outbox${k[0].toUpperCase()}${k.slice(1)}`, v])
+          ),
+        },
+      }
+    );
+  } catch (err) {
+    console.error('Outbox status update failed:', err.message);
+  }
+};
+
+/**
+ * Consume pending INTERVIEW_SESSION_COMPLETED outbox events (oldest first) and make sure each
+ * completed session has an evaluation run with a job. Runs at startup and periodically.
+ *
+ * Entries whose outcome is final are closed (DISPATCHED / FAILED) so they no longer occupy the
+ * sweep window; otherwise a backlog of permanently failing sessions would starve new ones.
+ * Transient errors leave the entry pending for the next sweep.
+ */
 const reconcileCompletedSessions = async () => {
   const pendingEvents = await InterviewEvent.find({
     eventType: 'INTERVIEW_SESSION_COMPLETED',
     outboxStatus: 'PENDING_DISPATCH',
   })
+    .sort({ occurredAt: 1 })
     .limit(50)
     .lean();
 
   for (const evt of pendingEvents) {
     try {
-      await createEvaluationRunAndJob({
+      const { run } = await createEvaluationRunAndJob({
         sessionIdOrUuid: evt.sessionId,
         bypassOwnership: true,
       });
-    } catch (_err) {
-      // Skip invalid/incomplete sessions during reconciliation
+      if (run && TERMINAL_RUN_STATUSES.has(run.status)) {
+        await markSessionOutbox(evt.sessionId, 'DISPATCHED');
+      } else if (run && run.status === 'FAILED') {
+        await markSessionOutbox(evt.sessionId, 'FAILED', { failureCode: run.failureCode || 'EVALUATION_FAILED' });
+      }
+    } catch (err) {
+      // 4xx AppErrors (session missing / not eligible for evaluation) will never succeed.
+      if (err instanceof AppError && err.statusCode >= 400 && err.statusCode < 500) {
+        await markSessionOutbox(evt.sessionId, 'FAILED', { failureCode: err.code || 'NOT_EVALUABLE' });
+      }
     }
   }
 };
 
-class EvaluationWorker {
+class EvaluationWorker extends LeasePollingWorker {
   constructor({
     workerId = `eval-worker-${os.hostname()}-${process.pid}`,
     concurrency = env.INTERVIEW_EVALUATION_WORKER_CONCURRENCY,
@@ -219,70 +282,26 @@ class EvaluationWorker {
     pollIntervalMs = 2000,
     llmProvider = null,
   } = {}) {
-    this.workerId = workerId;
-    this.concurrency = concurrency;
-    this.leaseMs = leaseMs;
-    this.pollIntervalMs = pollIntervalMs;
+    super({
+      name: 'Interview evaluation worker',
+      workerId,
+      concurrency,
+      leaseMs,
+      pollIntervalMs,
+      enabled: env.INTERVIEW_EVALUATION_ENABLED,
+      claim: (args) => jobRepo.claimNextJob(args),
+      process: (job) => processEvaluationJob(job, { llmProvider: this.llmProvider }),
+      renew: (job, ms) => jobRepo.renewJobLease(job, ms),
+      // Fail exhausted leases, then consume new INTERVIEW_SESSION_COMPLETED outbox events.
+      // Previously the outbox was only read once at startup, so sessions completed while the
+      // server was running were never evaluated automatically until the next restart.
+      recoverIntervalMs: 15000,
+      recover: async () => {
+        await jobRepo.recoverExpiredLeases();
+        await reconcileCompletedSessions();
+      },
+    });
     this.llmProvider = llmProvider;
-    this.running = false;
-    this.activeCount = 0;
-    this.timer = null;
-  }
-
-  async start() {
-    if (!env.INTERVIEW_EVALUATION_ENABLED || this.running) return;
-    this.running = true;
-
-    try {
-      await reconcileCompletedSessions();
-    } catch (err) {
-      console.error('Interview evaluation startup reconciliation failed:', err.message);
-    }
-
-    this.scheduleNextTick(50);
-  }
-
-  scheduleNextTick(delayMs = this.pollIntervalMs) {
-    if (!this.running) return;
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      void this.tick();
-    }, delayMs);
-    if (typeof this.timer.unref === 'function') this.timer.unref();
-  }
-
-  async tick() {
-    if (!this.running) return;
-
-    while (this.running && this.activeCount < this.concurrency) {
-      const job = await jobRepo.claimNextJob({
-        workerId: this.workerId,
-        leaseMs: this.leaseMs,
-      });
-      if (!job) break;
-
-      this.activeCount += 1;
-      void processEvaluationJob(job, { llmProvider: this.llmProvider })
-        .catch((err) => {
-          console.error('Evaluation worker job error:', err.message);
-        })
-        .finally(() => {
-          this.activeCount -= 1;
-          if (this.running) this.scheduleNextTick(10);
-        });
-    }
-
-    if (this.running) {
-      this.scheduleNextTick(this.pollIntervalMs);
-    }
-  }
-
-  async stop() {
-    this.running = false;
-    clearTimeout(this.timer);
-    while (this.activeCount > 0) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
   }
 }
 

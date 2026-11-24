@@ -59,7 +59,7 @@ const updateByIdAndUser = async (intakeId, userId, updates, expectedVersion = nu
       $inc: { version: 1 },
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
       ...(session ? { session } : {}),
     }

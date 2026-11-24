@@ -1,24 +1,18 @@
 const { InterviewEvaluationJob } = require('../models/interviewEvaluationJob.model');
+const lease = require('../../common/jobs/lease');
 
-const createJobIdempotent = async (payload) =>
-  InterviewEvaluationJob.findOneAndUpdate(
-    { idempotencyKey: payload.idempotencyKey },
-    { $setOnInsert: payload },
-    { upsert: true, returnDocument: 'after' }
-  ).lean();
+const createJobIdempotent = async (payload, options = {}) =>
+  lease.createJobIdempotent(InterviewEvaluationJob, payload, {
+    ...options,
+    resetSet: { failureStage: null },
+  });
 
 const claimNextJob = async ({ workerId, leaseMs }) => {
   const now = new Date();
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
 
   return InterviewEvaluationJob.findOneAndUpdate(
-    {
-      $or: [
-        { status: 'QUEUED', nextAttemptAt: { $lte: now } },
-        { status: 'RETRY_WAIT', nextAttemptAt: { $lte: now } },
-        { status: 'PROCESSING', leaseExpiresAt: { $lte: now } },
-      ],
-    },
+    lease.claimableFilter(now),
     {
       $set: {
         status: 'PROCESSING',
@@ -36,8 +30,8 @@ const claimNextJob = async ({ workerId, leaseMs }) => {
 };
 
 const markJobCompleted = async (jobId) =>
-  InterviewEvaluationJob.findByIdAndUpdate(
-    jobId,
+  InterviewEvaluationJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'COMPLETED',
@@ -56,8 +50,8 @@ const markJobRetryWait = async (
   jobId,
   { nextAttemptAt, failureStage, errorCode, errorMessage }
 ) =>
-  InterviewEvaluationJob.findByIdAndUpdate(
-    jobId,
+  InterviewEvaluationJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'RETRY_WAIT',
@@ -74,8 +68,8 @@ const markJobRetryWait = async (
   ).exec();
 
 const markJobFailed = async (jobId, { failureStage, errorCode, errorMessage }) =>
-  InterviewEvaluationJob.findByIdAndUpdate(
-    jobId,
+  InterviewEvaluationJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'FAILED',
@@ -90,10 +84,18 @@ const markJobFailed = async (jobId, { failureStage, errorCode, errorMessage }) =
     { returnDocument: 'after' }
   ).exec();
 
+/** Extend the lease of a job this worker still owns; null when the lease was lost. */
+const renewJobLease = (job, leaseMs) => lease.renewLease(InterviewEvaluationJob, job, leaseMs);
+
+/** Fail PROCESSING jobs whose lease expired on their final attempt. */
+const recoverExpiredLeases = () => lease.failExhaustedExpiredLeases(InterviewEvaluationJob);
+
 module.exports = {
   createJobIdempotent,
   claimNextJob,
   markJobCompleted,
   markJobRetryWait,
   markJobFailed,
+  renewJobLease,
+  recoverExpiredLeases,
 };

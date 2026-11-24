@@ -28,6 +28,7 @@ const requestBlueprintGeneration = async (userId, intakeId, body = {}) => {
     interviewType: body.interviewType,
     durationMinutes: body.durationMinutes,
     regenerate: false,
+    requeueFailed: true,
   });
 
   return {
@@ -47,6 +48,7 @@ const regenerateBlueprint = async (userId, intakeId, body = {}) => {
     interviewType: body.interviewType,
     durationMinutes: body.durationMinutes,
     regenerate: true,
+    requeueFailed: true,
     regenerationReason: body.reason || 'Candidate requested blueprint regeneration',
   });
 

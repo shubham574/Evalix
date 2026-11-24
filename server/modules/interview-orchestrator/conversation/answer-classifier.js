@@ -1,5 +1,5 @@
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const { z } = require('zod');
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
 const env = require('../../../config/env');
 
 const ANSWER_INTENTS = [
@@ -29,6 +29,8 @@ const answerClassificationSchema = z.object({
 });
 
 // Fast-path regex patterns
+const MAX_CONTROL_INTENT_WORDS = 6;
+
 const ACKNOWLEDGEMENT_REGEX =
   /^(yes|yeah|yep|yup|sure|ok|okay|understood|got it|right|alright|correct|fine|hmm|hmmm|haan|ha|thik hai|sahi hai|ji haan)[\.!\s]*$/i;
 
@@ -53,8 +55,14 @@ const CLARIFICATION_REGEX =
 const HINDI_DEVANAGARI_REGEX = /[\u0900-\u097F]/;
 const HINDI_INTRO_REGEX =
   /(mera\s+naam|main\s+[a-z]+|maine\s+[a-z]+|mujhe\s+software|meri\s+degree|i\s+am|mera\s+experience|मेरा\s*नाम|मैं\s+|मैंने\s+|मुझे\s+|मेरी\s+)/i;
+// Romanized off-topic terms are word-bounded and limited to words that are not common in
+// technical English ("movie", "film", "party" are deferred to the LLM classifier:
+// "movie recommendation engine", "third-party API").
 const HINDI_OFF_TOPIC_REGEX =
-  /(mausam|cricket|khana|samosa|chai|barish|film|movie|gaana|kya\s+haal|kuch\s+bhi|ghoomne|dost|party|shadi|papad|मौसम|क्रिकेट|खाना|समोसा|चाय|बारिश|फिल्म|गाना|दोस्त|घूमने)/i;
+  /\b(mausam|cricket|khana|samosa|chai|barish|gaana|kya\s+haal|kuch\s+bhi|ghoomne|dost|shadi|papad)\b/i;
+// Devanagari has no \w word boundaries in JS regex; substring matching is safe for it.
+const DEVANAGARI_OFF_TOPIC_REGEX =
+  /(मौसम|क्रिकेट|खाना|समोसा|चाय|बारिश|फिल्म|गाना|दोस्त|घूमने)/i;
 
 /**
  * Perform quick deterministic classification for obvious conversational tokens
@@ -75,7 +83,12 @@ const fastPathClassify = (text, currentQuestion = null) => {
     };
   }
 
-  if (REPEAT_REGEX.test(trimmed)) {
+  // Control intents (repeat / hint / skip / pause / clarify) are only fast-pathed for short
+  // utterances. In longer answers these words are usually content ("pass the token",
+  // "wait-free queue", "repeat the request") and must be judged semantically by the LLM.
+  const isShortUtterance = trimmed.split(/\s+/).filter(Boolean).length <= MAX_CONTROL_INTENT_WORDS;
+
+  if (isShortUtterance && REPEAT_REGEX.test(trimmed)) {
     return {
       intent: 'REQUEST_REPEAT',
       relevanceToCurrentQuestion: 'HIGH',
@@ -88,7 +101,7 @@ const fastPathClassify = (text, currentQuestion = null) => {
     };
   }
 
-  if (HINT_REGEX.test(trimmed)) {
+  if (isShortUtterance && HINT_REGEX.test(trimmed)) {
     return {
       intent: 'REQUEST_HINT',
       relevanceToCurrentQuestion: 'HIGH',
@@ -101,7 +114,7 @@ const fastPathClassify = (text, currentQuestion = null) => {
     };
   }
 
-  if (SKIP_REGEX.test(trimmed)) {
+  if (isShortUtterance && SKIP_REGEX.test(trimmed)) {
     return {
       intent: 'REQUEST_SKIP',
       relevanceToCurrentQuestion: 'HIGH',
@@ -114,7 +127,7 @@ const fastPathClassify = (text, currentQuestion = null) => {
     };
   }
 
-  if (PAUSE_REGEX.test(trimmed)) {
+  if (isShortUtterance && PAUSE_REGEX.test(trimmed)) {
     return {
       intent: 'REQUEST_PAUSE',
       relevanceToCurrentQuestion: 'HIGH',
@@ -127,7 +140,7 @@ const fastPathClassify = (text, currentQuestion = null) => {
     };
   }
 
-  if (CLARIFICATION_REGEX.test(trimmed)) {
+  if (isShortUtterance && CLARIFICATION_REGEX.test(trimmed)) {
     return {
       intent: 'REQUEST_CLARIFICATION',
       relevanceToCurrentQuestion: 'HIGH',
@@ -168,7 +181,7 @@ const fastPathClassify = (text, currentQuestion = null) => {
 
   // Devanagari Hindi classification
   if (HINDI_DEVANAGARI_REGEX.test(trimmed)) {
-    if (HINDI_OFF_TOPIC_REGEX.test(trimmed)) {
+    if (DEVANAGARI_OFF_TOPIC_REGEX.test(trimmed) || HINDI_OFF_TOPIC_REGEX.test(trimmed)) {
       return {
         intent: 'OFF_TOPIC',
         relevanceToCurrentQuestion: 'OFF_TOPIC',
@@ -296,7 +309,7 @@ ${String(transcript || '').slice(0, 3000)}
 const createAnswerClassifier = ({ llmProvider = null } = {}) => {
   const provider =
     llmProvider ||
-    new GeminiExtractionProvider({
+    createLlmProvider({
       model: env.AI_EXTRACTION_MODEL,
       timeoutMs: env.INTERVIEW_ORCHESTRATOR_LLM_TIMEOUT_MS,
     });

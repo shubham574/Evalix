@@ -21,7 +21,7 @@ const upsertExtraction = async (filter, data, session = null) => {
     { $setOnInsert: data },
     {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
       ...(session ? { session } : {}),
     }
   ).exec();
@@ -65,7 +65,7 @@ const createRunIdempotent = async (data, session = null) => {
     { $setOnInsert: data },
     {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
       ...(session ? { session } : {}),
     }
   ).exec();
@@ -75,7 +75,7 @@ const updateRun = async (runId, updates) => {
   return IntakeIntelligenceRun.findByIdAndUpdate(
     runId,
     { $set: updates },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 

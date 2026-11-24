@@ -80,26 +80,56 @@ const createSttAdapter = ({ sttProvider = null } = {}) => {
       };
     }
 
-    const ai = new GoogleGenAI({ apiKey: geminiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: 'Return ONLY the verbatim spoken speech from this audio. If silent, return empty string.',
-            },
-            {
-              inlineData: {
-                mimeType: normalizedMime,
-                data: audioBuffer.toString('base64'),
+    // Gemini fallback must never reject or hang the turn: bound it with an abort timeout and
+    // degrade to an empty transcript (-> gentle "please repeat" clarification) on failure.
+    const timeoutMs = Math.max(1000, Number(env.INTERVIEW_ORCHESTRATOR_LLM_TIMEOUT_MS) || 20000);
+    const controller = new AbortController();
+    let timer = null;
+    let response;
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const request = ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: 'Return ONLY the verbatim spoken speech from this audio. If silent, return empty string.',
               },
-            },
-          ],
+              {
+                inlineData: {
+                  mimeType: normalizedMime,
+                  data: audioBuffer.toString('base64'),
+                },
+              },
+            ],
+          },
+        ],
+        config: { abortSignal: controller.signal },
+      });
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`Gemini STT timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      });
+      response = await Promise.race([request, timeout]);
+    } catch (err) {
+      return {
+        transcript: '',
+        emptyTranscript: true,
+        metadata: {
+          provider: 'gemini',
+          model: 'gemini-2.5-flash',
+          latencyMs: Date.now() - startedAt,
+          mimeType: normalizedMime,
+          error: String(err?.message || 'Gemini STT failed').slice(0, 300),
         },
-      ],
-    });
+      };
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     const cleaned = sanitizeTranscript(response?.text || '');
     return {
       transcript: cleaned,
