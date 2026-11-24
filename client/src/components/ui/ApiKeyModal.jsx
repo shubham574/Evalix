@@ -55,48 +55,53 @@ const ApiKeyModal = ({ isOpen, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-[#151515]/60 backdrop-blur-xs"
+          className="fixed inset-0 bg-bg-canvas/70 backdrop-blur-md"
           onClick={onClose}
         />
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 16 }}
-          className="relative w-full max-w-lg bg-bg-surface border border-border-subtle rounded-[20px] shadow-lg overflow-hidden z-10"
+          transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="api-key-modal-title"
+          className="relative w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto bg-bg-surface border border-border-subtle rounded-[28px] shadow-lg z-10"
         >
-          <div className="p-6">
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-[12px] bg-[#FF6B35]/12 border border-[#FF6B35]/30 flex items-center justify-center text-[#FF6B35]">
+          {/* Soft pastel wash behind the header */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(60%_100%_at_15%_0%,rgba(255,170,130,0.35),transparent_70%),radial-gradient(50%_90%_at_85%_0%,rgba(176,160,255,0.3),transparent_70%)]" />
+
+          <div className="relative p-6 sm:p-8">
+            <div className="flex justify-between items-start gap-4 mb-7">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 shrink-0 rounded-[16px] bg-peach flex items-center justify-center text-[#167A3A] shadow-xs">
                   <FiKey className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-[#FF6B35] font-semibold">
-                      BYOK INTEGRATION
-                    </span>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className="eyebrow">BYOK Integration</span>
                     <span
-                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
                         hasExistingKey
-                          ? 'bg-[#C7F36B]/25 text-emerald-700 dark:text-[#C7F36B] font-bold'
-                          : 'bg-bg-canvas text-text-muted border border-border-subtle'
+                          ? 'bg-mint text-[#2F6B12] dark:text-[#C7F36B]'
+                          : 'bg-bg-elevated text-text-muted'
                       }`}
                     >
                       {hasExistingKey ? 'CONNECTED' : 'DEFAULT KEY'}
                     </span>
                   </div>
-                  <h2 className="text-xl font-display font-bold text-text-primary tracking-tight">
-                    Custom Gemini API Key
+                  <h2 id="api-key-modal-title" className="font-display font-normal text-[22px] leading-tight tracking-[-0.035em] text-text-primary">
+                    Custom <span className="serif italic text-[#1D9E4B]">Gemini</span> API Key
                   </h2>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 text-text-muted hover:text-text-primary hover:bg-surface-hover rounded-[10px] transition-colors cursor-pointer"
+                className="w-9 h-9 shrink-0 flex items-center justify-center text-text-muted hover:text-text-primary bg-bg-surface/70 hover:bg-surface-hover border border-border-subtle rounded-full transition-colors cursor-pointer"
                 aria-label="Close dialog"
               >
-                <FiX className="w-5 h-5" />
+                <FiX className="w-4 h-4" />
               </button>
             </div>
 
@@ -113,45 +118,47 @@ const ApiKeyModal = ({ isOpen, onClose }) => {
               />
 
               {hasExistingKey && maskedPreview && (
-                <div className="flex items-center justify-between px-3 py-2 rounded-[10px] bg-bg-canvas border border-border-subtle text-xs font-mono">
-                  <span className="text-text-muted">Active Key:</span>
-                  <span className="text-text-primary font-bold">{maskedPreview}</span>
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-[14px] bg-bg-elevated text-xs font-mono">
+                  <span className="text-text-muted shrink-0">Active Key:</span>
+                  <span className="text-text-primary truncate">{maskedPreview}</span>
                 </div>
               )}
 
-              <div className="bg-bg-canvas border border-border-subtle rounded-[14px] p-4 text-sm text-text-secondary">
-                <div className="flex items-start gap-3">
-                  <FiShield className="w-5 h-5 text-[#FF6B35] shrink-0 mt-0.5" />
+              <div className="bg-tint-sand rounded-[18px] p-5 text-sm text-text-secondary">
+                <div className="flex items-start gap-3.5">
+                  <span className="w-8 h-8 shrink-0 rounded-full bg-bg-surface flex items-center justify-center text-[#1D9E4B] shadow-xs">
+                    <FiShield className="w-4 h-4" />
+                  </span>
                   <div>
-                    <p className="font-display font-semibold text-text-primary mb-1">
+                    <p className="font-display font-normal text-text-primary mb-1">
                       Client-side Storage Security
                     </p>
-                    <p className="text-xs leading-relaxed text-text-muted">
-                      Your key is securely saved only in browser <code className="font-mono text-text-primary font-semibold">localStorage</code> and forwarded as an authorization header to your Gemini API calls for unlimited live voice and interview questions. Leave blank or click remove to revert to system shared rate limits.
+                    <p className="text-xs leading-relaxed text-text-secondary">
+                      Your key is securely saved only in browser <code className="font-mono text-text-primary">localStorage</code> and forwarded as an authorization header to your Gemini API calls for unlimited live voice and interview questions. Leave blank or click remove to revert to system shared rate limits.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="mt-7 flex items-center justify-between">
+            <div className="mt-8 pt-6 border-t border-border-subtle flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-4">
               {hasExistingKey ? (
                 <button
                   type="button"
                   onClick={handleRemove}
-                  className="inline-flex items-center gap-1.5 text-xs font-mono text-red-500 hover:text-red-600 hover:underline cursor-pointer"
+                  className="self-center sm:self-auto inline-flex items-center gap-1.5 text-xs font-mono text-danger hover:underline cursor-pointer"
                 >
                   <FiTrash2 size={13} /> Remove Custom Key
                 </button>
               ) : (
-                <span className="text-[11px] font-mono text-text-muted">No custom key stored</span>
+                <span className="self-center sm:self-auto text-[11px] font-mono text-text-muted">No custom key stored</span>
               )}
 
-              <div className="flex gap-2.5">
-                <Button variant="secondary" onClick={onClose}>
+              <div className="flex gap-2.5 justify-end">
+                <Button variant="secondary" onClick={onClose} className="flex-1 sm:flex-none">
                   Cancel
                 </Button>
-                <Button variant="primary" onClick={handleSave} icon={FiCheckCircle}>
+                <Button variant="primary" onClick={handleSave} icon={FiCheckCircle} className="flex-1 sm:flex-none">
                   Save Key
                 </Button>
               </div>

@@ -8,27 +8,24 @@ const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
     <div className="flex min-h-screen bg-bg-canvas text-text-primary">
-      {/* Sidebar for authenticated layout */}
       <Sidebar isOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <div className="flex flex-col flex-1 w-full min-w-0">
         <Navbar toggleSidebar={toggleSidebar} sidebarOpen={sidebarOpen} />
 
-        <main className="flex-1 focus:outline-none relative bg-bg-canvas">
+        <main className="flex-1 focus:outline-none relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-              className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full min-h-full pb-20"
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="px-4 sm:px-6 lg:px-10 pt-2 pb-24 max-w-[1320px] mx-auto w-full min-h-full"
             >
               <Outlet />
             </motion.div>

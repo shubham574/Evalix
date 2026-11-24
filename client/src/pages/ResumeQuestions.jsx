@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FiFileText, FiTarget, FiZap, FiArrowRight, 
-  FiChevronDown, FiCheckCircle, FiShield, FiTrendingUp 
-} from 'react-icons/fi';
+import { motion, AnimatePresence } from 'motion/react';
+import { FiFileText, FiTarget, FiZap, FiArrowRight, FiCheckCircle, FiTrendingUp } from 'react-icons/fi';
 import SEOHead from '../components/common/SEOHead';
+import { Button } from '@/components/shadcn/button';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/shadcn/accordion';
+import { Aura, Eyebrow, Reveal } from '@/components/studio';
+import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
 const sampleResumeSnippets = [
   {
@@ -52,8 +54,29 @@ const faqs = [
   }
 ];
 
+const pillars = [
+  { title: "Project Claim Validation", desc: "Drills into your biggest bullet points to verify architecture, design patterns, and hands-on implementation.", icon: FiCheckCircle },
+  { title: "Metrics & Impact Defense", desc: "Questions the numbers on your resume (e.g. 'reduced latency by 40%') to ensure you can explain the exact benchmarks.", icon: FiTrendingUp },
+  { title: "ATS & JD Skill Gap Analysis", desc: "Compares your resume against target job postings to reveal blind spots before hiring managers spot them.", icon: FiTarget },
+  { title: "STAR Story Alignment", desc: "Structures behavioral responses using Situation, Task, Action, and Result to maximize recruiter scorecards.", icon: FiFileText }
+];
+
+const TINTS = [
+  'bg-peach text-[#167A3A]',
+  'bg-lilac text-[#5B4BE0]',
+  'bg-mint text-[#2F6B12]',
+  'bg-sky text-[#1D5FA8]',
+];
+
+const BrandDot = () => (
+  <span
+    aria-hidden
+    className="inline-block w-2.5 h-2.5 rounded-full bg-[conic-gradient(from_200deg,#1D9E4B,#8FDDAA,#2496ED,#C7F36B,#1D9E4B)] shadow-[0_0_0_3px_rgba(29,158,75,0.12)]"
+  />
+);
+
 const ResumeQuestions = () => {
-  const [openFaq, setOpenFaq] = useState(null);
+  useSmoothScroll();
   const [activeSnippet, setActiveSnippet] = useState(0);
 
   const structuredData = {
@@ -98,214 +121,275 @@ const ResumeQuestions = () => {
     ]
   };
 
+  const active = sampleResumeSnippets[activeSnippet];
+
   return (
     <div className="min-h-screen bg-bg-canvas text-text-primary font-body overflow-x-clip">
-      <SEOHead 
+      <SEOHead
         title="Resume-Based Interview Questions — AI Tailored Mock Prep"
         description="Upload your PDF resume to generate tailored technical and behavioral interview questions with instant AI feedback."
         canonicalUrl="https://interview-ai-ten-psi.vercel.app/resume-based-interview-questions"
         structuredData={structuredData}
       />
 
-      {/* Header Bar */}
-      <header className="border-b border-border-subtle bg-bg-surface/90 backdrop-blur-md sticky top-0 z-50 py-3.5 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link to="/" className="text-xl font-bold font-display text-text-primary flex items-baseline gap-1">
+      {/* ─── Slim glass top bar ─── */}
+      <header className="sticky top-0 z-50 px-4 pt-3 sm:px-6 sm:pt-4">
+        <div className="glass shadow-sm max-w-6xl mx-auto h-14 rounded-full pl-5 pr-2 flex items-center justify-between gap-3">
+          <Link to="/" className="flex items-center gap-2 font-display text-[17px] font-medium tracking-[-0.03em] text-text-primary">
+            <BrandDot />
             <span>Evalix</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-display font-semibold text-text-secondary hover:text-text-primary transition-colors">
-              Sign In
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link to="/login" className="px-3 py-2 rounded-full text-[13px] sm:text-sm font-display font-normal text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors">
+              Sign in
             </Link>
-            <Link to="/register" className="bg-[#FF6B35] text-white px-5 py-2 rounded-[12px] font-display font-semibold text-sm border border-[#151515]/15 shadow-[0_2px_0_#151515] hover:bg-[#EB5822] transition-all">
-              Upload Resume Free
-            </Link>
+            <Button asChild size="sm">
+              <Link to="/register">Upload Resume Free</Link>
+            </Button>
           </div>
         </div>
       </header>
 
-      <main id="main-content" className="max-w-6xl mx-auto px-6 py-16 space-y-24">
+      <main id="main-content">
         {/* ─── Hero Section ─── */}
-        <section className="text-center max-w-4xl mx-auto pt-8">
-          <div className="inline-flex items-center space-x-2 bg-bg-surface border-[1.5px] border-[#151515] shadow-[2px_2px_0px_#151515] rounded-[10px] px-4 py-1.5 mb-6">
-            <FiFileText className="text-[#FF6B35]" size={14} />
-            <span className="text-xs font-mono text-text-primary font-bold uppercase tracking-widest">Resume-Driven AI Analysis</span>
-          </div>
+        <section className="relative isolate overflow-hidden -mt-20 pt-36 pb-24 sm:pt-44 sm:pb-32 px-5 sm:px-6">
+          <Aura />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-linear-to-b from-transparent to-bg-canvas" />
 
-          <h1 className="heading-section text-text-primary mb-6">
-            Resume-Based <br className="hidden sm:block" />
-            <span className="inline-block px-3 py-0.5 rounded-[12px] bg-[#FF6B35] text-white mt-1">Interview Questions & AI Prep</span>
-          </h1>
+          <div className="relative text-center max-w-5xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="glass shadow-xs inline-flex items-center gap-2.5 rounded-full pl-2 pr-4 py-1.5 mb-8"
+            >
+              <span className="w-7 h-7 rounded-full bg-bg-surface flex items-center justify-center text-[#1D9E4B] shadow-xs">
+                <FiFileText size={14} />
+              </span>
+              <span className="eyebrow">Resume-Driven AI Analysis</span>
+            </motion.div>
 
-          <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto mb-10">
-            Never get blindsided by questions about your past projects. Upload your resume to generate targeted, recruiter-grade technical and behavioral questions tailored to your experience.
-          </p>
+            <motion.h1
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
+              className="heading-section text-text-primary text-balance mb-7"
+            >
+              Resume-Based <br className="hidden sm:block" />
+              <span className="serif italic text-[#1D9E4B]">Interview Questions &amp; AI Prep</span>
+            </motion.h1>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/register" className="w-full sm:w-auto bg-[#FF6B35] text-white px-8 py-3.5 rounded-[12px] font-display font-bold text-base shadow-[0_3px_0_#151515] hover:bg-[#EB5822] transition-all flex items-center justify-center gap-2">
-              <FiZap size={18} /> Analyze My Resume Free
-            </Link>
-            <Link to="/#how-it-works" className="w-full sm:w-auto bg-bg-surface border border-border-subtle text-text-primary px-8 py-3.5 rounded-[12px] font-display font-semibold text-base hover:border-[#151515] transition-colors">
-              See How It Works
-            </Link>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
+              className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto mb-10 text-pretty"
+            >
+              Never get blindsided by questions about your past projects. Upload your resume to generate targeted, recruiter-grade technical and behavioral questions tailored to your experience.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.26 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-3"
+            >
+              <Button asChild size="lg" className="w-full sm:w-auto">
+                <Link to="/register">
+                  <FiZap size={18} /> Analyze My Resume Free
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="glass" className="w-full sm:w-auto">
+                <Link to="/#how-it-works">See How It Works</Link>
+              </Button>
+            </motion.div>
           </div>
         </section>
 
-        {/* ─── 4 Pillars Section ─── */}
-        <section aria-labelledby="pillars-heading" className="space-y-10">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 id="pillars-heading" className="text-3xl font-bold font-display text-text-primary mb-3">
-              How Evalix Analyzes Your Resume
-            </h2>
-            <p className="text-text-secondary">
-              Hiring managers inspect your resume for specific claims, metrics, and technical depth. Evalix replicates their evaluation methodology.
-            </p>
-          </div>
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 pb-24 space-y-24 sm:space-y-32">
+          {/* ─── 4 Pillars Section ─── */}
+          <section aria-labelledby="pillars-heading" className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+            <Reveal className="lg:col-span-5 lg:sticky lg:top-28 self-start space-y-5">
+              <Eyebrow index="01">The method</Eyebrow>
+              <h2 id="pillars-heading" className="heading-page text-text-primary text-balance">
+                How Evalix Analyzes <span className="serif italic text-[#1D9E4B]">Your Resume</span>
+              </h2>
+              <p className="text-text-secondary leading-relaxed max-w-md">
+                Hiring managers inspect your resume for specific claims, metrics, and technical depth. Evalix replicates their evaluation methodology.
+              </p>
+            </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { title: "Project Claim Validation", desc: "Drills into your biggest bullet points to verify architecture, design patterns, and hands-on implementation." },
-              { title: "Metrics & Impact Defense", desc: "Questions the numbers on your resume (e.g. 'reduced latency by 40%') to ensure you can explain the exact benchmarks." },
-              { title: "ATS & JD Skill Gap Analysis", desc: "Compares your resume against target job postings to reveal blind spots before hiring managers spot them." },
-              { title: "STAR Story Alignment", desc: "Structures behavioral responses using Situation, Task, Action, and Result to maximize recruiter scorecards." }
-            ].map((col, idx) => (
-              <div key={idx} className="bg-bg-surface border-[1.5px] border-border-subtle rounded-[18px] p-6 hover:border-[#151515] transition-colors">
-                <span className="text-xs font-mono font-bold text-[#FF6B35] block mb-3">/0{idx + 1}</span>
-                <h3 className="text-lg font-bold font-display text-text-primary mb-2">{col.title}</h3>
-                <p className="text-sm text-text-secondary leading-relaxed">{col.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ─── Interactive Resume-to-Question Simulator ─── */}
-        <section aria-labelledby="simulator-heading" className="bg-bg-surface border border-border-subtle rounded-3xl p-8 lg:p-12">
-          <div className="max-w-2xl mb-8">
-            <span className="text-xs font-mono text-accent-glow uppercase tracking-widest block mb-2">Live Demonstration</span>
-            <h2 id="simulator-heading" className="text-2xl sm:text-3xl font-bold font-display text-text-primary mb-3">
-              Sample Resume Bullets & Generated Questions
-            </h2>
-            <p className="text-text-secondary">
-              See how our AI transforms typical resume bullet points into penetrating technical interview questions.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="space-y-3">
-              {sampleResumeSnippets.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveSnippet(idx)}
-                  className={`w-full text-left p-4 rounded-xl border text-sm font-medium transition-all ${
-                    activeSnippet === idx 
-                      ? 'bg-accent-primary/10 border-accent-primary text-text-primary font-semibold' 
-                      : 'bg-bg-elevated border-border-subtle text-text-secondary hover:text-text-primary hover:bg-bg-surface'
-                  }`}
-                >
-                  <span className="text-xs font-mono text-accent-glow block mb-1">{item.role}</span>
-                  <p className="line-clamp-2 text-xs text-text-secondary">{item.bullet}</p>
-                </button>
-              ))}
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {pillars.map((col, idx) => {
+                const Icon = col.icon;
+                return (
+                  <Reveal key={idx} delay={idx * 0.06}>
+                    <motion.div
+                      whileHover={{ y: -4 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+                      className="h-full bg-bg-surface border border-border-subtle rounded-[24px] p-7 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-8">
+                        <span className={`w-11 h-11 rounded-[14px] flex items-center justify-center ${TINTS[idx % TINTS.length]}`}>
+                          <Icon size={18} />
+                        </span>
+                        <span className="font-mono text-xs text-text-muted">/0{idx + 1}</span>
+                      </div>
+                      <h3 className="heading-card text-text-primary mb-2">{col.title}</h3>
+                      <p className="text-sm text-text-secondary leading-relaxed">{col.desc}</p>
+                    </motion.div>
+                  </Reveal>
+                );
+              })}
             </div>
+          </section>
 
-            <div className="lg:col-span-2 bg-bg-canvas border border-border-subtle rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
-              <div>
-                <div className="mb-4">
-                  <span className="text-xs font-mono text-text-secondary uppercase tracking-wider block mb-1">
-                    Resume Bullet Point:
-                  </span>
-                  <div className="p-3 bg-bg-elevated rounded-lg border border-border-subtle text-sm text-text-primary italic">
-                    "{sampleResumeSnippets[activeSnippet].bullet}"
+          {/* ─── Interactive Resume-to-Question Simulator ─── */}
+          <Reveal>
+            <section aria-labelledby="simulator-heading" className="bg-bg-surface border border-border-subtle rounded-[32px] shadow-sm p-6 sm:p-10 lg:p-12">
+              <div className="max-w-2xl mb-10 space-y-4">
+                <Eyebrow index="02">Live Demonstration</Eyebrow>
+                <h2 id="simulator-heading" className="heading-page text-text-primary text-balance">
+                  Sample Resume Bullets &amp; <span className="serif italic text-[#1D9E4B]">Generated Questions</span>
+                </h2>
+                <p className="text-text-secondary leading-relaxed">
+                  See how our AI transforms typical resume bullet points into penetrating technical interview questions.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                <div className="space-y-2.5">
+                  {sampleResumeSnippets.map((item, idx) => {
+                    const isActive = activeSnippet === idx;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setActiveSnippet(idx)}
+                        className={`w-full text-left p-4 sm:p-5 rounded-[18px] border text-sm transition-all duration-300 cursor-pointer ${
+                          isActive
+                            ? 'bg-peach border-transparent text-text-primary shadow-xs'
+                            : 'bg-bg-surface border-border-subtle text-text-secondary hover:text-text-primary hover:bg-surface-hover'
+                        }`}
+                      >
+                        <span className={`font-mono text-[11px] block mb-1.5 ${isActive ? 'text-[#167A3A]' : 'text-text-muted'}`}>{item.role}</span>
+                        <p className="line-clamp-2 text-[13px] leading-relaxed text-text-secondary">{item.bullet}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="lg:col-span-2 relative overflow-hidden bg-bg-canvas border border-border-subtle rounded-[24px] p-6 sm:p-8 flex flex-col justify-between">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeSnippet}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <div className="mb-6">
+                        <span className="eyebrow block mb-2.5">
+                          Resume Bullet Point:
+                        </span>
+                        <div className="px-5 py-4 bg-bg-surface rounded-[18px] border border-border-subtle text-[15px] text-text-primary shadow-xs">
+                          <span className="serif italic text-lg leading-snug">"{active.bullet}"</span>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <span className="eyebrow block mb-2.5">
+                          <span className="text-[#167A3A]">AI Interviewer Question:</span>
+                        </span>
+                        <h3 className="font-display font-normal text-xl sm:text-2xl tracking-[-0.03em] leading-snug text-text-primary text-balance">
+                          {active.aiQuestion}
+                        </h3>
+                      </div>
+
+                      <div className="p-5 sm:p-6 bg-lilac rounded-[18px] text-text-secondary text-sm sm:text-[15px] leading-relaxed mb-6">
+                        <span className="font-display font-normal text-[#5B4BE0] block mb-2">Model High-Score Response:</span>
+                        {active.answer}
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+
+                  <div className="pt-5 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <span className="text-sm text-text-secondary">Ready to test your own resume?</span>
+                    <Button asChild size="sm">
+                      <Link to="/register">
+                        Upload Your PDF Resume <FiArrowRight />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
-
-                <div className="mb-5">
-                  <span className="text-xs font-mono text-accent-primary uppercase tracking-wider block mb-1">
-                    AI Interviewer Question:
-                  </span>
-                  <h3 className="text-lg font-bold text-text-primary font-display">
-                    {sampleResumeSnippets[activeSnippet].aiQuestion}
-                  </h3>
-                </div>
-
-                <div className="p-4 bg-bg-elevated border border-border-subtle rounded-xl text-text-secondary text-sm leading-relaxed mb-6">
-                  <span className="font-semibold text-accent-glow block mb-1">Model High-Score Response:</span>
-                  {sampleResumeSnippets[activeSnippet].answer}
-                </div>
               </div>
+            </section>
+          </Reveal>
 
-              <div className="pt-4 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
-                <span className="text-xs text-text-secondary">Ready to test your own resume?</span>
-                <Link to="/register" className="bg-accent-primary text-white text-xs px-5 py-2.5 rounded-full font-bold hover:opacity-90 transition-opacity flex items-center gap-1.5">
-                  Upload Your PDF Resume <FiArrowRight />
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
+          {/* ─── FAQ Section ─── */}
+          <section aria-labelledby="faq-heading" className="max-w-4xl mx-auto space-y-10">
+            <Reveal className="text-center space-y-4">
+              <Eyebrow index="03">Questions</Eyebrow>
+              <h2 id="faq-heading" className="heading-page text-text-primary text-balance">
+                Resume-Based Questions <span className="serif italic text-[#1D9E4B]">FAQ</span>
+              </h2>
+              <p className="text-text-secondary">
+                Everything you need to know about preparing for project defense rounds.
+              </p>
+            </Reveal>
 
-        {/* ─── FAQ Section ─── */}
-        <section aria-labelledby="faq-heading" className="max-w-4xl mx-auto space-y-8">
-          <div className="text-center">
-            <h2 id="faq-heading" className="text-3xl font-bold font-display text-text-primary mb-3">
-              Resume-Based Questions FAQ
-            </h2>
-            <p className="text-text-secondary">
-              Everything you need to know about preparing for project defense rounds.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {faqs.map((faq, i) => {
-              const isOpen = openFaq === i;
-              return (
-                <div key={i} className="bg-bg-surface border border-border-subtle rounded-2xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenFaq(isOpen ? null : i)}
-                    className="w-full p-5 text-left flex justify-between items-center gap-4 font-semibold text-text-primary hover:text-accent-glow transition-colors cursor-pointer"
-                  >
-                    <span>{faq.q}</span>
-                    <FiChevronDown className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-accent-primary' : ''}`} />
-                  </button>
-                  {isOpen && (
-                    <div className="px-5 pb-5 text-text-secondary text-sm leading-relaxed border-t border-border-subtle/50 pt-3">
+            <Reveal>
+              <Accordion type="single" collapsible className="bg-bg-surface border border-border-subtle rounded-[28px] shadow-sm px-6 sm:px-8">
+                {faqs.map((faq, i) => (
+                  <AccordionItem key={i} value={`faq-${i}`} className="border-border-subtle">
+                    <AccordionTrigger className="text-text-primary">{faq.q}</AccordionTrigger>
+                    <AccordionContent className="text-text-secondary text-[15px] leading-relaxed pb-6 pr-8">
                       {faq.a}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </Reveal>
+          </section>
 
-        {/* ─── Bottom CTA ─── */}
-        <section className="bg-bg-surface border border-border-subtle rounded-3xl p-10 text-center relative overflow-hidden">
-          <div className="relative z-10 max-w-xl mx-auto space-y-4">
-            <h2 className="text-3xl font-bold font-display text-text-primary">
-              Turn Your Resume into Interview Confidence
-            </h2>
-            <p className="text-text-secondary text-base">
-              Upload your resume in seconds, uncover your technical weak spots, and practice answering with AI interviewer Shristi.
-            </p>
-            <div className="pt-2">
-              <Link to="/register" className="inline-block bg-accent-primary text-white px-8 py-3.5 rounded-full font-bold text-base hover:opacity-90 shadow-lg shadow-accent-primary/20 transition-all">
-                Start Resume Mock Interview
-              </Link>
-            </div>
-          </div>
-        </section>
+          {/* ─── Bottom CTA ─── */}
+          <Reveal>
+            <section className="relative isolate overflow-hidden rounded-[36px] border border-border-subtle bg-bg-surface px-6 py-16 sm:px-10 sm:py-24 text-center grain">
+              <Aura intensity={0.95} />
+              <div className="relative z-10 max-w-3xl mx-auto space-y-6">
+                <h2 className="heading-section text-text-primary text-balance">
+                  Turn Your Resume into <span className="serif italic text-[#1D9E4B]">Interview Confidence</span>
+                </h2>
+                <p className="text-text-secondary text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+                  Upload your resume in seconds, uncover your technical weak spots, and practice answering with AI interviewer Shristi.
+                </p>
+                <div className="pt-2">
+                  <Button asChild size="xl">
+                    <Link to="/register">
+                      Start Resume Mock Interview <FiArrowRight />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </section>
+          </Reveal>
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border-subtle py-8 text-center text-sm text-text-secondary">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <span>© {new Date().getFullYear()} Evalix. All rights reserved.</span>
-          <div className="flex gap-6">
-            <Link to="/" className="hover:text-text-primary">Home</Link>
-            <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">React Prep</Link>
-            <Link to="/system-design-mock-interview" className="hover:text-text-primary">System Design</Link>
-            <Link to="/mock-interview-for-freshers" className="hover:text-text-primary">Freshers Prep</Link>
-          </div>
+      <footer className="border-t border-border-subtle py-10 text-sm text-text-secondary">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-5">
+          <span className="inline-flex items-center gap-2">
+            <BrandDot />
+            © {new Date().getFullYear()} Evalix. All rights reserved.
+          </span>
+          <nav aria-label="Interview tracks" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link to="/" className="link-underline hover:text-text-primary">Home</Link>
+            <Link to="/mock-interview-for-react-developers" className="link-underline hover:text-text-primary">React Prep</Link>
+            <Link to="/system-design-mock-interview" className="link-underline hover:text-text-primary">System Design</Link>
+            <Link to="/mock-interview-for-freshers" className="link-underline hover:text-text-primary">Freshers Prep</Link>
+          </nav>
         </div>
       </footer>
     </div>

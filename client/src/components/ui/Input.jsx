@@ -12,20 +12,20 @@ const Input = forwardRef(({
   ...props
 }, ref) => {
   const baseInputStyles =
-    'w-full bg-bg-surface border border-border-subtle rounded-[11px] text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/15 hover:border-text-secondary/50 transition-all duration-200';
-  const paddingStyles = Icon ? 'pl-10 pr-4 py-2.5' : 'px-4 py-2.5';
-  const errorStyles = error ? 'border-danger focus:ring-danger/20 focus:border-danger' : '';
+    'w-full bg-bg-surface border border-border-subtle rounded-[14px] text-text-primary placeholder:text-text-muted text-[15px] focus:outline-none focus:border-[#1D9E4B]/60 focus:ring-4 focus:ring-[#1D9E4B]/10 hover:border-text-primary/25 transition-all duration-300';
+  const paddingStyles = Icon ? 'pl-11 pr-4 py-3' : 'px-4 py-3';
+  const errorStyles = error ? 'border-danger focus:ring-danger/15 focus:border-danger' : '';
 
   return (
-    <div className={`flex flex-col space-y-1.5 ${className}`}>
+    <div className={`flex flex-col gap-2 ${className}`}>
       {label && (
-        <label htmlFor={id} className="text-xs font-display font-semibold uppercase tracking-wider text-text-secondary">
+        <label htmlFor={id} className="text-[13px] font-medium text-text-secondary">
           {label}
         </label>
       )}
       <div className="relative">
         {Icon && (
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
             <Icon className="h-4 w-4" />
           </div>
         )}
@@ -35,7 +35,7 @@ const Input = forwardRef(({
             id={id}
             ref={ref}
             rows={rows}
-            className={`${baseInputStyles} ${Icon ? 'pl-10 pr-4 py-2.5' : 'px-4 py-2.5'} ${errorStyles} resize-y`}
+            className={`${baseInputStyles} ${paddingStyles} ${errorStyles} resize-y leading-relaxed`}
             {...props}
           />
         ) : (
@@ -48,9 +48,7 @@ const Input = forwardRef(({
           />
         )}
       </div>
-      {error && (
-        <span className="text-xs font-medium text-danger mt-1">{error}</span>
-      )}
+      {error && <span className="text-xs font-medium text-danger">{error}</span>}
     </div>
   );
 });

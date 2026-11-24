@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
 import {
   FiTrash2, FiBriefcase, FiList, FiVideo,
-  FiMessageSquare, FiFileText, FiCheckCircle, FiMic, FiClock,
+  FiMessageSquare, FiFileText, FiCheckCircle, FiMic,
 } from 'react-icons/fi';
 import { useApiQuery, useApiMutation } from '../hooks/useApi';
 import { API } from '../api/endpoints';
 import SEOHead from '../components/common/SEOHead';
-import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Loader from '../components/ui/Loader';
 import { formatDate } from '../utils/helpers';
 import EvalixOrb from '../components/ui/EvalixOrb';
+import { PageHeader, Reveal } from '@/components/studio';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/shadcn/tooltip';
+import { cn } from '@/lib/utils';
 
 const FILTERS = [
   { id: 'all', label: 'All Activity' },
@@ -62,22 +69,23 @@ const History = () => {
     }
   };
 
+  // Pastel tint + matching ink for each record type (adapts in dark mode via tint tokens)
   const getColorForType = (type) => {
     switch (type) {
       case 'live':
-        return 'bg-[#FF6B35]/15 text-[#FF6B35] border-[#FF6B35]/30';
+        return 'bg-peach text-[#167A3A] dark:text-[#6FD394]';
       case 'mock':
-        return 'bg-[#C7F36B]/35 text-[#151515] dark:text-[#C7F36B] border-[#151515]/20';
+        return 'bg-mint text-[#2F6B12] dark:text-[#A8E07E]';
       case 'assessment':
-        return 'bg-[#8174FF]/15 text-[#8174FF] border-[#8174FF]/30';
+        return 'bg-lilac text-[#1D6FB8] dark:text-[#8EC1FF]';
       case 'mcq':
-        return 'bg-[#FF6B35]/15 text-[#FF6B35] border-[#FF6B35]/30';
+        return 'bg-butter text-[#9A6B00] dark:text-[#F5D36B]';
       case 'interview':
-        return 'bg-[#8174FF]/15 text-[#8174FF] border-[#8174FF]/30';
+        return 'bg-sky text-[#1D5FAF] dark:text-[#8EC1FF]';
       case 'analysis':
-        return 'bg-[#C7F36B]/35 text-[#151515] dark:text-[#C7F36B] border-[#151515]/20';
+        return 'bg-tint-sand text-text-secondary';
       default:
-        return 'bg-bg-canvas text-text-primary border-border-subtle';
+        return 'bg-bg-elevated text-text-secondary';
     }
   };
 
@@ -100,150 +108,169 @@ const History = () => {
     }
   };
 
+  const renderOutcome = (item) => (
+    <>
+      {item.historyType === 'assessment' && (
+        <Badge variant={item.score >= 70 ? 'success' : 'warning'}>
+          {Math.round(item.score || 0)}% Score
+        </Badge>
+      )}
+      {item.historyType === 'mock' && item.status === 'completed' && (
+        <Badge variant="success">
+          {Math.round(item.overallFeedback?.averageScore || 0)}% Score
+        </Badge>
+      )}
+      {item.historyType === 'mock' && item.status !== 'completed' && (
+        <Badge variant="warning">In Progress</Badge>
+      )}
+      {item.historyType === 'live' && item.status === 'completed' && (
+        <Badge variant="success">
+          {Math.round(item.overallFeedback?.averageScore || 0)}% Score
+        </Badge>
+      )}
+      {item.historyType === 'live' && item.status !== 'completed' && (
+        <Badge variant="primary">{item.difficulty || 'Live Voice'}</Badge>
+      )}
+      {item.historyType === 'mcq' && <Badge variant="secondary">{item.count} Prompts</Badge>}
+      {item.historyType === 'analysis' && <Badge variant="default">{item.experienceLevel}</Badge>}
+      {item.historyType === 'interview' && <Badge variant="default">Playbook</Badge>}
+    </>
+  );
+
   const historyItems = response?.data || [];
 
   return (
-    <div className="space-y-6 pb-10">
-      <SEOHead title="Session History — Evalix" />
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-6 pb-12">
+        <SEOHead title="Session History — Evalix" />
 
-      {/* Header & Filter Pills */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-border-subtle pb-5">
-        <div>
-          <h1 className="heading-page text-text-primary">Session History</h1>
-          <p className="text-sm sm:text-base text-text-secondary mt-1">
-            Review past <strong className="text-text-primary font-semibold">voice interviews</strong>, <strong className="text-text-primary font-semibold">mock rounds</strong>, <strong className="text-text-primary font-semibold">timed assessments</strong>, and <strong className="text-text-primary font-semibold">JD analyses</strong>.
-          </p>
+        <PageHeader
+          eyebrow="Training archive"
+          title="Session"
+          accent="history"
+          className="pb-4"
+          description={
+            <>
+              Review past <strong className="text-text-primary font-medium">voice interviews</strong>,{' '}
+              <strong className="text-text-primary font-medium">mock rounds</strong>,{' '}
+              <strong className="text-text-primary font-medium">timed assessments</strong>, and{' '}
+              <strong className="text-text-primary font-medium">JD analyses</strong>.
+            </>
+          }
+        />
+
+        {/* Filter pills */}
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter history">
+          {FILTERS.map(({ id, label }) => {
+            const active = filter === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFilter(id)}
+                className={cn(
+                  'h-9 px-4 rounded-full text-[13px] font-medium tracking-[-0.01em] border transition-colors duration-300 cursor-pointer',
+                  active
+                    ? 'bg-peach text-[#167A3A] border-[#1D9E4B]/25 dark:text-[#6FD394]'
+                    : 'bg-bg-surface text-text-secondary border-border-subtle hover:text-text-primary hover:border-text-primary/20'
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setFilter(id)}
-              className={`px-3.5 py-1.5 rounded-[10px] font-mono text-xs font-semibold transition-all border cursor-pointer ${
-                filter === id
-                  ? 'bg-[#151515] text-[#F8F5EF] border-[#151515] dark:bg-[#FF6B35] dark:border-[#FF6B35]'
-                  : 'bg-bg-surface text-text-secondary border-border-subtle hover:border-text-primary hover:text-text-primary'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <Reveal y={16}>
+          <div className="rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm overflow-hidden min-h-[420px]">
+            {isLoading ? (
+              <div className="h-80 flex justify-center items-center">
+                <Loader />
+              </div>
+            ) : historyItems.length > 0 ? (
+              <>
+                {/* Column labels (desktop) */}
+                <div className="hidden md:grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_140px_150px_48px] gap-5 px-7 py-4 border-b border-border-subtle">
+                  <span className="eyebrow">Mode</span>
+                  <span className="eyebrow">Target role / track</span>
+                  <span className="eyebrow">Date</span>
+                  <span className="eyebrow">Outcome</span>
+                  <span className="eyebrow text-right sr-only">Action</span>
+                </div>
 
-      <Card className="p-0 overflow-hidden border border-border-subtle min-h-[480px]">
-        {isLoading ? (
-          <div className="h-80 flex justify-center items-center">
-            <Loader />
-          </div>
-        ) : historyItems.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border-subtle bg-bg-canvas">
-                  <th className="py-3.5 px-6 font-mono font-bold text-text-muted text-xs uppercase tracking-wider w-44">
-                    Mode
-                  </th>
-                  <th className="py-3.5 px-6 font-mono font-bold text-text-muted text-xs uppercase tracking-wider">
-                    Target Role / Track
-                  </th>
-                  <th className="py-3.5 px-6 font-mono font-bold text-text-muted text-xs uppercase tracking-wider w-40">
-                    Date
-                  </th>
-                  <th className="py-3.5 px-6 font-mono font-bold text-text-muted text-xs uppercase tracking-wider w-36">
-                    Outcome
-                  </th>
-                  <th className="py-3.5 px-6 font-mono font-bold text-text-muted text-xs uppercase tracking-wider w-20 text-right">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-subtle">
-                {historyItems.map((item, idx) => (
-                  <tr
-                    key={item._id || idx}
-                    className="hover:bg-bg-canvas/70 transition-colors group"
-                  >
-                    <td className="py-4 px-6">
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-[6px] text-[11px] font-mono font-bold uppercase tracking-wider border ${getColorForType(
-                          item.historyType
-                        )}`}
-                      >
-                        {getLabelForType(item.historyType)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="font-display font-bold text-sm sm:text-base text-text-primary">
-                        {item.jobRole || 'General Track'}
+                <ul className="divide-y divide-border-subtle">
+                  {historyItems.map((item, idx) => (
+                    <li
+                      key={item._id || idx}
+                      className="group grid grid-cols-[auto_minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.6fr)_140px_150px_48px] items-center gap-x-4 md:gap-x-5 gap-y-2 px-5 md:px-7 py-4 hover:bg-surface-hover transition-colors"
+                    >
+                      {/* Mode */}
+                      <div className="flex items-center gap-3 min-w-0 row-span-2 md:row-span-1">
+                        <span
+                          className={cn(
+                            'size-10 shrink-0 rounded-full flex items-center justify-center text-[15px]',
+                            getColorForType(item.historyType)
+                          )}
+                        >
+                          {getIconForType(item.historyType)}
+                        </span>
+                        <span className="hidden md:inline text-[13px] font-medium text-text-secondary truncate">
+                          {getLabelForType(item.historyType)}
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-4 px-6 text-xs font-mono text-text-secondary">
-                      {formatDate(item.createdAt)}
-                    </td>
-                    <td className="py-4 px-6">
-                      {item.historyType === 'assessment' && (
-                        <Badge variant={item.score >= 70 ? 'success' : 'warning'}>
-                          {Math.round(item.score || 0)}% Score
-                        </Badge>
-                      )}
-                      {item.historyType === 'mock' && item.status === 'completed' && (
-                        <Badge variant="success">
-                          {Math.round(item.overallFeedback?.averageScore || 0)}% Score
-                        </Badge>
-                      )}
-                      {item.historyType === 'mock' && item.status !== 'completed' && (
-                        <Badge variant="warning">In Progress</Badge>
-                      )}
-                      {item.historyType === 'live' && item.status === 'completed' && (
-                        <Badge variant="success">
-                          {Math.round(item.overallFeedback?.averageScore || 0)}% Score
-                        </Badge>
-                      )}
-                      {item.historyType === 'live' && item.status !== 'completed' && (
-                        <Badge variant="primary">{item.difficulty || 'Live Voice'}</Badge>
-                      )}
-                      {item.historyType === 'mcq' && (
-                        <Badge variant="purple">{item.count} Prompts</Badge>
-                      )}
-                      {item.historyType === 'analysis' && (
-                        <Badge variant="default">{item.experienceLevel}</Badge>
-                      )}
-                      {item.historyType === 'interview' && (
-                        <Badge variant="default">Playbook</Badge>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.historyType, item._id)}
-                        className="p-2 text-text-muted hover:text-[#EF4444] hover:bg-[#EF4444]/10 rounded-[8px] transition-colors cursor-pointer"
-                        title="Delete record"
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+                      {/* Role + mobile meta */}
+                      <div className="min-w-0">
+                        <div className="font-display font-normal tracking-[-0.02em] text-[15px] sm:text-base text-text-primary truncate">
+                          {item.jobRole || 'General Track'}
+                        </div>
+                        <div className="md:hidden text-[12px] text-text-muted mt-0.5 truncate">
+                          {getLabelForType(item.historyType)} &middot; {formatDate(item.createdAt)}
+                        </div>
+                      </div>
+
+                      {/* Date (desktop) */}
+                      <div className="hidden md:block text-[13px] text-text-muted">{formatDate(item.createdAt)}</div>
+
+                      {/* Outcome */}
+                      <div className="col-start-2 row-start-2 md:col-auto md:row-auto">{renderOutcome(item)}</div>
+
+                      {/* Action */}
+                      <div className="col-start-3 row-start-1 row-span-2 md:col-auto md:row-auto md:row-span-1 flex justify-end">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.historyType, item._id)}
+                              className="size-9 rounded-full flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger-bg transition-colors cursor-pointer"
+                              aria-label="Delete record"
+                            >
+                              <FiTrash2 size={15} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent sideOffset={6}>Delete record</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="relative py-24 flex flex-col justify-center items-center text-center px-5">
+                <EvalixOrb size="lg" state="idle" />
+                <p className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary mt-6">
+                  No records match the selected filter
+                </p>
+                <p className="text-[13px] text-text-secondary mt-2 max-w-xs leading-relaxed">
+                  Complete a voice interview, mock session, or JD analysis to populate your training archive.
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="py-20 flex flex-col justify-center items-center text-center px-4">
-            <EvalixOrb size="md" state="idle" />
-            <p className="font-display font-bold text-base text-text-primary mt-4">
-              No records match the selected filter
-            </p>
-            <p className="text-xs text-text-secondary mt-1 max-w-xs">
-              Complete a voice interview, mock session, or JD analysis to populate your training archive.
-            </p>
-          </div>
-        )}
-      </Card>
-    </div>
+        </Reveal>
+      </div>
+    </TooltipProvider>
   );
 };
 

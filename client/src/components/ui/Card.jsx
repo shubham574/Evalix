@@ -10,25 +10,32 @@ const Card = ({
   onClick,
   ...props
 }) => {
-  const baseStyles = 'rounded-[18px] overflow-hidden relative transition-all duration-200';
+  const baseStyles = 'rounded-[22px] overflow-hidden relative transition-[box-shadow,border-color,transform] duration-500 ease-[cubic-bezier(0.2,0.715,0.205,0.99)]';
 
   const variants = {
-    default: 'bg-bg-surface border border-border-subtle shadow-xs flex flex-col',
+    default: 'bg-bg-surface border border-border-subtle shadow-sm flex flex-col',
     solid: 'bg-bg-elevated border border-border-subtle flex flex-col',
-    ink: 'bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] flex flex-col',
-    tactile: 'bg-bg-surface border-[1.5px] border-[#151515] shadow-[4px_4px_0px_#151515] flex flex-col',
-    gradient: 'bg-bg-surface border border-border-subtle shadow-xs flex flex-col',
+    // "ink" used to be a black panel — it is now the brand tint
+    ink: 'bg-peach border border-[#1D9E4B]/15 text-text-primary flex flex-col',
+    tactile: 'bg-bg-surface border border-border-subtle shadow-md flex flex-col',
+    gradient: 'aura bg-bg-surface/60 border border-border-subtle shadow-sm flex flex-col',
+    peach: 'bg-peach border border-[#1D9E4B]/15 flex flex-col',
+    lilac: 'bg-lilac border border-[#2496ED]/15 flex flex-col',
+    mint: 'bg-mint border border-[#5DAA3A]/15 flex flex-col',
+    sky: 'bg-sky border border-[#3B82F6]/15 flex flex-col',
+    glass: 'glass shadow-md flex flex-col',
   };
 
   const hoverStyles = hover
-    ? 'hover:border-[#FF6B35] hover:shadow-md cursor-pointer group'
+    ? 'hover:shadow-lg hover:border-text-primary/15 cursor-pointer group'
     : '';
 
   const CardWrapper = hover || onClick ? motion.div : 'div';
   const motionProps =
     hover || onClick
       ? {
-          whileHover: { y: -2 },
+          whileHover: { y: -4 },
+          transition: { type: 'spring', stiffness: 300, damping: 26 },
           onClick,
         }
       : {};

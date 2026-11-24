@@ -7,6 +7,12 @@ import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import Loader from './components/ui/Loader';
+import { TooltipProvider } from './components/shadcn/tooltip';
+import { MotionConfig } from 'motion/react';
+import { isMotionOff } from './components/studio/Gamify';
+
+const MOTION_OFF = typeof window !== 'undefined' && isMotionOff();
+if (MOTION_OFF) document.documentElement.classList.add('motion-off');
 
 // Pages
 const Landing = React.lazy(() => import('./pages/Landing'));
@@ -41,19 +47,25 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
+        <MotionConfig reducedMotion={MOTION_OFF ? 'always' : 'user'}>
+        <TooltipProvider delayDuration={200}>
         <Router>
           <Toaster
             position="top-right"
             toastOptions={{
               duration: 4000,
               style: {
-                background: '#151515',
-                color: '#F8F5EF',
-                borderRadius: '14px',
-                border: '2px solid #2E2E2E',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                borderRadius: '999px',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--shadow-md)',
+                padding: '10px 16px',
                 fontFamily: 'Inter, sans-serif',
                 fontSize: '14px',
               },
+              success: { iconTheme: { primary: '#1F8A4C', secondary: '#fff' } },
+              error: { iconTheme: { primary: '#D92D20', secondary: '#fff' } },
             }}
           />
           <React.Suspense fallback={<Loader fullScreen text="Loading Evalix Arena..." />}>
@@ -89,6 +101,8 @@ function App() {
             </Routes>
           </React.Suspense>
         </Router>
+        </TooltipProvider>
+        </MotionConfig>
       </QueryClientProvider>
     </ErrorBoundary>
   );
