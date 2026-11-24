@@ -230,6 +230,11 @@ export const ScrollRuler = ({ sections, className }) => {
         if (el && el.getBoundingClientRect().top < innerHeight * 0.45) cur = s.id;
       }
       setActive(cur);
+      // Per-stage reward, as why.zero awards XP for each ruler stage reached
+      if (cur) {
+        const s = sections.find((x) => x.id === cur);
+        awardXP(`stage-${cur}`, 20, `Reached ${s?.label || cur}`);
+      }
     };
     onScroll();
     addEventListener('scroll', onScroll, { passive: true });
@@ -238,7 +243,7 @@ export const ScrollRuler = ({ sections, className }) => {
 
   const ticks = 41;
   return (
-    <nav aria-label="Page progress" className={cn('fixed left-1/2 top-3 z-[55] -translate-x-1/2 hidden md:flex flex-col items-center', className)}>
+    <nav aria-label="Page progress" className={cn('fixed left-1/2 top-3 z-[55] -translate-x-1/2 hidden lg:flex flex-col items-center', className)}>
       <div className="relative flex items-end gap-[5px] h-4">
         {Array.from({ length: ticks }).map((_, i) => (
           <span

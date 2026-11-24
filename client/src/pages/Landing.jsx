@@ -782,7 +782,7 @@ const Landing = () => {
           </SignedIn>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-[104px] sm:pb-5">
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-[104px] lg:pb-5">
           <div className="mx-auto max-w-[1320px] flex flex-col sm:flex-row items-center justify-between gap-3 rounded-[18px] glass shadow-md px-4 py-3 text-[13px] text-text-secondary">
             <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-5 gap-y-1">
               <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">Frontend</Link>

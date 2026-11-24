@@ -59,9 +59,10 @@ Reverse-engineered from [learnwithzero.com](https://learnwithzero.com/) and
 | Inline card glyph inside headline | lwz "Built to get you hired." | Same headline with a ✓ card glyph | Same |
 | Colour city finale with glowing START | lwz end | `IsoScene vivid` + green START key | CSS city |
 | Draw-a-zero gesture gate | why.zero intro | `HoldKey` "Hold to answer" in the hero | Hold, not draw — ties to voice answers |
-| XP counter + awards | why.zero HUD, lwz `award()` | `XPPill` + `awardXP` toasts | Same idea |
+| XP counter + awards | why.zero HUD (+100 XP per stage), lwz `award()` | `XPPill` + `awardXP` toasts; +20 XP per ruler section | Same idea |
 | Calligraphic teal words "College would land You" over mint sky with rays and coins | why.zero stage 1 | `SkyScene` "Practice would land You the offer." | Orb instead of the glTF hand |
-| Top scroll ruler with stage navigation | why.zero | `ScrollRuler` | Same |
+| Top scroll ruler with stage navigation (−100 → 0 BZ) | why.zero | `ScrollRuler` (shown from 1024 px) | Same |
+| Final stage: isometric company city | why.zero 0 BZ = lwz city | `IsoScene` finale | Both references end here; CSS city |
 | Motion-off switch | lwz `zero-motion-off` | Dock menu → "Reduce motion" (`evalix-motion-off`) | Same |
 
 ## Not reproduced (and why)
