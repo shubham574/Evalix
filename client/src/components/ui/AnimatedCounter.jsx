@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'motion/react';
 
-const AnimatedCounter = ({ value, prefix = '', suffix = '', duration = 2 }) => {
+const AnimatedCounter = ({ value, prefix = '', suffix = '', duration = 2, className = '' }) => {
   const [hasAnimated, setHasAnimated] = useState(false);
   const springValue = useSpring(0, {
     bounce: 0,
@@ -23,7 +23,7 @@ const AnimatedCounter = ({ value, prefix = '', suffix = '', duration = 2 }) => {
   }, [value, springValue]);
 
   return (
-    <span className="inline-flex">
+    <span className={`inline-flex items-baseline tabular-nums font-display tracking-[-0.04em] ${className}`}>
       {prefix}
       <motion.span>{displayValue}</motion.span>
       {suffix}

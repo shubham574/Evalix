@@ -14,13 +14,13 @@ import {
   FiMic,
   FiFileText,
   FiArrowUpRight,
-  FiCheck,
 } from 'react-icons/fi';
 import ApiKeyModal from '../ui/ApiKeyModal';
+import { EvalixMark } from '../studio/Dock';
 
 const NAV_GROUPS = [
   {
-    group: 'INTERVIEWS',
+    group: 'Interviews',
     items: [
       { label: 'Dashboard', path: '/dashboard', icon: FiHome },
       { label: 'Live Voice Interview', path: '/live-interview', icon: FiMic, badge: 'Voice' },
@@ -28,7 +28,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    group: 'PREP TOOLS',
+    group: 'Prep tools',
     items: [
       { label: 'Job & Prep Roadmap', path: '/job-analysis', icon: FiBriefcase },
       { label: 'ATS Resume Match', path: '/resume-analyzer', icon: FiFileText },
@@ -37,7 +37,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    group: 'ACCOUNT',
+    group: 'Account',
     items: [
       { label: 'Session History', path: '/history', icon: FiClock },
       { label: 'Profile & Settings', path: '/profile', icon: FiSettings },
@@ -70,49 +70,45 @@ const Sidebar = ({ isOpen, setSidebarOpen }) => {
     <>
       <ApiKeyModal isOpen={isApiKeyModalOpen} onClose={() => setIsApiKeyModalOpen(false)} />
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile drawer overlay */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-40 bg-[#151515]/50 backdrop-blur-xs lg:hidden"
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-40 bg-[#F8F9FB]/60 dark:bg-black/50 backdrop-blur-md lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar Shell */}
+      {/* Sidebar shell — floating panel */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-[244px] bg-bg-surface border-r border-border-subtle flex flex-col justify-between transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-          isOpen ? 'translate-x-0 shadow-lg' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-40 w-[268px] p-3 lg:sticky lg:top-0 lg:h-screen transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Top: Brand Header */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-border-subtle shrink-0">
-          <Link to="/" className="flex items-center gap-2 group">
-            <span className="text-xl font-display font-bold tracking-tight text-text-primary group-hover:text-[#FF6B35] transition-colors">
-              Evalix
+        <div className="h-full flex flex-col rounded-[24px] bg-wall shadow-[0_0_0_1px_var(--line)] lg:shadow-none overflow-hidden">
+          {/* Brand */}
+          <div className="h-[72px] flex items-center justify-between px-6 shrink-0">
+            <Link to="/" className="flex items-center gap-2.5 group">
+              <EvalixMark size={26} />
+              <span className="text-[22px] font-display font-normal tracking-[-0.05em] text-text-primary">
+                Evalix
+              </span>
+            </Link>
+            <span className="px-2 py-0.5 rounded-full bg-bg-elevated text-[10px] font-mono tracking-wider text-text-muted">
+              v2
             </span>
-            <span className="text-[10px] font-mono tracking-widest text-[#FF6B35] font-bold uppercase">
-              STUDIO
-            </span>
-          </Link>
-          <span className="px-2 py-0.5 rounded-[5px] bg-bg-canvas text-[10px] font-mono uppercase tracking-wider text-text-muted border border-border-subtle">
-            v2.0
-          </span>
-        </div>
+          </div>
 
-        {/* Middle: Navigation Groups */}
-        <nav className="flex-1 overflow-y-auto py-5 px-3 space-y-6 scrollbar-thin">
-          {NAV_GROUPS.map((section) => (
-            <div key={section.group} className="space-y-1.5">
-              <p className="px-2.5 text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-text-muted">
-                {section.group}
-              </p>
-              <div className="space-y-0.5">
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-7">
+            {NAV_GROUPS.map((section) => (
+              <div key={section.group} className="space-y-1">
+                <p className="px-3 pb-1.5 eyebrow !text-[10px]">{section.group}</p>
                 {section.items.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
@@ -120,103 +116,80 @@ const Sidebar = ({ isOpen, setSidebarOpen }) => {
                       key={item.path}
                       to={item.path}
                       onClick={() => setSidebarOpen(false)}
-                      className={`relative flex items-center justify-between px-2.5 py-2 rounded-[10px] text-xs font-display transition-colors duration-150 group ${
+                      className={`relative flex items-center justify-between px-3 h-11 rounded-[14px] text-[14.5px] tracking-[-0.012em] transition-colors duration-200 group ${
                         isActive
-                          ? 'bg-[#151515] text-[#F8F5EF] font-semibold'
-                          : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover font-medium'
+                          ? 'text-text-primary'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface/70'
                       }`}
                     >
-                      <div className="flex items-center min-w-0 gap-2.5">
+                      {isActive && (
+                        <motion.span
+                          layoutId="sidebarActivePill"
+                          className="absolute inset-0 rounded-[14px] bg-bg-surface shadow-[var(--shadow-key)]"
+                          transition={{ type: 'spring', stiffness: 400, damping: 34 }}
+                        />
+                      )}
+                      <span className="relative flex items-center min-w-0 gap-3">
                         <item.icon
-                          className={`shrink-0 w-4 h-4 transition-colors ${
-                            isActive
-                              ? 'text-[#FF6B35]'
-                              : 'text-text-muted group-hover:text-text-primary'
+                          className={`shrink-0 w-[17px] h-[17px] transition-colors ${
+                            isActive ? 'text-[#1D9E4B]' : 'text-text-muted group-hover:text-text-primary'
                           }`}
                         />
                         <span className="truncate whitespace-nowrap">{item.label}</span>
-                      </div>
+                      </span>
 
                       {item.badge && (
                         <span
-                          className={`ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-bold tracking-wide ${
-                            isActive
-                              ? 'bg-[#C7F36B] text-[#151515]'
-                              : 'bg-[#FF6B35]/15 text-[#FF6B35]'
+                          className={`relative ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            'bg-peach text-[#167A3A]'
                           }`}
                         >
                           {item.badge}
                         </span>
                       )}
-
-                      {/* Active Left Pill Indicator */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="sidebarActivePill"
-                          className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-[#FF6B35]"
-                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                        />
-                      )}
                     </NavLink>
                   );
                 })}
               </div>
-            </div>
-          ))}
-        </nav>
+            ))}
+          </nav>
 
-        {/* Bottom Section: Compact API Key Status & Profile */}
-        <div className="shrink-0 p-3 border-t border-border-subtle space-y-2.5 bg-bg-surface">
-          {/* Compact API Key Status Card (Editorial, no oversized black container) */}
-          <div className="rounded-[11px] p-2.5 bg-bg-canvas border border-border-subtle flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    hasCustomKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                  }`}
-                />
-                <span className="text-[11px] font-mono font-bold text-text-primary truncate">
-                  {hasCustomKey ? 'Gemini (BYOK)' : 'Gemini (Default)'}
-                </span>
-              </div>
-              <p className="text-[10px] font-mono text-text-muted mt-0.5 truncate">
-                {hasCustomKey ? 'Unlimited sessions' : 'Standard tier'}
-              </p>
-            </div>
-
+          {/* Bottom: key status + account */}
+          <div className="shrink-0 p-3 space-y-2">
             <button
               type="button"
               onClick={() => setIsApiKeyModalOpen(true)}
-              className="px-2 py-1 rounded-[6px] bg-bg-surface hover:bg-surface-hover border border-border-subtle text-[10px] font-mono font-semibold text-text-primary inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-              title="Configure Custom Gemini API Key"
+              className="w-full text-left rounded-[16px] p-3.5 bg-bg-surface shadow-[var(--shadow-key)] hover:-translate-y-px transition cursor-pointer group"
+              title="Configure custom Gemini API key"
             >
-              <FiKey size={11} className="text-[#FF6B35]" />
-              <span>Key</span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[13px] font-medium text-text-primary">
+                  <span className={`w-2 h-2 rounded-full ${hasCustomKey ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                  {hasCustomKey ? 'Your Gemini key' : 'Shared Gemini key'}
+                </span>
+                <FiKey size={14} className="text-[#1D9E4B]" />
+              </div>
+              <p className="mt-1 text-xs text-text-secondary flex items-center gap-1">
+                {hasCustomKey ? 'Personal rate limits' : 'Add your own key'}
+                <FiArrowUpRight size={12} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition" />
+              </p>
             </button>
-          </div>
 
-          {/* User Account Row */}
-          <div className="pt-2 border-t border-border-subtle flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-3 px-2 py-2">
               <UserButton
                 afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    userButtonAvatarBox: 'w-8 h-8 rounded-[9px] border border-border-subtle',
-                  },
-                }}
+                appearance={{ elements: { userButtonAvatarBox: 'w-9 h-9 rounded-full' } }}
               />
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-display font-bold text-text-primary truncate">
+                <span className="text-[13.5px] font-medium text-text-primary truncate tracking-[-0.01em]">
                   {user?.fullName || user?.firstName || 'Candidate'}
                 </span>
                 <Link
                   to="/profile"
                   onClick={() => setSidebarOpen(false)}
-                  className="text-[10px] font-mono text-text-muted hover:text-[#FF6B35] transition-colors truncate"
+                  className="text-xs text-text-muted hover:text-[#1D9E4B] transition-colors truncate"
                 >
-                  Settings &rarr;
+                  View profile
                 </Link>
               </div>
             </div>

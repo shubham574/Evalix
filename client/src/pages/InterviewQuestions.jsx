@@ -1,9 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
 import {
-  FiMessageSquare, FiChevronDown, FiChevronUp,
-  FiClock, FiCheck, FiDownload, FiAlertCircle,
+  FiMessageSquare, FiCheck, FiDownload, FiAlertCircle, FiX, FiBookOpen, FiLayers,
 } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
@@ -15,10 +13,11 @@ import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import Button from '../components/ui/Button';
-import Badge from '../components/ui/Badge';
 import Loader from '../components/ui/Loader';
 import api from '../api/axios';
 import EvalixOrb from '../components/ui/EvalixOrb';
+import { PageHeader, Eyebrow, Reveal, Aura } from '@/components/studio';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/shadcn/accordion';
 
 const InterviewQuestions = () => {
   const location = useLocation();
@@ -106,171 +105,195 @@ const InterviewQuestions = () => {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="pb-12">
       <SEOHead title="Q&A Bank & Answer Playbooks — Evalix" />
 
-      {/* Header */}
-      <div className="border-b border-border-subtle pb-5">
-        <h1 className="heading-page text-text-primary">Interview Question Bank</h1>
-        <p className="text-sm sm:text-base text-text-secondary mt-1">
-          Generate <strong className="text-text-primary font-semibold">5 to 20 role-specific questions</strong> across <strong className="text-text-primary font-semibold">Technical, Behavioral, or System Design</strong> tracks with reference answers and <strong className="text-text-primary font-semibold">1-click PDF export</strong>.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Prep lab · Question bank"
+        title="Rehearse every answer before"
+        accent="the call"
+        description={
+          <>
+            Generate <strong className="text-text-primary font-medium">5 to 20 role-specific questions</strong> across{' '}
+            <strong className="text-text-primary font-medium">Technical, Behavioral, or System Design</strong> tracks with reference
+            answers and <strong className="text-text-primary font-medium">1-click PDF export</strong>.
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Form & Saved Playbooks (4 cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          <Card className="p-6 border border-border-subtle">
-            <form onSubmit={handleGenerate} className="space-y-5">
-              <Input
-                id="jobRole"
-                label="Target Role"
-                placeholder="e.g., Backend Engineer"
-                value={jobRole}
-                onChange={(e) => setJobRole(e.target.value)}
-                required
-              />
-
-              <Input
-                id="skills"
-                label="Specific Skills / Topics (comma separated)"
-                placeholder="Node.js, PostgreSQL, Redis, System Design"
-                value={skills}
-                onChange={(e) => setSkills(e.target.value)}
-                required
-              />
-
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  id="category"
-                  label="Category"
-                  options={QUESTION_CATEGORIES}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  required
-                />
-
-                <Select
-                  id="count"
-                  label="Question Count"
-                  options={[5, 10, 15, 20]}
-                  value={count}
-                  onChange={(e) => setCount(e.target.value)}
-                  required
-                />
+        {/* Left Column: Form & Saved Playbooks */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-6 min-w-0">
+          <Reveal>
+            <Card padding="p-6 sm:p-8" className="rounded-[28px]">
+              <div className="flex items-center gap-3.5 mb-7">
+                <span className="w-10 h-10 rounded-full bg-lilac text-[#1D6FB8] dark:text-[#8EC1FF] flex items-center justify-center shrink-0">
+                  <FiMessageSquare className="w-[18px] h-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <Eyebrow index="01">Configure</Eyebrow>
+                  <h2 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary mt-1.5">
+                    Build a playbook
+                  </h2>
+                </div>
               </div>
 
-              <Button
-                type="submit"
-                fullWidth
-                size="lg"
-                loading={generateMutation.isPending}
-                disabled={!jobRole || !skills}
-              >
-                Generate Question Set
-              </Button>
-            </form>
-          </Card>
+              <form onSubmit={handleGenerate} className="space-y-5">
+                <Input
+                  id="jobRole"
+                  label="Target Role"
+                  placeholder="e.g., Backend Engineer"
+                  value={jobRole}
+                  onChange={(e) => setJobRole(e.target.value)}
+                  required
+                />
+
+                <Input
+                  id="skills"
+                  label="Specific Skills / Topics (comma separated)"
+                  placeholder="Node.js, PostgreSQL, Redis, System Design"
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                  required
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    id="category"
+                    label="Category"
+                    options={QUESTION_CATEGORIES}
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    required
+                  />
+
+                  <Select
+                    id="count"
+                    label="Question Count"
+                    options={[5, 10, 15, 20]}
+                    value={count}
+                    onChange={(e) => setCount(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  size="lg"
+                  loading={generateMutation.isPending}
+                  disabled={!jobRole || !skills}
+                >
+                  Generate question set
+                </Button>
+              </form>
+            </Card>
+          </Reveal>
 
           {/* Saved Question Sets */}
-          <Card className="p-6 border border-border-subtle">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-border-subtle">
-              <h3 className="font-display font-bold text-base text-text-primary">
-                Saved Question Sets
-              </h3>
-              <span className="font-mono text-xs text-text-muted">
-                {pastSets?.data?.length || 0}
-              </span>
-            </div>
+          <Reveal delay={0.08}>
+            <Card padding="p-6 sm:p-7" className="rounded-[28px]">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-border-subtle">
+                <h3 className="font-display font-normal tracking-[-0.03em] text-lg text-text-primary">
+                  Saved question sets
+                </h3>
+                <span className="px-2.5 py-1 rounded-full bg-bg-elevated font-mono text-xs text-text-secondary">
+                  {pastSets?.data?.length || 0}
+                </span>
+              </div>
 
-            {isPastLoading ? (
-              <div className="py-8 flex justify-center">
-                <Loader size="sm" />
-              </div>
-            ) : pastSets?.data?.length > 0 ? (
-              <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-                {pastSets.data.map((set) => (
-                  <div
-                    key={set._id}
-                    className={`p-3.5 rounded-[12px] border transition-all cursor-pointer ${
-                      activeSet?._id === set._id
-                        ? 'border-[#FF6B35] bg-[#FF6B35]/10'
-                        : 'border-border-subtle bg-bg-canvas hover:border-text-primary'
-                    }`}
-                    onClick={() => viewSavedSet(set._id)}
-                  >
-                    <div className="flex justify-between items-start gap-2 mb-1.5">
-                      <h4
-                        className="font-display font-bold text-sm text-text-primary truncate"
-                        title={set.jobRole}
+              {isPastLoading ? (
+                <div className="py-8 flex justify-center">
+                  <Loader size="sm" />
+                </div>
+              ) : pastSets?.data?.length > 0 ? (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 -mr-1">
+                  {pastSets.data.map((set) => {
+                    const isActive = activeSet?._id === set._id;
+                    return (
+                      <div
+                        key={set._id}
+                        className={`p-4 rounded-[18px] border transition-all duration-300 cursor-pointer ${
+                          isActive
+                            ? 'border-[#1D9E4B]/30 bg-peach'
+                            : 'border-transparent bg-bg-elevated hover:bg-surface-hover hover:border-border-subtle'
+                        }`}
+                        onClick={() => viewSavedSet(set._id)}
                       >
-                        {set.jobRole}
-                      </h4>
-                      <span className="text-[11px] font-mono text-text-muted flex-shrink-0">
-                        {new Date(set.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <Badge variant="default" className="capitalize">
-                      {set.category?.replace('-', ' ')}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-text-muted text-center py-6">
-                No saved question sets yet.
-              </p>
-            )}
-          </Card>
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <h4 className="font-medium text-sm text-text-primary truncate" title={set.jobRole}>
+                            {set.jobRole}
+                          </h4>
+                          <span className="text-[11px] font-mono text-text-muted flex-shrink-0">
+                            {new Date(set.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-bg-surface/80 text-text-secondary capitalize">
+                          {set.category?.replace('-', ' ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted text-center py-6">No saved question sets yet.</p>
+              )}
+            </Card>
+          </Reveal>
         </div>
 
-        {/* Right Column: Active Playbook (8 cols) */}
-        <div className="lg:col-span-8">
+        {/* Right Column: Active Playbook */}
+        <div className="lg:col-span-7 xl:col-span-8 min-w-0">
           {generateMutation.isPending ? (
-            <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-12 flex flex-col items-center justify-center min-h-[500px] text-center">
-              <EvalixOrb size="lg" state="thinking" />
-              <h3 className="heading-card text-[#F8F5EF] mt-5">
-                Generating {count} {category} Questions for {jobRole}...
-              </h3>
-              <p className="text-sm text-[#F8F5EF]/65 mt-2 max-w-md">
-                Writing reference answers, key talking points, and common mistakes to avoid.
-              </p>
+            <div className="relative overflow-hidden rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm p-10 sm:p-14 flex flex-col items-center justify-center min-h-[520px] text-center">
+              <Aura intensity={0.55} />
+              <div className="relative flex flex-col items-center">
+                <EvalixOrb size="lg" state="thinking" />
+                <Eyebrow dot className="mt-7">Generating</Eyebrow>
+                <h3 className="font-display font-normal tracking-[-0.035em] text-2xl sm:text-3xl text-text-primary mt-3 text-balance">
+                  Generating {count} {category} questions for <span className="serif italic text-[#1D9E4B]">{jobRole}</span>…
+                </h3>
+                <p className="text-sm sm:text-[15px] text-text-secondary mt-3 max-w-md leading-relaxed">
+                  Writing reference answers, key talking points, and common mistakes to avoid.
+                </p>
+              </div>
             </div>
           ) : activeSet ? (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-5 animate-fade-in">
               {/* Top Action Header */}
-              <div className="rounded-[22px] bg-[#151515] text-[#F8F5EF] p-6 border border-[#2E2E2E] flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="px-2.5 py-0.5 rounded-full bg-[#C7F36B] text-[#151515] font-mono text-xs font-bold uppercase">
-                      {activeSet.category?.replace('-', ' ')}
-                    </span>
-                    <span className="text-xs font-mono text-[#F8F5EF]/65">
-                      {activeSet.questions.length} Questions
-                    </span>
+              <div className="relative overflow-hidden rounded-[28px] bg-peach border border-[#1D9E4B]/15 p-6 sm:p-8">
+                <Aura intensity={0.3} />
+                <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="px-3 py-1 rounded-full bg-bg-surface/80 text-text-primary text-xs font-medium capitalize">
+                        {activeSet.category?.replace('-', ' ')}
+                      </span>
+                      <span className="eyebrow">{activeSet.questions.length} Questions</span>
+                    </div>
+                    <h2 className="heading-page text-text-primary break-words">{activeSet.jobRole}</h2>
                   </div>
-                  <h2 className="heading-section text-[#F8F5EF]">{activeSet.jobRole}</h2>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleDownloadPDF}
-                    loading={isDownloading}
-                    icon={FiDownload}
-                  >
-                    Export PDF
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setActiveSet(null)}>
-                    Close
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleDownloadPDF}
+                      loading={isDownloading}
+                      icon={FiDownload}
+                    >
+                      Export PDF
+                    </Button>
+                    <Button variant="secondary" size="sm" icon={FiX} onClick={() => setActiveSet(null)}>
+                      Close
+                    </Button>
+                  </div>
                 </div>
               </div>
 
               {/* Hidden Container for PDF Export */}
               <div
                 ref={pdfContainerRef}
-                style={{ display: 'none', padding: '20px', background: '#fff', color: '#151515' }}
+                style={{ display: 'none', padding: '20px', background: '#fff', color: '#0F0F0F' }}
                 className="pdf-export-container"
               >
                 <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
@@ -291,7 +314,7 @@ const InterviewQuestions = () => {
                       }}
                     >
                       <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '14px' }}>
-                        <span style={{ color: '#FF6B35', marginRight: '8px' }}>
+                        <span style={{ color: '#1D9E4B', marginRight: '8px' }}>
                           Q{qIndex + 1}.
                         </span>
                         {q.question}
@@ -302,7 +325,7 @@ const InterviewQuestions = () => {
                           style={{
                             fontSize: '13px',
                             fontWeight: 'bold',
-                            color: '#FF6B35',
+                            color: '#1D9E4B',
                             textTransform: 'uppercase',
                             marginBottom: '8px',
                           }}
@@ -312,15 +335,16 @@ const InterviewQuestions = () => {
                         <div
                           style={{
                             padding: '12px',
-                            backgroundColor: '#F8F5EF',
+                            backgroundColor: '#F8F9FB',
                             borderRadius: '8px',
                             fontSize: '14px',
                             lineHeight: '1.6',
                           }}
                         >
-                          <ReactMarkdown className="prose prose-sm max-w-none">
-                            {q.idealAnswer}
-                          </ReactMarkdown>
+                          {/* react-markdown v10 no longer accepts className — wrap instead */}
+                          <div className="prose prose-sm max-w-none">
+                            <ReactMarkdown>{q.idealAnswer}</ReactMarkdown>
+                          </div>
                         </div>
                       </div>
 
@@ -407,112 +431,107 @@ const InterviewQuestions = () => {
               </div>
 
               {/* Interactive Accordion Questions List */}
-              <div className="space-y-4">
-                {activeSet.questions.map((q, qIndex) => {
-                  const isOpen = expandedQuestion === qIndex;
-                  return (
-                    <div
-                      key={qIndex}
-                      className="border-2 border-border-subtle rounded-[18px] bg-bg-surface overflow-hidden transition-all"
-                    >
-                      <button
-                        type="button"
-                        className="w-full text-left p-5 flex justify-between items-start gap-4 hover:bg-bg-canvas transition-colors cursor-pointer"
-                        onClick={() => toggleQuestion(qIndex)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="px-2.5 py-1 rounded-[8px] bg-[#151515] text-[#C7F36B] font-mono text-xs font-bold flex-shrink-0 mt-0.5">
-                            Q{String(qIndex + 1).padStart(2, '0')}
-                          </span>
-                          <h3 className="font-display font-bold text-base sm:text-lg text-text-primary leading-snug">
-                            {q.question}
-                          </h3>
+              <Accordion
+                type="single"
+                collapsible
+                value={expandedQuestion === null ? '' : String(expandedQuestion)}
+                onValueChange={(v) => toggleQuestion(v === '' ? expandedQuestion : Number(v))}
+                className="space-y-3"
+              >
+                {activeSet.questions.map((q, qIndex) => (
+                  <AccordionItem
+                    key={qIndex}
+                    value={String(qIndex)}
+                    className="border last:border border-border-subtle rounded-[24px] bg-bg-surface shadow-xs px-5 sm:px-7 transition-shadow duration-300 hover:shadow-sm data-[state=open]:shadow-md"
+                  >
+                    <AccordionTrigger className="py-5 sm:py-6 items-start hover:no-underline">
+                      <span className="flex items-start gap-3.5 min-w-0">
+                        <span className="px-2.5 py-1 rounded-full bg-peach text-[#167A3A] dark:text-[#6FD394] font-mono text-[11px] font-medium flex-shrink-0 mt-0.5 tracking-normal">
+                          Q{String(qIndex + 1).padStart(2, '0')}
+                        </span>
+                        <span className="text-base sm:text-lg text-text-primary leading-snug">{q.question}</span>
+                      </span>
+                    </AccordionTrigger>
+
+                    <AccordionContent className="pb-6 sm:pb-7 space-y-4">
+                      {/* Ideal Answer */}
+                      <div className="p-5 sm:p-6 rounded-[20px] bg-bg-elevated">
+                        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#167A3A] dark:text-[#6FD394] mb-3">
+                          <FiBookOpen /> Model High-Signal Answer
+                        </span>
+                        <div className="text-text-primary text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-headings:font-display prose-headings:font-normal prose-code:text-[#167A3A]">
+                          <ReactMarkdown>{q.idealAnswer}</ReactMarkdown>
                         </div>
-                        <div className="mt-1 flex-shrink-0 text-text-muted">
-                          {isOpen ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Key Points */}
+                        <div className="p-5 rounded-[20px] bg-mint">
+                          <h4 className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#2F6B12] dark:text-[#A8E07E] mb-3.5 flex items-center gap-2">
+                            <FiCheck /> Must-Include Talking Points
+                          </h4>
+                          <ul className="space-y-2.5">
+                            {q.keyPoints?.map((point, pIdx) => (
+                              <li
+                                key={pIdx}
+                                className="flex items-start gap-2.5 text-sm text-text-primary/85 leading-relaxed"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#5DAA3A] mt-2 shrink-0" />
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      </button>
 
-                      <AnimatePresence>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="border-t-2 border-border-subtle bg-bg-canvas"
-                          >
-                            <div className="p-6 space-y-6">
-                              {/* Ideal Answer */}
-                              <div>
-                                <span className="text-xs font-mono font-bold text-[#FF6B35] uppercase tracking-widest block mb-2">
-                                  Model High-Signal Answer
-                                </span>
-                                <div className="p-4 rounded-[14px] bg-bg-surface border border-border-subtle text-text-primary text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                                  <ReactMarkdown>{q.idealAnswer}</ReactMarkdown>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                {/* Key Points */}
-                                <div className="p-4 rounded-[14px] bg-bg-surface border border-border-subtle">
-                                  <h4 className="text-xs font-mono font-bold text-emerald-600 dark:text-[#C7F36B] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <FiCheck /> Must-Include Talking Points
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {q.keyPoints?.map((point, pIdx) => (
-                                      <li
-                                        key={pIdx}
-                                        className="flex items-start gap-2 text-xs sm:text-sm text-text-secondary"
-                                      >
-                                        <span className="text-emerald-600 dark:text-[#C7F36B] font-bold">
-                                          •
-                                        </span>
-                                        <span>{point}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-
-                                {/* Common Mistakes */}
-                                <div className="p-4 rounded-[14px] bg-bg-surface border border-border-subtle">
-                                  <h4 className="text-xs font-mono font-bold text-[#EF4444] uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                                    <FiAlertCircle /> Common Candidate Pitfalls
-                                  </h4>
-                                  <ul className="space-y-2">
-                                    {q.commonMistakes?.map((mistake, mIdx) => (
-                                      <li
-                                        key={mIdx}
-                                        className="flex items-start gap-2 text-xs sm:text-sm text-text-secondary"
-                                      >
-                                        <span className="text-[#EF4444] font-bold">•</span>
-                                        <span>{mistake}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
+                        {/* Common Mistakes */}
+                        <div className="p-5 rounded-[20px] bg-peach">
+                          <h4 className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#167A3A] dark:text-[#6FD394] mb-3.5 flex items-center gap-2">
+                            <FiAlertCircle /> Common Candidate Pitfalls
+                          </h4>
+                          <ul className="space-y-2.5">
+                            {q.commonMistakes?.map((mistake, mIdx) => (
+                              <li
+                                key={mIdx}
+                                className="flex items-start gap-2.5 text-sm text-text-primary/85 leading-relaxed"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E4B] mt-2 shrink-0" />
+                                <span>{mistake}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           ) : (
-            <Card className="p-10 border-2 border-border-subtle min-h-[500px] flex flex-col justify-center items-center text-center">
-              <EvalixOrb size="lg" state="idle" />
-              <span className="mt-5 px-3 py-1 rounded-full bg-bg-canvas border border-border-subtle font-mono text-xs uppercase tracking-wider text-text-secondary">
-                Role-Specific Answer Playbooks
-              </span>
-              <h3 className="heading-card text-text-primary mt-3">
-                Master Every Question Before the Call
-              </h3>
-              <p className="text-sm text-text-secondary mt-2 max-w-md">
-                Enter your target role and skills on the left to generate curated interview questions with model answers and downloadable PDF study sheets.
-              </p>
-            </Card>
+            <div className="relative overflow-hidden rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm p-10 sm:p-14 min-h-[520px] flex flex-col justify-center items-center text-center">
+              <Aura intensity={0.45} />
+              <div className="relative flex flex-col items-center">
+                <EvalixOrb size="lg" state="idle" />
+                <Eyebrow dot className="mt-7">Role-specific answer playbooks</Eyebrow>
+                <h3 className="font-display font-normal tracking-[-0.035em] text-2xl sm:text-3xl text-text-primary mt-3 text-balance">
+                  Master every question <span className="serif italic text-[#1D9E4B]">before</span> the call
+                </h3>
+                <p className="text-sm sm:text-[15px] text-text-secondary mt-3 max-w-md leading-relaxed">
+                  Enter your target role and skills to generate curated interview questions with model answers and downloadable
+                  PDF study sheets.
+                </p>
+                <div className="mt-7 flex flex-wrap justify-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-peach text-[#167A3A] dark:text-[#6FD394] text-xs font-medium">
+                    <FiBookOpen /> Model answers
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-mint text-[#2F6B12] dark:text-[#A8E07E] text-xs font-medium">
+                    <FiCheck /> Talking points
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-lilac text-[#1D6FB8] dark:text-[#8EC1FF] text-xs font-medium">
+                    <FiLayers /> PDF export
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

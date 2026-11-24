@@ -25,6 +25,9 @@ import { getGradeColor } from '../utils/helpers';
 import api from '../api/axios';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
+import { Eyebrow, Reveal, Aura, ScoreRing, NumberTicker, PageHeader } from '@/components/studio';
+import { Progress } from '@/components/shadcn/progress';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/shadcn/accordion';
 
 // ─── Question Voice Hook (Hybrid Gemini TTS + Web Speech API fallback) ────────
 const useQuestionSpeech = ({ getToken }) => {
@@ -501,7 +504,7 @@ const MOCK_ROLE_PRESETS = [
   'Python / AI Engineer',
 ];
 
-// ─── Answer textarea with voice indicator (Arena dark styled) ─────────────────
+// ─── Answer textarea with voice indicator (light studio styled) ───────────────
 const AnswerInput = ({ text, setText, isRecording, isTranscribing }) => (
   <div className="w-full relative">
     <textarea
@@ -517,24 +520,31 @@ const AnswerInput = ({ text, setText, isRecording, isTranscribing }) => (
       value={text}
       onChange={(e) => setText(e.target.value)}
       disabled={isTranscribing}
-      className={`w-full px-4 py-3.5 rounded-[14px] border-2 bg-[#141414] text-[#F8F5EF] placeholder-[#F8F5EF]/35 resize-none transition-all duration-200 outline-none text-sm sm:text-base leading-relaxed ${
+      className={`w-full px-5 pt-4 pb-10 rounded-[20px] border bg-bg-surface text-text-primary placeholder:text-text-muted resize-none transition-all duration-300 outline-none text-[15px] sm:text-base leading-relaxed shadow-xs ${
         isRecording
-          ? 'border-[#C7F36B] ring-2 ring-[#C7F36B]/20'
+          ? 'border-[#5DAA3A]/40 ring-4 ring-[#5DAA3A]/12'
           : isTranscribing
-          ? 'border-[#F59E0B] ring-2 ring-[#F59E0B]/20 opacity-75'
-          : 'border-[#2E2E2E] focus:border-[#FF6B35] focus:ring-2 focus:ring-[#FF6B35]/20'
+          ? 'border-warning/40 ring-4 ring-warning/10 opacity-75'
+          : 'border-border-subtle focus:border-[#1D9E4B]/60 focus:ring-4 focus:ring-[#1D9E4B]/12'
       }`}
     />
 
+    <span className="absolute bottom-3.5 left-5 eyebrow tabular-nums pointer-events-none">
+      {text.trim().length} chars
+    </span>
+
     {isRecording && (
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#C7F36B]/15 border border-[#C7F36B]/40 text-[#C7F36B] px-2.5 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider animate-pulse pointer-events-none">
-        <span className="w-2 h-2 rounded-full bg-[#C7F36B] inline-block" />
+      <div className="absolute top-3 right-3 flex items-center gap-2 bg-mint text-[#2F6B12] dark:text-[#A8E07E] px-3 py-1.5 rounded-full text-[11px] font-mono uppercase tracking-wider pointer-events-none">
+        <span className="relative flex w-2 h-2">
+          <span className="absolute inset-0 rounded-full bg-[#5DAA3A] animate-ping opacity-60" />
+          <span className="relative w-2 h-2 rounded-full bg-[#5DAA3A]" />
+        </span>
         Recording Live
       </div>
     )}
 
     {isTranscribing && (
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[#8174FF]/15 border border-[#8174FF]/40 text-[#8174FF] px-2.5 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider pointer-events-none">
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-lilac text-[#1D6FB8] dark:text-[#8EC1FF] px-3 py-1.5 rounded-full text-[11px] font-mono uppercase tracking-wider pointer-events-none">
         <FiLoader className="animate-spin" />
         Transcribing…
       </div>
@@ -667,209 +677,220 @@ const MockInterview = () => {
     const avgScore = Math.round(finalResults.overallFeedback?.averageScore || 0);
     const verdict =
       avgScore >= 80
-        ? { label: 'READY FOR ONSITE', bg: 'bg-[#C7F36B]', text: 'text-[#151515]' }
+        ? { label: 'READY FOR ONSITE', variant: 'success' }
         : avgScore >= 60
-        ? { label: 'SOLID CONTENDER', bg: 'bg-[#FF6B35]', text: 'text-white' }
-        : { label: 'NEEDS MORE REPS', bg: 'bg-[#F59E0B]', text: 'text-[#151515]' };
+        ? { label: 'SOLID CONTENDER', variant: 'primary' }
+        : { label: 'NEEDS MORE REPS', variant: 'warning' };
+    const ringColor = avgScore >= 80 ? '#1F8A4C' : avgScore >= 60 ? '#1D9E4B' : '#C26A06';
+
+    const PILLARS = [
+      { label: 'Technical Accuracy', key: 'technicalAccuracy', bar: '[&>div]:bg-[#1D9E4B]' },
+      { label: 'Communication Clarity', key: 'communicationClarity', bar: '[&>div]:bg-[#2496ED]' },
+      { label: 'Delivery Confidence', key: 'confidenceScore', bar: '[&>div]:bg-success' },
+    ];
 
     return (
       <div className="max-w-5xl mx-auto space-y-6 pb-12">
         <SEOHead title={`Mock Interview Report: ${finalResults.jobRole}`} />
 
         {/* Top Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full bg-[#FF6B35]/15 text-[#FF6B35] font-mono text-[11px] font-semibold uppercase tracking-widest">
-                Mock Interview Report
-              </span>
-              <span className="text-xs font-mono text-text-muted">
-                {finalResults.questions?.length || 0} Questions Evaluated
-              </span>
-            </div>
-            <h1 className="heading-page text-text-primary">{finalResults.jobRole}</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={FiRotateCcw}
-              onClick={() => {
-                setFinalResults(null);
-                setActiveInterview(null);
-                setCurrentQIndex(0);
-                setCurrentAnswer('');
-              }}
-            >
-              New Session
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => navigate('/dashboard')}>
-              Back to Dashboard
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          eyebrow={`Mock Interview Report · ${finalResults.questions?.length || 0} Questions Evaluated`}
+          title={finalResults.jobRole}
+          className="pb-2"
+          actions={
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={FiRotateCcw}
+                onClick={() => {
+                  setFinalResults(null);
+                  setActiveInterview(null);
+                  setCurrentQIndex(0);
+                  setCurrentAnswer('');
+                }}
+              >
+                New Session
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => navigate('/dashboard')}>
+                Back to Dashboard
+              </Button>
+            </>
+          }
+        />
 
         {/* Hero Scorecard Banner */}
-        <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-6 sm:p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            <div className="lg:col-span-4 flex flex-col items-center lg:items-start text-center lg:text-left border-b lg:border-b-0 lg:border-r border-[#2E2E2E] pb-6 lg:pb-0 lg:pr-6">
-              <span className="text-[11px] font-mono uppercase tracking-widest text-[#F8F5EF]/60 mb-2">
-                Overall Score
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="font-editorial text-6xl sm:text-7xl leading-none"
-                  style={{
-                    color: avgScore >= 80 ? '#C7F36B' : avgScore >= 60 ? '#FF6B35' : '#EF4444',
-                  }}
-                >
-                  {avgScore}
-                </span>
-                <span className="font-mono text-xl text-[#F8F5EF]/50">/100</span>
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[32px] bg-bg-surface border border-border-subtle shadow-md p-6 sm:p-8 lg:p-10">
+            <Aura intensity={0.5} />
+            <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-4 flex flex-col items-center text-center gap-4">
+                <Eyebrow dot>Overall score</Eyebrow>
+                <ScoreRing value={avgScore} size={168} stroke={10} color={ringColor}>
+                  <span className="font-display font-normal tracking-[-0.05em] text-6xl text-text-primary leading-none tabular-nums">
+                    <NumberTicker value={avgScore} />
+                  </span>
+                  <span className="font-mono text-xs text-text-muted mt-1">/100</span>
+                </ScoreRing>
+                <Badge variant={verdict.variant} className="font-mono uppercase tracking-wider">
+                  <FiAward className="w-3.5 h-3.5" />
+                  {verdict.label}
+                </Badge>
               </div>
-              <span
-                className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider ${verdict.bg} ${verdict.text}`}
-              >
-                {verdict.label}
-              </span>
-            </div>
 
-            <div className="lg:col-span-8 space-y-2">
-              <h3 className="font-display font-bold text-lg text-[#F8F5EF]">
-                Overall Summary
-              </h3>
-              <p className="text-sm sm:text-base text-[#F8F5EF]/90 leading-relaxed">
-                {finalResults.overallFeedback?.recommendations ||
-                  'Review each question below to compare your responses against technical accuracy, communication clarity, and delivery confidence.'}
-              </p>
+              <div className="lg:col-span-8 glass rounded-[24px] p-6 sm:p-7 space-y-3">
+                <h3 className="font-display font-normal tracking-[-0.03em] text-2xl text-text-primary">
+                  Overall <span className="serif italic text-[#1D9E4B]">summary</span>
+                </h3>
+                <p className="text-[15px] sm:text-base text-text-secondary leading-relaxed text-pretty">
+                  {finalResults.overallFeedback?.recommendations ||
+                    'Review each question below to compare your responses against technical accuracy, communication clarity, and delivery confidence.'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
 
         {/* Strengths & Growth Areas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="p-6 border border-border-subtle">
-            <h3 className="heading-card text-text-primary mb-4">Key Strengths</h3>
-            <ul className="space-y-2.5">
-              {finalResults.overallFeedback?.strengths?.length > 0 ? (
-                finalResults.overallFeedback.strengths.map((s, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
-                    <span className="text-emerald-600 dark:text-[#C7F36B] font-mono font-bold flex-shrink-0">
-                      •
-                    </span>
-                    <span>{s}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="text-sm text-text-muted">Completed all interview questions.</li>
-              )}
-            </ul>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Reveal delay={0.05}>
+            <div className="h-full rounded-[28px] bg-mint border border-[#5DAA3A]/15 p-6 sm:p-7">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="w-9 h-9 rounded-full bg-bg-surface/80 text-success flex items-center justify-center shadow-xs">
+                  <FiCheckCircle className="w-4 h-4" />
+                </span>
+                <h3 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary">Key Strengths</h3>
+              </div>
+              <ul className="space-y-3">
+                {finalResults.overallFeedback?.strengths?.length > 0 ? (
+                  finalResults.overallFeedback.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-text-secondary leading-relaxed">
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-success flex-shrink-0" />
+                      <span>{s}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-text-muted">Completed all interview questions.</li>
+                )}
+              </ul>
+            </div>
+          </Reveal>
 
-          <Card className="p-6 border border-border-subtle">
-            <h3 className="heading-card text-text-primary mb-4">Areas to Improve</h3>
-            <ul className="space-y-2.5">
-              {finalResults.overallFeedback?.weaknesses?.length > 0 ? (
-                finalResults.overallFeedback.weaknesses.map((w, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-text-secondary">
-                    <span className="text-[#FF6B35] font-mono font-bold flex-shrink-0">
-                      •
-                    </span>
-                    <span>{w}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="text-sm text-text-muted">Continue refining depth of real-world examples.</li>
-              )}
-            </ul>
-          </Card>
+          <Reveal delay={0.1}>
+            <div className="h-full rounded-[28px] bg-peach border border-[#1D9E4B]/15 p-6 sm:p-7">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="w-9 h-9 rounded-full bg-bg-surface/80 text-[#1D9E4B] flex items-center justify-center shadow-xs">
+                  <FiTrendingUp className="w-4 h-4" />
+                </span>
+                <h3 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary">Areas to Improve</h3>
+              </div>
+              <ul className="space-y-3">
+                {finalResults.overallFeedback?.weaknesses?.length > 0 ? (
+                  finalResults.overallFeedback.weaknesses.map((w, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-text-secondary leading-relaxed">
+                      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-[#1D9E4B] flex-shrink-0" />
+                      <span>{w}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-text-muted">Continue refining depth of real-world examples.</li>
+                )}
+              </ul>
+            </div>
+          </Reveal>
         </div>
 
         {/* Question-by-Question Rubric Breakdown */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="heading-card text-text-primary">Question-by-Question Rubric Breakdown</h2>
-            <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
-              3-Pillar Scoring
-            </span>
-          </div>
+        <Reveal delay={0.05}>
+          <div className="space-y-4 pt-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 className="font-display font-normal tracking-[-0.03em] text-2xl sm:text-[28px] text-text-primary">
+                Question-by-Question <span className="serif italic text-[#1D9E4B]">Rubric Breakdown</span>
+              </h2>
+              <span className="eyebrow">3-Pillar Scoring</span>
+            </div>
 
-          {finalResults.questions?.map((q, i) => {
-            const response = finalResults.responses?.find((r) => r.questionIndex === i);
-            if (!response) return null;
-            return (
-              <Card key={i} className="p-6 border-2 border-border-subtle space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-border-subtle">
-                  <div className="flex items-start gap-3">
-                    <span className="px-2.5 py-1 rounded-[8px] bg-[#151515] text-[#F8F5EF] font-mono text-xs font-bold flex-shrink-0">
-                      Q{String(i + 1).padStart(2, '0')}
-                    </span>
-                    <h4 className="font-display font-bold text-base sm:text-lg text-text-primary leading-snug">
-                      {q.question}
-                    </h4>
-                  </div>
-                  {q.category && <Badge variant="primary">{q.category}</Badge>}
-                </div>
-
-                {/* Candidate Response */}
-                <div className="p-4 rounded-[14px] bg-bg-canvas border border-border-subtle">
-                  <span className="text-[11px] font-mono uppercase tracking-widest text-text-muted block mb-1.5">
-                    Your Recorded / Written Response
-                  </span>
-                  <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-                    "{response.userAnswer}"
-                  </p>
-                </div>
-
-                {/* 3 Rubric Pillars */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { label: 'Technical Accuracy', key: 'technicalAccuracy', accent: '#FF6B35' },
-                    { label: 'Communication Clarity', key: 'communicationClarity', accent: '#8174FF' },
-                    { label: 'Delivery Confidence', key: 'confidenceScore', accent: '#10B981' },
-                  ].map(({ label, key, accent }) => {
-                    const val = Number(response.aiEvaluation?.[key] ?? 0);
-                    return (
-                      <div
-                        key={key}
-                        className="p-3.5 rounded-[12px] bg-bg-canvas border border-border-subtle"
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-mono text-text-secondary">{label}</span>
-                          <span className="font-mono font-bold text-sm text-text-primary">
-                            {val}/10
+            <Accordion type="multiple" defaultValue={['0']} className="space-y-3">
+              {finalResults.questions?.map((q, i) => {
+                const response = finalResults.responses?.find((r) => r.questionIndex === i);
+                if (!response) return null;
+                return (
+                  <AccordionItem
+                    key={i}
+                    value={String(i)}
+                    className="rounded-[24px] border border-border-subtle bg-bg-surface shadow-xs px-5 sm:px-7 last:border-b"
+                  >
+                    <AccordionTrigger className="py-5 hover:no-underline hover:text-text-primary">
+                      <span className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                        <span className="px-2.5 py-1 rounded-full bg-peach text-[#167A3A] font-mono text-xs font-medium flex-shrink-0 mt-0.5">
+                          Q{String(i + 1).padStart(2, '0')}
+                        </span>
+                        <span className="min-w-0 flex-1 space-y-2">
+                          <span className="block font-display font-normal tracking-[-0.02em] text-base sm:text-lg text-text-primary leading-snug break-words">
+                            {q.question}
                           </span>
-                        </div>
-                        <div className="w-full h-1.5 rounded-full bg-border-subtle overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${Math.min(100, val * 10)}%`, backgroundColor: accent }}
-                          />
-                        </div>
+                          {q.category && <Badge variant="secondary">{q.category}</Badge>}
+                        </span>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent className="pb-6 space-y-4">
+                      {/* Candidate Response */}
+                      <div className="p-5 rounded-[20px] bg-bg-elevated">
+                        <span className="eyebrow block mb-2.5">
+                          Your Recorded / Written Response
+                        </span>
+                        <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap break-words">
+                          "{response.userAnswer}"
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* AI Feedback */}
-                <div className="p-4 rounded-[14px] bg-[#8174FF]/10 border border-[#8174FF]/25">
-                  <span className="text-[11px] font-mono uppercase tracking-widest text-[#8174FF] font-semibold block mb-1">
-                    AI Evaluator Notes
-                  </span>
-                  <p className="text-sm text-text-primary leading-relaxed">
-                    {response.aiEvaluation?.feedback}
-                  </p>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                      {/* 3 Rubric Pillars */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {PILLARS.map(({ label, key, bar }) => {
+                          const val = Number(response.aiEvaluation?.[key] ?? 0);
+                          return (
+                            <div
+                              key={key}
+                              className="p-4 rounded-[18px] bg-bg-surface border border-border-subtle"
+                            >
+                              <div className="flex items-baseline justify-between mb-3 gap-2">
+                                <span className="text-xs text-text-secondary">{label}</span>
+                                <span className="font-display font-normal tracking-[-0.03em] text-lg text-text-primary tabular-nums">
+                                  {val}<span className="text-xs text-text-muted">/10</span>
+                                </span>
+                              </div>
+                              <Progress
+                                value={Math.min(100, val * 10)}
+                                className={`h-1.5 bg-bg-elevated ${bar}`}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* AI Feedback */}
+                      <div className="p-5 rounded-[20px] bg-lilac">
+                        <span className="eyebrow text-[#1D6FB8] dark:text-[#8EC1FF] flex items-center gap-2 mb-2.5">
+                          <FiCpu className="w-3.5 h-3.5" /> AI Evaluator Notes
+                        </span>
+                        <p className="text-sm text-text-primary leading-relaxed">
+                          {response.aiEvaluation?.feedback}
+                        </p>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </div>
+        </Reveal>
       </div>
     );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PHASE 6: ACTIVE STRUCTURED INTERVIEW ARENA (Dark High-Contrast Focus)
+  // PHASE 6: ACTIVE STRUCTURED INTERVIEW ARENA (light studio focus room)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeInterview) {
     const currentQ = activeInterview.questions[currentQIndex];
@@ -884,56 +905,62 @@ const MockInterview = () => {
       : isTranscribing
       ? 'thinking'
       : 'idle';
+    const progressPct = ((currentQIndex + 1) / activeInterview.questions.length) * 100;
 
     return (
-      <div className="theme-interview rounded-[24px] bg-[#151515] text-[#F8F5EF] border-2 border-[#2E2E2E] p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-7.5rem)] flex flex-col justify-between shadow-xl">
+      <div className="rounded-[32px] bg-bg-surface border border-border-subtle shadow-sm p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-7.5rem)] flex flex-col justify-between">
         <SEOHead title={`Interview Arena: ${activeInterview.jobRole}`} />
 
         {/* Arena Top Telemetry Bar */}
-        <div className="pb-5 border-b border-[#2E2E2E]">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF6B35]/15 border border-[#FF6B35]/40 text-[#FF6B35] font-mono text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-[#FF6B35] animate-pulse" />
+        <div className="pb-6 border-b border-border-subtle">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex flex-wrap items-center gap-3 min-w-0">
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-peach text-[#167A3A] font-mono text-[11px] font-medium tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E4B] animate-pulse" />
                 STRUCTURED ARENA
               </span>
-              <h2 className="font-display font-bold text-lg sm:text-xl text-[#F8F5EF]">
+              <h2 className="font-display font-normal tracking-[-0.03em] text-lg sm:text-xl text-text-primary break-words">
                 {activeInterview.jobRole}
               </h2>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-xs text-[#F8F5EF]/70 bg-[#1F1F1F] px-3 py-1.5 rounded-[10px] border border-[#2E2E2E]">
-                PROMPT {String(currentQIndex + 1).padStart(2, '0')} /{' '}
-                {String(activeInterview.questions.length).padStart(2, '0')}
-              </span>
-            </div>
+            <span className="font-mono text-xs text-text-secondary bg-bg-elevated px-3.5 py-1.5 rounded-full tabular-nums">
+              PROMPT {String(currentQIndex + 1).padStart(2, '0')}
+              <span className="text-text-muted"> / </span>
+              {String(activeInterview.questions.length).padStart(2, '0')}
+            </span>
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full bg-[#1F1F1F] border border-[#2E2E2E] rounded-full h-2 overflow-hidden">
-            <motion.div
-              className="bg-[#C7F36B] h-full rounded-full"
-              initial={{ width: 0 }}
-              animate={{
-                width: `${((currentQIndex + 1) / activeInterview.questions.length) * 100}%`,
-              }}
-            />
-          </div>
+          <Progress value={progressPct} className="h-1.5 bg-bg-elevated [&>div]:duration-700 [&>div]:ease-[cubic-bezier(0.22,1,0.36,1)]" />
         </div>
 
         {/* Arena Center Stage */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 my-6 flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 my-6 flex-1">
           {/* Left Column: AI Evaluator Pod */}
-          <div className="lg:col-span-4 rounded-[20px] bg-[#1F1F1F] border border-[#2E2E2E] p-6 flex flex-col items-center justify-between text-center">
-            <div className="w-full flex items-center justify-between text-xs font-mono text-[#F8F5EF]/60">
-              <span>EVALIX AI PANEL</span>
-              <span className=" uppercase text-[#C7F36B]">{orbState}</span>
+          <div className="lg:col-span-4 relative overflow-hidden rounded-[28px] border border-border-subtle bg-bg-canvas p-6 flex flex-col items-center justify-between text-center">
+            <Aura intensity={0.7} />
+            <div className="relative w-full flex items-center justify-between">
+              <span className="eyebrow">Evalix AI panel</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full glass font-mono text-[10px] uppercase tracking-wider text-text-primary">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    orbState === 'listening'
+                      ? 'bg-[#5DAA3A] animate-pulse'
+                      : orbState === 'speaking'
+                      ? 'bg-[#1D9E4B] animate-pulse'
+                      : orbState === 'idle'
+                      ? 'bg-text-muted'
+                      : 'bg-[#2496ED] animate-pulse'
+                  }`}
+                />
+                {orbState}
+              </span>
             </div>
 
-            <div className="my-6 flex flex-col items-center">
+            <div className="relative my-8 flex flex-col items-center">
               <EvalixOrb size="lg" state={orbState} />
-              <p className="mt-4 font-display font-bold text-base text-[#F8F5EF]">
+              <p className="mt-6 font-display font-normal tracking-[-0.02em] text-lg text-text-primary">
                 {isEvaluating
                   ? 'Scoring Technical & Delivery Rubric...'
                   : isQuestionSpeaking
@@ -944,7 +971,7 @@ const MockInterview = () => {
                   ? 'Converting Speech to Text...'
                   : 'Ready for Your Response'}
               </p>
-              <p className="text-xs text-[#F8F5EF]/55 mt-1 max-w-xs">
+              <p className="text-sm text-text-secondary mt-1.5 max-w-xs leading-relaxed">
                 Speak naturally using the voice recorder or compose a structured written response.
               </p>
             </div>
@@ -956,16 +983,16 @@ const MockInterview = () => {
                   ? stopSpeakingQuestion()
                   : speakQuestion(currentQ.question)
               }
-              className="w-full py-2.5 px-4 rounded-[12px] bg-[#282828] hover:bg-[#323232] border border-[#3A3A3A] text-xs font-mono uppercase tracking-wider text-[#F8F5EF] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="relative w-full h-11 px-4 rounded-full glass shadow-xs hover:shadow-sm text-[13px] font-medium tracking-[-0.01em] text-text-primary flex items-center justify-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5"
             >
               {isQuestionSpeaking ? (
                 <>
-                  <FiVolumeX className="w-4 h-4 text-[#FF6B35]" />
+                  <FiVolumeX className="w-4 h-4 text-[#1D9E4B]" />
                   <span>Stop Audio Playback</span>
                 </>
               ) : (
                 <>
-                  <FiVolume2 className="w-4 h-4 text-[#C7F36B]" />
+                  <FiVolume2 className="w-4 h-4 text-[#2496ED]" />
                   <span>Listen to Question Audio</span>
                 </>
               )}
@@ -973,18 +1000,21 @@ const MockInterview = () => {
           </div>
 
           {/* Right Column: Active Question & Response Editor */}
-          <div className="lg:col-span-8 rounded-[20px] bg-[#1F1F1F] border border-[#2E2E2E] p-6 sm:p-8 flex flex-col justify-between">
+          <div className="lg:col-span-8 rounded-[28px] bg-bg-surface border border-border-subtle shadow-xs p-5 sm:p-8 flex flex-col justify-between">
             {/* Active Prompt */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <span className="px-3 py-1 rounded-full bg-[#8174FF]/15 border border-[#8174FF]/30 text-[#8174FF] font-mono text-xs font-semibold">
+            <div className="mb-7">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <Badge variant="secondary">
                   {currentQ.category || 'Technical & Behavioral'}
-                </span>
-                <span className="text-xs font-mono text-[#F8F5EF]/45">
+                </Badge>
+                <span className="eyebrow">
                   Min. 10 characters required
                 </span>
               </div>
-              <h3 className="font-display font-bold text-xl sm:text-2xl md:text-3xl text-[#F8F5EF] leading-snug">
+              <h3
+                key={`mq-${currentQIndex}`}
+                className="font-display font-normal tracking-[-0.035em] text-[22px] sm:text-[28px] md:text-[32px] text-text-primary leading-[1.15] text-pretty break-words animate-fade-in"
+              >
                 {currentQ.question}
               </h3>
             </div>
@@ -992,12 +1022,12 @@ const MockInterview = () => {
             {/* Answer Editor or Evaluating State */}
             <div className="mt-auto">
               {isEvaluating ? (
-                <div className="flex flex-col items-center justify-center p-10 bg-[#141414] rounded-[16px] border border-[#2E2E2E]">
+                <div className="relative overflow-hidden flex flex-col items-center justify-center p-10 bg-lilac rounded-[24px] text-center">
                   <Loader size="md" />
-                  <p className="mt-4 text-[#F8F5EF] font-display font-bold">
+                  <p className="mt-5 text-text-primary font-display font-normal tracking-[-0.02em] text-lg">
                     Evaluating your response against hiring rubrics...
                   </p>
-                  <p className="text-xs text-[#F8F5EF]/60 mt-1">
+                  <p className="text-sm text-text-secondary mt-1.5">
                     Scoring technical accuracy, communication clarity, and confidence.
                   </p>
                 </div>
@@ -1011,13 +1041,13 @@ const MockInterview = () => {
                   />
 
                   {recorderError && (
-                    <div className="flex items-start gap-2 text-xs text-[#EF4444] bg-[#EF4444]/10 border border-[#EF4444]/30 p-3 rounded-[10px]">
+                    <div className="flex items-start gap-2.5 text-sm text-danger bg-danger-bg p-4 rounded-[16px]">
                       <FiAlertCircle className="mt-0.5 flex-shrink-0" />
                       <span>{recorderError}</span>
                     </div>
                   )}
 
-                  <div className="flex flex-wrap justify-between items-center gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between sm:items-center gap-3 pt-2">
                     <Button
                       variant={isRecording ? 'danger' : 'secondary'}
                       onClick={toggleRecording}
@@ -1050,18 +1080,23 @@ const MockInterview = () => {
   // ══════════════════════════════════════════════════════════════════════════
   if (startMutation.isPending) {
     return (
-      <div className="rounded-[24px] bg-[#151515] text-[#F8F5EF] border border-[#2E2E2E] p-10 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center">
+      <div className="relative overflow-hidden rounded-[32px] bg-bg-surface border border-border-subtle shadow-sm p-8 sm:p-10 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center">
         <SEOHead title="Setting up Mock Interview..." />
-        <EvalixOrb size="lg" state="thinking" />
-        <div className="w-40 h-40 my-2">
-          <Lottie animationData={interviewLoader} loop={true} />
+        <Aura intensity={0.6} />
+        <div className="relative flex flex-col items-center">
+          <EvalixOrb size="lg" state="thinking" />
+          <div className="w-40 h-40 my-2">
+            <Lottie animationData={interviewLoader} loop={true} />
+          </div>
+          <Eyebrow dot>Building your session</Eyebrow>
+          <h2 className="heading-page text-text-primary mt-4 max-w-2xl text-balance break-words">
+            Preparing {totalQuestions} Questions for{' '}
+            <span className="serif italic text-[#1D9E4B]">{jobRole}</span>...
+          </h2>
+          <p className="text-[15px] text-text-secondary mt-4 max-w-md leading-relaxed">
+            Generating role-specific technical and behavioral questions with 3-pillar scoring rubrics.
+          </p>
         </div>
-        <h2 className="heading-section text-[#F8F5EF]">
-          Preparing {totalQuestions} Questions for {jobRole}...
-        </h2>
-        <p className="text-sm text-[#F8F5EF]/65 mt-2 max-w-md">
-          Generating role-specific technical and behavioral questions with 3-pillar scoring rubrics.
-        </p>
       </div>
     );
   }
@@ -1071,186 +1106,211 @@ const MockInterview = () => {
       <SEOHead title="Structured Mock Interview — Evalix" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-subtle pb-5">
-        <div>
-          <h1 className="heading-page text-text-primary">Structured Mock Interview</h1>
-          <p className="text-sm sm:text-base text-text-secondary mt-1">
-            Practice <strong className="text-text-primary font-semibold">3, 5, or 8 role-specific questions</strong> at your own pace. Speak or type responses and get scored on <strong className="text-text-primary font-semibold">Technical Accuracy, Clarity, and Confidence</strong>.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Mock interview"
+        title="Structured Mock"
+        accent="Interview"
+        className="pb-4"
+        description={
+          <>
+            Practice <strong className="text-text-primary font-medium">3, 5, or 8 role-specific questions</strong> at your own pace. Speak or type responses and get scored on <strong className="text-text-primary font-medium">Technical Accuracy, Clarity, and Confidence</strong>.
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
         {/* Left: Configuration Card (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <Card className="p-6 border border-border-subtle">
-            <form onSubmit={handleStart} className="space-y-5">
-              <div>
-                <Input
-                  id="jobRole"
-                  label="1. Target Role or Track"
-                  placeholder="e.g., Full Stack Engineer (React / Node.js)"
-                  value={jobRole}
-                  onChange={(e) => setJobRole(e.target.value)}
-                  required
-                />
-                <div className="mt-2.5">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block mb-1.5">
-                    Quick Role Presets:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {MOCK_ROLE_PRESETS.map((preset) => (
+        <div className="lg:col-span-5 space-y-5">
+          <Reveal>
+            <Card padding="p-6 sm:p-7" className="rounded-[28px]">
+              <form onSubmit={handleStart} className="space-y-7">
+                <div>
+                  <Input
+                    id="jobRole"
+                    label="1. Target Role or Track"
+                    placeholder="e.g., Full Stack Engineer (React / Node.js)"
+                    value={jobRole}
+                    onChange={(e) => setJobRole(e.target.value)}
+                    required
+                  />
+                  <div className="mt-4">
+                    <span className="eyebrow block mb-2.5">
+                      Quick role presets
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {MOCK_ROLE_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setJobRole(preset)}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-300 cursor-pointer ${
+                            jobRole === preset
+                              ? 'bg-peach text-[#167A3A] dark:text-[#6FD394] border-[#1D9E4B]/30 font-medium'
+                              : 'bg-bg-surface border-border-subtle text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  <label className="text-xs font-mono uppercase tracking-wider font-medium text-text-secondary">
+                    2. Number of Questions <span className="text-[#1D9E4B]">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-1 p-1 rounded-full bg-bg-elevated">
+                    {MOCK_QUESTION_COUNTS.map((opt) => (
                       <button
-                        key={preset}
                         type="button"
-                        onClick={() => setJobRole(preset)}
-                        className={`text-xs px-2.5 py-1 rounded-[8px] border transition-all cursor-pointer ${
-                          jobRole === preset
-                            ? 'bg-[#151515] text-[#F8F5EF] border-[#151515] dark:bg-[#FF6B35] dark:border-[#FF6B35] font-medium'
-                            : 'bg-bg-canvas border-border-subtle text-text-secondary hover:border-text-primary'
+                        key={opt}
+                        onClick={() => setTotalQuestions(opt)}
+                        aria-pressed={totalQuestions === opt}
+                        className={`cursor-pointer text-center h-10 rounded-full transition-all duration-300 font-display font-normal text-[13px] sm:text-sm tracking-[-0.01em] whitespace-nowrap ${
+                          totalQuestions === opt
+                            ? 'bg-bg-surface text-text-primary shadow-sm'
+                            : 'text-text-secondary hover:text-text-primary'
                         }`}
                       >
-                        {preset}
+                        {opt} Questions
                       </button>
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-mono uppercase tracking-wider font-semibold text-text-secondary">
-                  2. Number of Questions <span className="text-[#FF6B35]">*</span>
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {MOCK_QUESTION_COUNTS.map((opt) => (
-                    <button
-                      type="button"
-                      key={opt}
-                      onClick={() => setTotalQuestions(opt)}
-                      className={`cursor-pointer text-center py-3 rounded-[12px] border transition-all font-display font-bold ${
-                        totalQuestions === opt
-                          ? 'border-[#151515] bg-[#FF6B35] text-white'
-                          : 'border-border-subtle bg-bg-canvas text-text-secondary hover:border-text-primary'
-                      }`}
-                    >
-                      {opt} Questions
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                fullWidth
-                loading={startMutation.isPending}
-                disabled={!jobRole}
-                icon={FiPlay}
-                size="lg"
-                variant="primary"
-              >
-                Start Mock Interview
-              </Button>
-            </form>
-          </Card>
+                <Button
+                  type="submit"
+                  fullWidth
+                  loading={startMutation.isPending}
+                  disabled={!jobRole}
+                  icon={FiPlay}
+                  size="lg"
+                  variant="primary"
+                >
+                  Start Mock Interview
+                </Button>
+              </form>
+            </Card>
+          </Reveal>
 
           {/* Briefing Card */}
-          <div className="rounded-[20px] bg-[#151515] text-[#F8F5EF] p-6 border border-[#2E2E2E]">
-            <h4 className="font-display font-bold text-base text-[#F8F5EF] mb-1">
-              How Scoring Works
-            </h4>
-            <p className="text-xs font-mono text-[#C7F36B] mb-4">3-Pillar Rubric (0–10 each)</p>
-            <ul className="space-y-2.5 text-xs sm:text-sm text-[#F8F5EF]/80">
-              <li className="flex items-start gap-2">
-                <span className="text-[#FF6B35] font-mono font-bold">1.</span>
-                <span><strong className="text-white">Technical Accuracy:</strong> Depth and correctness of your engineering explanation.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#C7F36B] font-mono font-bold">2.</span>
-                <span><strong className="text-white">Communication Clarity:</strong> Logical structure and conciseness.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-[#8174FF] font-mono font-bold">3.</span>
-                <span><strong className="text-white">Delivery Confidence:</strong> Directness and use of concrete examples.</span>
-              </li>
-            </ul>
-          </div>
+          <Reveal delay={0.08}>
+            <div className="rounded-[28px] bg-lilac border border-[#2496ED]/15 p-6 sm:p-7">
+              <Eyebrow className="text-[#1D6FB8] dark:text-[#8EC1FF]">3-Pillar Rubric (0–10 each)</Eyebrow>
+              <h4 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary mt-3 mb-5">
+                How scoring <span className="serif italic text-[#2496ED]">works</span>
+              </h4>
+              <ul className="space-y-3.5 text-sm text-text-secondary">
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-bg-surface text-[#1D9E4B] font-mono text-[11px] flex items-center justify-center shrink-0 shadow-xs">1</span>
+                  <span className="leading-relaxed"><strong className="text-text-primary font-medium">Technical Accuracy:</strong> Depth and correctness of your engineering explanation.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-bg-surface text-[#2496ED] font-mono text-[11px] flex items-center justify-center shrink-0 shadow-xs">2</span>
+                  <span className="leading-relaxed"><strong className="text-text-primary font-medium">Communication Clarity:</strong> Logical structure and conciseness.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-bg-surface text-success font-mono text-[11px] flex items-center justify-center shrink-0 shadow-xs">3</span>
+                  <span className="leading-relaxed"><strong className="text-text-primary font-medium">Delivery Confidence:</strong> Directness and use of concrete examples.</span>
+                </li>
+              </ul>
+            </div>
+          </Reveal>
         </div>
 
         {/* Right: Past Interviews Archive (7 cols) */}
         <div className="lg:col-span-7">
-          <Card className="p-6 border border-border-subtle min-h-[480px] flex flex-col">
-            <div className="flex items-center justify-between pb-4 mb-5 border-b border-border-subtle">
-              <div>
-                <h3 className="heading-card text-text-primary">Past Mock Sessions</h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Click any completed session to inspect its full scorecard
-                </p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-bg-canvas border border-border-subtle font-mono text-xs text-text-secondary">
-                {pastInterviews?.data?.length || 0} Total
-              </span>
-            </div>
+          <Reveal delay={0.05}>
+            <Card padding="p-6 sm:p-7" className="rounded-[28px] min-h-[480px]">
+              <div className="flex flex-col h-full">
+                <div className="flex items-start justify-between gap-3 pb-5 mb-5 border-b border-border-subtle">
+                  <div>
+                    <h3 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary">
+                      Past mock <span className="serif italic text-[#1D9E4B]">sessions</span>
+                    </h3>
+                    <p className="text-sm text-text-muted mt-1">
+                      Click any completed session to inspect its full scorecard
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-bg-elevated font-mono text-xs text-text-secondary shrink-0 tabular-nums">
+                    {pastInterviews?.data?.length || 0} Total
+                  </span>
+                </div>
 
-            {isPastLoading ? (
-              <div className="flex-1 flex justify-center items-center py-16">
-                <Loader />
-              </div>
-            ) : pastInterviews?.data?.length > 0 ? (
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-[520px] pr-1">
-                {pastInterviews.data.map((interview) => {
-                  const score = Math.round(interview.overallFeedback?.averageScore || 0);
-                  const isCompleted = interview.status === 'completed';
-                  return (
-                    <div
-                      key={interview._id}
-                      onClick={() => {
-                        if (isCompleted) setFinalResults(interview);
-                      }}
-                      className={`p-4 rounded-[14px] border border-border-subtle bg-bg-canvas transition-all flex flex-wrap justify-between items-center gap-3 ${
-                        isCompleted
-                          ? 'hover:border-[#151515] dark:hover:border-[#FF6B35] cursor-pointer'
-                          : 'opacity-80'
-                      }`}
-                    >
-                      <div>
-                        <h4 className="font-display font-bold text-sm sm:text-base text-text-primary">
-                          {interview.jobRole}
-                        </h4>
-                        <p className="text-xs font-mono text-text-muted mt-0.5">
-                          {new Date(interview.createdAt).toLocaleDateString()} •{' '}
-                          <strong className="text-text-primary">{interview.questions?.length || 0} Questions</strong>
-                          {isCompleted ? ` • Score: ${score}%` : ''}
-                        </p>
-                      </div>
+                {isPastLoading ? (
+                  <div className="flex-1 flex justify-center items-center py-16">
+                    <Loader />
+                  </div>
+                ) : pastInterviews?.data?.length > 0 ? (
+                  <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[520px] pr-1 -mr-1">
+                    {pastInterviews.data.map((interview) => {
+                      const score = Math.round(interview.overallFeedback?.averageScore || 0);
+                      const isCompleted = interview.status === 'completed';
+                      return (
+                        <div
+                          key={interview._id}
+                          onClick={() => {
+                            if (isCompleted) setFinalResults(interview);
+                          }}
+                          className={`group p-4 rounded-[20px] border border-border-subtle bg-bg-surface transition-all duration-300 flex items-center justify-between gap-3 ${
+                            isCompleted
+                              ? 'hover:bg-surface-hover hover:shadow-sm hover:-translate-y-0.5 cursor-pointer'
+                              : 'opacity-75'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            {isCompleted ? (
+                              <ScoreRing value={score} size={44} stroke={4} color="#1D9E4B" className="shrink-0">
+                                <span className="font-mono text-[11px] text-text-primary tabular-nums">{score}</span>
+                              </ScoreRing>
+                            ) : (
+                              <span className="w-11 h-11 rounded-full bg-warning-bg text-warning flex items-center justify-center shrink-0">
+                                <FiClock className="w-4 h-4" />
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <h4 className="font-display font-normal tracking-[-0.02em] text-sm sm:text-base text-text-primary truncate">
+                                {interview.jobRole}
+                              </h4>
+                              <p className="text-xs font-mono text-text-muted mt-1">
+                                {new Date(interview.createdAt).toLocaleDateString()} •{' '}
+                                <span className="text-text-secondary">{interview.questions?.length || 0} Questions</span>
+                                {isCompleted ? <span className="hidden sm:inline">{` • Score: ${score}%`}</span> : ''}
+                              </p>
+                            </div>
+                          </div>
 
-                      <div className="flex items-center gap-2.5">
-                        {isCompleted ? (
-                          <>
-                            <Badge variant="success">{score}% Score</Badge>
-                            <span className="text-xs font-mono text-[#FF6B35] font-semibold hidden sm:inline">
-                              View Report →
-                            </span>
-                          </>
-                        ) : (
-                          <Badge variant="warning">Incomplete</Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {isCompleted ? (
+                              <>
+                                <Badge variant="success" className="hidden sm:inline-flex">{score}% Score</Badge>
+                                <span className="w-8 h-8 rounded-full bg-bg-elevated text-text-secondary group-hover:bg-[#1D9E4B] group-hover:text-white flex items-center justify-center transition-colors" aria-label="View Report">
+                                  <FiArrowRight className="w-3.5 h-3.5" />
+                                </span>
+                              </>
+                            ) : (
+                              <Badge variant="warning">Incomplete</Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-center items-center text-center py-12 rounded-[24px] bg-bg-canvas">
+                    <EvalixOrb size="md" state="idle" />
+                    <p className="font-display font-normal tracking-[-0.02em] text-lg text-text-primary mt-5">
+                      No mock sessions yet
+                    </p>
+                    <p className="text-sm text-text-secondary mt-1.5 max-w-xs">
+                      Select a target role on the left to start your first mock interview.
+                    </p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col justify-center items-center text-center py-12">
-                <EvalixOrb size="md" state="idle" />
-                <p className="font-display font-bold text-base text-text-primary mt-4">
-                  No mock sessions yet
-                </p>
-                <p className="text-xs text-text-secondary mt-1 max-w-xs">
-                  Select a target role on the left to start your first mock interview.
-                </p>
-              </div>
-            )}
-          </Card>
+            </Card>
+          </Reveal>
         </div>
       </div>
     </div>

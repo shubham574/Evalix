@@ -1,258 +1,141 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import {
-  FiArrowRight,
-  FiArrowUpRight,
-  FiSun,
-  FiMoon,
-  FiGithub,
-  FiLinkedin,
-  FiMail,
-  FiMenu,
-  FiX,
-  FiPlus,
-  FiMinus,
-} from 'react-icons/fi';
+import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
+import { ArrowUpRight, Check, Mic, Moon, Sun, Sparkles, MousePointer2, FileText, ListChecks, Briefcase, Flame, TrendingUp } from 'lucide-react';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { FiGithub, FiLinkedin, FiMail } from 'react-icons/fi';
 import SEOHead from '../components/common/SEOHead';
 import { EvalixOrb } from '../components/ui/EvalixOrb';
 import { useTheme } from '../hooks/useTheme';
+import { useSmoothScroll, scrollToId } from '../hooks/useSmoothScroll';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/shadcn/accordion';
+import { NumberTicker, ScoreRing } from '@/components/studio';
+import Dock, { EvalixMark } from '@/components/studio/Dock';
+import IsoScene from '@/components/studio/IsoScene';
+import { Say, Speaker, DrawPath } from '@/components/studio/Say';
+import SkyScene from '@/components/studio/SkyScene';
+import { XPPill, HoldKey, ScrollRuler, awardXP, isMotionOff, toggleMotion, EASE_ZERO_OUT } from '@/components/studio/Gamify';
+import { cn } from '@/lib/utils';
 
-// Register ScrollTrigger safely
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger);
-}
+const EASE_OUT = EASE_ZERO_OUT; // reference CustomEase "zeroOut"
 
-// ─── Hero Interactive Product Visual Data ────────────────────────────────────
-const heroSessions = [
-  {
-    id: 'frontend',
-    code: '01',
-    track: 'Frontend Engineering',
-    role: 'Senior React Engineer',
-    question:
-      'Your analytics table lags rendering 8,000 rows with live WebSocket ticks. How do you keep interactions under 16ms?',
-    candidateTranscript:
-      'I virtualize the viewport with TanStack Virtual so only ~28 DOM nodes mount at once. Incoming WebSocket messages buffer inside a mutable ref and flush at 100ms intervals via requestAnimationFrame.',
-    metrics: [
-      { label: 'Technical Depth', score: '9.4', bar: 94, accent: '#C7F36B' },
-      { label: 'Answer Clarity', score: '9.1', bar: 91, accent: '#FF6B35' },
-    ],
-    signals: ['Virtualization', 'rAF Batching', 'Zero Blocking'],
-  },
-  {
-    id: 'backend',
-    code: '02',
-    track: 'Backend Systems',
-    role: 'Distributed Systems Engineer',
-    question:
-      'A client retries POST /checkout after a network timeout. How do you guarantee the customer is never charged twice?',
-    candidateTranscript:
-      'Require an Idempotency-Key UUID header. Acquire an atomic SETNX lock in Redis with a 24-hour TTL and commit an idempotency record inside the database transaction before calling Stripe.',
-    metrics: [
-      { label: 'Technical Depth', score: '9.6', bar: 96, accent: '#C7F36B' },
-      { label: 'Answer Clarity', score: '9.3', bar: 93, accent: '#FF6B35' },
-    ],
-    signals: ['Idempotency-Key', 'Redis SETNX', 'Transactional Ledger'],
-  },
-  {
-    id: 'behavioral',
-    code: '03',
-    track: 'Behavioral & Project',
-    role: 'Software Engineer',
-    question:
-      'On your resume, you reduced p99 latency by 45%. Which query caused the bottleneck, and how did you verify the fix?',
-    candidateTranscript:
-      'pg_stat_statements showed an unindexed JSONB filter scanning 1.4M rows. I created a partial B-tree composite index on status and tenant_id, dropping query time from 620ms to 11ms under k6 load tests.',
-    metrics: [
-      { label: 'Technical Depth', score: '9.2', bar: 92, accent: '#C7F36B' },
-      { label: 'Answer Clarity', score: '9.5', bar: 95, accent: '#FF6B35' },
-    ],
-    signals: ['pg_stat_statements', 'Partial Index', 'k6 Benchmark'],
-  },
+// ─── Content ─────────────────────────────────────────────────────────────────
+const NAV = [
+  { label: 'Capabilities', target: 'capabilities' },
+  { label: 'Tracks', target: 'tracks' },
+  { label: 'How it works', target: 'how-it-works' },
+  { label: 'Report', target: 'report' },
+  { label: 'FAQ', target: 'faq' },
 ];
 
-// ─── Phase 3: Capabilities Strip (Compact, Refined Copy) ─────────────────────
-const capabilitiesStrip = [
-  {
-    num: '01',
-    title: 'VOICE INTERVIEWS',
-    desc: 'Speak naturally.',
-  },
-  {
-    num: '02',
-    title: 'RESUME MATCHING',
-    desc: 'Find skill gaps.',
-  },
-  {
-    num: '03',
-    title: 'TECHNICAL QUESTIONS',
-    desc: 'Test your knowledge.',
-  },
-  {
-    num: '04',
-    title: 'AI FEEDBACK',
-    desc: 'Improve every answer.',
-  },
+const arcTopics = [
+  'React 19', 'Redis Streams', 'CAP theorem', 'STAR stories', 'Idempotency', 'B-tree indexes', 'Rate limiting',
+  'Graph cycles', 'Hooks', 'Kafka', 'Sharding', 'Big-O', 'Next.js', 'Webhooks', 'Caching', 'Resume defense',
+  'PostgreSQL', 'Concurrency', 'Dynamic programming', 'Load balancing', 'OAuth', 'Leadership', 'TypeScript', 'Docker',
 ];
 
-// ─── Phase 4: How It Works Steps ─────────────────────────────────────────────
-const howItWorksMoves = [
-  {
-    num: '01',
-    title: 'CHOOSE YOUR ROLE',
-    desc: "Pick the interview you're preparing for.",
-    detail: 'Frontend, Backend, System Design, or custom JD.',
-  },
-  {
-    num: '02',
-    title: 'ANSWER OUT LOUD',
-    desc: 'Face questions from Shristi AI.',
-    detail: 'Real-time voice transcription with adaptive probes.',
-  },
-  {
-    num: '03',
-    title: 'GET YOUR BREAKDOWN',
-    desc: 'Understand what worked and what needs improvement.',
-    detail: 'Scorecards, missed concepts, and model answers.',
-  },
+const capabilities = [
+  { icon: Mic, title: 'Voice interviews', desc: 'Speak naturally. Shristi listens and probes.' },
+  { icon: FileText, title: 'Resume matching', desc: 'Find the gaps between you and the job.' },
+  { icon: ListChecks, title: 'Timed MCQs', desc: '10–30 questions, 90 seconds each.' },
+  { icon: Sparkles, title: 'AI feedback', desc: 'A rubric score on every single answer.' },
 ];
 
-// ─── Phase 5: Interview Experience Modes ─────────────────────────────────────
-const experienceModes = [
-  {
-    id: 'voice',
-    num: '01',
-    title: 'TALK TO SHRISTI',
-    tagline: 'Answer interview questions out loud.',
-    badge: 'VOICE ROOM • LIVE AUDIO',
-    orbState: 'speaking',
-    question:
-      '“You listed Redis Pub/Sub on your resume. What happens to in-flight orders if a worker node crashes mid-processing?”',
-    transcript:
-      '“Standard Pub/Sub is fire-and-forget. We migrated to Redis Streams with consumer groups and explicit XACK acknowledgments so surviving workers claim and replay pending messages.”',
-    verdict: 'Optimal Recovery Pattern',
-    score: '9.3 / 10',
-    feedback:
-      'Identified at-most-once limitation of Pub/Sub and explained stream consumer groups.',
-  },
-  {
-    id: 'resume',
-    num: '02',
-    title: 'MATCH YOUR RESUME',
-    tagline: 'See how your experience fits a role.',
-    badge: 'RESUME PARSER • ATS MATCH',
-    orbState: 'evaluating',
-    question:
-      '“The job description requires distributed rate-limiting, which is missing from your resume. How would you design one?”',
-    transcript:
-      '“I would implement a sliding-window counter in Redis with an atomic Lua script, backed by an in-memory token bucket at the API gateway to absorb burst spikes.”',
-    verdict: 'Gap Defended Live',
-    score: '9.1 / 10',
-    feedback:
-      'Verbal explanation demonstrated practical knowledge despite the missing resume keyword.',
-  },
-  {
-    id: 'skills',
-    num: '03',
-    title: 'TEST YOUR SKILLS',
-    tagline: 'Practice technical questions under time limits.',
-    badge: '90s TIMER • TECHNICAL DRILL',
-    orbState: 'listening',
-    question:
-      '“In PostgreSQL Read Committed isolation, two concurrent updates hit the same row. How do you prevent lost updates?”',
-    transcript:
-      '“Use SELECT ... FOR UPDATE row-level locking, or an atomic UPDATE ... WHERE balance >= amount statement.”',
-    verdict: 'Optimal Concurrency',
-    score: '9.6 / 10',
-    feedback:
-      'Correctly cited both row-level pessimistic locking and single-statement atomic updates.',
-  },
-];
+const trackCategories = ['Popular', 'Frontend', 'Backend', 'System design', 'Behavioral', 'Freshers'];
 
-// ─── Phase 6: Practice Tracks (5 Supported Disciplines) ───────────────────────
 const practiceTracks = [
   {
-    num: '01',
-    title: 'Frontend Engineering',
+    title: 'Frontend Engineer',
     route: '/mock-interview-for-react-developers',
+    cats: ['Popular', 'Frontend'],
+    badge: { label: 'Trending', icon: TrendingUp },
     question: 'How does React 19 prioritize urgent input over heavy transitions?',
-    topics: ['React 19', 'Hooks Architecture', 'Performance', 'Next.js'],
+    topics: ['React 19', 'Hooks', 'Perf'],
+    wash: 'from-[#E6F4EA] via-[#F4FBF6] to-white',
+    orb: 'speaking',
   },
   {
-    num: '02',
-    title: 'Backend Engineering',
+    title: 'Backend Engineer',
     route: '/live-interview',
-    question: 'How do you design an idempotent webhook receiver for Stripe retries?',
-    topics: ['Node.js', 'PostgreSQL', 'Redis Locks', 'API Security'],
+    cats: ['Popular', 'Backend'],
+    badge: { label: 'Hot', icon: Flame },
+    question: 'Design an idempotent webhook receiver for Stripe retries.',
+    topics: ['Node.js', 'Postgres', 'Redis'],
+    wash: 'from-[#E6F0FB] via-[#F3F8FE] to-white',
+    orb: 'listening',
   },
   {
-    num: '03',
-    title: 'Data Structures and Algorithms',
-    route: '/mock-interview-for-freshers',
-    question: 'How do you detect a cycle in a directed graph and print the path?',
-    topics: ['Big-O Analysis', 'Graphs & Trees', 'Dynamic Programming', 'MCQs'],
-  },
-  {
-    num: '04',
     title: 'System Design',
     route: '/system-design-mock-interview',
-    question: 'Design a multi-region rate limiter handling 1,000,000 RPS sub-5ms.',
-    topics: ['Capacity Math', 'Distributed Caching', 'Partitioning', 'CAP Theorem'],
+    cats: ['Popular', 'System design'],
+    question: 'Design a multi-region rate limiter at 1M RPS, sub-5ms.',
+    topics: ['Capacity', 'Caching', 'CAP'],
+    wash: 'from-[#FFF6D6] via-[#FFFBEF] to-white',
+    orb: 'thinking',
   },
   {
-    num: '05',
-    title: 'HR and Behavioral',
+    title: 'DSA & Freshers',
+    route: '/mock-interview-for-freshers',
+    cats: ['Freshers', 'Backend'],
+    question: 'Detect a cycle in a directed graph and print the path.',
+    topics: ['Graphs', 'DP', 'Big-O'],
+    wash: 'from-[#ECF7E3] via-[#F6FBF1] to-white',
+    orb: 'evaluating',
+  },
+  {
+    title: 'HR & Behavioral',
     route: '/resume-based-interview-questions',
-    question: 'Tell me about a production outage you caused. How did you resolve it?',
-    topics: ['STAR Stories', 'Resume Defense', 'Leadership', 'Conflict'],
+    cats: ['Popular', 'Behavioral'],
+    question: 'Tell me about a production outage you caused.',
+    topics: ['STAR', 'Resume', 'Conflict'],
+    wash: 'from-[#FDE7DC] via-[#FEF4EE] to-white',
+    orb: 'idle',
   },
 ];
 
-// ─── Phase 7: Performance Report Data (Asymmetric Hierarchy) ─────────────────
+const steps = [
+  { title: 'Pick your role.', body: 'Frontend, backend, system design — or paste any job description.', mock: 'role' },
+  { title: 'Answer out loud.', body: 'Shristi asks, listens, and follows up on what you skipped.', mock: 'voice' },
+  { title: 'Get coached along the way.', body: 'What worked, what to fix, and a model answer to compare.', mock: 'coach' },
+  { title: 'Watch your readiness climb.', body: 'Every session feeds one honest score across topics.', mock: 'progress' },
+];
+
 const performanceReports = [
   {
     id: 'r1',
-    code: 'REPORT 01',
+    code: 'Frontend',
     role: 'Frontend Engineering',
     question: 'How does React 19 concurrent rendering prioritize urgent user input?',
-    overallScore: '92',
-    depth: '9.4 / 10',
-    clarity: '9.1 / 10',
+    overallScore: 92,
+    depth: '9.4',
+    clarity: '9.1',
     whatWorked: 'Distinguished SyncLane urgent updates from interruptible TransitionLane work.',
     whatToImprove: 'Mention lane expiration timestamps to prevent continuous input starvation.',
-    modelUpgrade: 'To make this Staff-level, add that expired lanes are automatically escalated to synchronous execution.',
   },
   {
     id: 'r2',
-    code: 'REPORT 02',
+    code: 'Backend',
     role: 'Backend Engineering',
     question: 'When does a composite B-tree index hurt database throughput?',
-    overallScore: '89',
-    depth: '8.9 / 10',
-    clarity: '9.0 / 10',
+    overallScore: 89,
+    depth: '8.9',
+    clarity: '9.0',
     whatWorked: 'Accurately cited PostgreSQL Heap-Only Tuple (HOT) update invalidation.',
     whatToImprove: 'Consider partial indexes (WHERE clause) to keep the index compact.',
-    modelUpgrade: 'Recommend partial indexes on active states (e.g. status = "pending") to reduce write volume by 80%.',
   },
   {
     id: 'r3',
-    code: 'REPORT 03',
+    code: 'System design',
     role: 'System Design',
     question: 'How do you recover if a payment call succeeds but the local DB fails?',
-    overallScore: '94',
-    depth: '9.5 / 10',
-    clarity: '9.2 / 10',
+    overallScore: 94,
+    depth: '9.5',
+    clarity: '9.2',
     whatWorked: 'Combined the Transactional Outbox pattern with asynchronous webhook replay.',
     whatToImprove: 'State the reconciliation retry interval and exponential backoff ceiling.',
-    modelUpgrade: 'Recording the state transition intent prior to external RPCs guarantees eventual consistency.',
   },
 ];
 
-// ─── Phase 8: Editorial FAQ Items ────────────────────────────────────────────
 const faqs = [
   {
     q: 'How does the AI voice interview work?',
@@ -272,1434 +155,650 @@ const faqs = [
   },
 ];
 
-// ─── Audio Waveform Visual ───────────────────────────────────────────────────
-const WaveformBar = ({ active = true }) => {
-  const heights = [30, 60, 40, 85, 95, 50, 70, 90, 40, 75, 100, 60, 45, 85, 65, 40, 80, 55, 90, 45, 65, 35, 70, 45];
+// ─── Small pieces ────────────────────────────────────────────────────────────
+const Waveform = ({ bars = 18, className, color = '#1D9E4B' }) => {
+  const heights = [30, 60, 40, 85, 95, 50, 70, 90, 40, 75, 100, 60, 45, 85, 65, 40, 80, 55, 90, 45];
   return (
-    <div className="flex items-center gap-[3px] h-6 px-1" aria-label="Live audio frequency">
-      {heights.map((h, i) => (
+    <div className={cn('flex items-center gap-[3px] h-6', className)} aria-hidden="true">
+      {heights.slice(0, bars).map((h, i) => (
         <motion.span
           key={i}
-          animate={
-            active
-              ? {
-                  height: [`${Math.max(20, h * 0.4)}%`, `${h}%`, `${Math.max(25, h * 0.55)}%`],
-                }
-              : { height: '24%' }
-          }
-          transition={{
-            repeat: Infinity,
-            duration: 0.85 + (i % 4) * 0.15,
-            ease: 'easeInOut',
-          }}
-          className="w-[2.5px] rounded-full"
-          style={{
-            backgroundColor: i % 4 === 0 ? '#C7F36B' : i % 2 === 0 ? '#FF6B35' : '#FFFFFF',
-            opacity: active ? 0.9 : 0.35,
-          }}
+          animate={{ height: [`${Math.max(18, h * 0.4)}%`, `${h}%`, `${Math.max(22, h * 0.55)}%`] }}
+          transition={{ repeat: Infinity, duration: 0.85 + (i % 4) * 0.15, ease: 'easeInOut' }}
+          className="w-[3px] rounded-full"
+          style={{ backgroundColor: color, opacity: 0.35 + (i % 3) * 0.25 }}
         />
       ))}
     </div>
   );
 };
 
+/** White product window with a hairline ring — used for the timeline mocks. */
+const Window = ({ title, children, className }) => (
+  <div className={cn('rounded-[22px] bg-bg-surface shadow-lg overflow-hidden', className)}>
+    <div className="flex items-center gap-2 px-4 h-10 border-b border-line">
+      <span className="size-2.5 rounded-full bg-[rgba(15,15,15,0.12)]" />
+      <span className="size-2.5 rounded-full bg-[rgba(15,15,15,0.12)]" />
+      <span className="size-2.5 rounded-full bg-[rgba(15,15,15,0.12)]" />
+      <span className="ml-2 font-mono text-[11px] text-text-muted">{title}</span>
+    </div>
+    <div className="p-5 sm:p-6">{children}</div>
+  </div>
+);
+
+const StepMock = ({ kind }) => {
+  if (kind === 'role')
+    return (
+      <Window title="evalix / new session">
+        <p className="text-sm text-text-muted mb-3">Target role</p>
+        <div className="key w-full justify-start !h-12 text-text-secondary">Senior Frontend Engineer</div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {['Frontend', 'Backend', 'System design', 'Behavioral', 'Freshers'].map((c, i) => (
+            <span key={c} className={cn('h-9 px-3.5 inline-flex items-center rounded-full text-[13px]', i === 0 ? 'bg-peach text-[#167A3A]' : 'bg-bg-elevated text-text-secondary')}>
+              {c}
+            </span>
+          ))}
+        </div>
+        <div className="mt-5 flex items-center justify-between">
+          <span className="text-sm text-text-muted">Questions</span>
+          <div className="flex gap-1 p-1 rounded-[14px] bg-bg-elevated">
+            {[3, 5, 8, 10].map((n) => (
+              <span key={n} className={cn('h-8 w-10 inline-flex items-center justify-center rounded-[10px] text-sm', n === 5 ? 'bg-bg-surface shadow-[var(--shadow-key)]' : 'text-text-muted')}>{n}</span>
+            ))}
+          </div>
+        </div>
+      </Window>
+    );
+  if (kind === 'voice')
+    return (
+      <Window title="evalix / voice room">
+        <div className="flex items-center gap-4">
+          <EvalixOrb state="speaking" size="md" />
+          <p className="font-display text-lg leading-snug tracking-[-0.025em]">
+            “Your table lags with 8,000 live rows. How do you keep input under 16ms?”
+          </p>
+        </div>
+        <div className="mt-5 rounded-[16px] bg-bg-elevated p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-[#167A3A] inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-[#36C267] animate-pulse" /> Listening</span>
+            <Waveform bars={14} className="h-5" />
+          </div>
+          <p className="text-sm text-text-secondary leading-relaxed">“I virtualize the viewport so only ~28 rows mount, and batch socket ticks into one rAF flush…”</p>
+        </div>
+      </Window>
+    );
+  if (kind === 'coach')
+    return (
+      <Window title="evalix / feedback">
+        <div className="grid gap-3">
+          <div className="rounded-[16px] bg-peach p-4">
+            <p className="text-xs text-[#167A3A] mb-1 inline-flex items-center gap-1.5"><Check className="size-3.5" /> What worked</p>
+            <p className="text-sm leading-relaxed">Clear split between urgent and transition updates.</p>
+          </div>
+          <div className="rounded-[16px] bg-butter p-4">
+            <p className="text-xs text-[#8A6400] mb-1">Δ Fix next time</p>
+            <p className="text-sm leading-relaxed">Mention lane expiration to prevent input starvation.</p>
+          </div>
+          <div className="rounded-[16px] bg-sky p-4">
+            <p className="text-xs text-[#1D6FB8] mb-1">Model answer</p>
+            <p className="serif text-[17px] leading-snug">“Expired lanes are escalated to synchronous work…”</p>
+          </div>
+        </div>
+      </Window>
+    );
+  return (
+    <Window title="evalix / readiness">
+      <div className="flex items-center gap-6">
+        <ScoreRing value={84} size={104} stroke={8} color="#1D9E4B">
+          <span className="font-display text-3xl tracking-[-0.05em]">84</span>
+        </ScoreRing>
+        <svg viewBox="0 0 200 80" className="flex-1 h-20" aria-hidden="true">
+          <defs>
+            <linearGradient id="spark" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#36C267" stopOpacity="0.35" />
+              <stop offset="1" stopColor="#36C267" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d="M0 64 L33 52 L66 56 L100 38 L133 30 L166 22 L200 10 L200 80 L0 80 Z" fill="url(#spark)" />
+          <path d="M0 64 L33 52 L66 56 L100 38 L133 30 L166 22 L200 10" fill="none" stroke="#1D9E4B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <div className="mt-5 space-y-2.5">
+        {[['System design', 72], ['React', 91], ['Databases', 68]].map(([t, v]) => (
+          <div key={t} className="flex items-center gap-3 text-sm">
+            <span className="w-28 text-text-secondary">{t}</span>
+            <span className="flex-1 h-1.5 rounded-full bg-bg-elevated overflow-hidden"><span className="block h-full rounded-full bg-[#1D9E4B]" style={{ width: `${v}%` }} /></span>
+            <span className="w-8 text-right tabular-nums">{v}</span>
+          </div>
+        ))}
+      </div>
+    </Window>
+  );
+};
+
+/** Arc of topic chips that slowly rotates with scroll (reference: company-logo arc). */
+const TopicArc = () => {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
+  const rot = useTransform(scrollYProgress, [0, 1], [-8, 8]);
+  const R = 900;
+  return (
+    <div ref={ref} className="relative h-[300px] sm:h-[340px] overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_12%,#000_88%,transparent)]">
+      <motion.div className="absolute left-1/2 top-[110px]" style={{ rotate: rot }}>
+        {arcTopics.map((t, i) => {
+          const a = ((i - (arcTopics.length - 1) / 2) * 5.2 * Math.PI) / 180;
+          const x = Math.sin(a) * R;
+          const y = R - Math.cos(a) * R;
+          return (
+            <span
+              key={t}
+              className="absolute whitespace-nowrap rounded-full bg-white/80 px-4 py-2 text-[15px] text-[#1C4839] backdrop-blur-sm shadow-[inset_0_-3px_0_rgba(0,0,0,0.05),0_10px_20px_-14px_rgba(28,72,57,0.5)]"
+              style={{ transform: `translate(-50%, 0) translate(${x}px, ${y + (i % 2) * 64}px) rotate(${(a * 180) / Math.PI}deg)` }}
+            >
+              {t}
+            </span>
+          );
+        })}
+      </motion.div>
+    </div>
+  );
+};
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 const Landing = () => {
-  const containerRef = useRef(null);
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [heroIdx, setHeroIdx] = useState(0);
-  const [modeIdx, setModeIdx] = useState(0);
-  const [hoverTrackIdx, setHoverTrackIdx] = useState(0);
-  const [reportIdx, setReportIdx] = useState(0);
-  const [openFaq, setOpenFaq] = useState(0);
+  useSmoothScroll();
   const { theme, toggleTheme } = useTheme();
+  const [cat, setCat] = useState('Popular');
+  const [reportIdx, setReportIdx] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+  const [greeted, setGreeted] = useState(false);
 
-  // Optimized scroll elevation listener
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ─── GSAP & ScrollTrigger Scoped Animations ─────────────────────────────────
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      const mm = gsap.matchMedia();
+  const heroRef = useRef(null);
+  const { scrollYProgress: heroP } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const sceneY = useTransform(heroP, [0, 1], ['0%', '18%']);
+  const titleY = useTransform(heroP, [0, 1], ['0%', '-40%']);
+  const titleO = useTransform(heroP, [0, 0.7], [1, 0]);
 
-      // Reduced motion bypass
-      mm.add('(prefers-reduced-motion: reduce)', () => {
-        gsap.set(
-          [
-            '.hero-eyebrow',
-            '.hero-line-inner',
-            '.hero-subtext',
-            '.hero-cta-btn',
-            '.hero-preview-frame',
-            '.capability-col',
-            '.how-it-works-head',
-            '.move-item',
-            '.experience-head',
-            '.experience-tab-btn',
-            '.experience-stage-card',
-            '.tracks-head',
-            '.track-row',
-            '.report-head',
-            '.report-card-container',
-            '.faq-head',
-            '.faq-row',
-            '.footer-cta-head',
-            '.footer-col',
-          ],
-          { opacity: 1, x: 0, y: 0, clearProps: 'all' }
-        );
-      });
-
-      // Desktop & Tablet Animation Suite (>= 768px)
-      mm.add('(min-width: 768px) and (prefers-reduced-motion: no-preference)', () => {
-        // Hero Reveal Timeline
-        const heroTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-        heroTl
-          .from('.hero-eyebrow', { opacity: 0, y: -8, duration: 0.4 })
-          .from(
-            '.hero-line-inner',
-            {
-              yPercent: 110,
-              duration: 0.85,
-              stagger: 0.12,
-              ease: 'power4.out',
-            },
-            '-=0.2'
-          )
-          .from(
-            '.hero-accent-word',
-            {
-              scale: 0.92,
-              opacity: 0,
-              duration: 0.5,
-              ease: 'power2.out',
-            },
-            '-=0.45'
-          )
-          .from('.hero-subtext', { opacity: 0, y: 14, duration: 0.5 }, '-=0.35')
-          .from(
-            '.hero-cta-btn',
-            {
-              opacity: 0,
-              y: 12,
-              stagger: 0.08,
-              duration: 0.45,
-            },
-            '-=0.3'
-          )
-          .from(
-            '.hero-preview-frame',
-            {
-              opacity: 0,
-              y: 28,
-              duration: 0.7,
-              ease: 'power3.out',
-            },
-            '-=0.45'
-          );
-
-        // Capabilities Stagger
-        gsap.from('.capability-col', {
-          scrollTrigger: {
-            trigger: '#capabilities',
-            start: 'top 85%',
-            toggleActions: 'play none none reverse',
-          },
-          opacity: 0,
-          y: 18,
-          duration: 0.5,
-          stagger: 0.08,
-          ease: 'power2.out',
-        });
-
-        // How It Works: Connected timeline
-        const movesTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#how-it-works',
-            start: 'top 80%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power3.out' },
-        });
-
-        movesTl
-          .from('.how-it-works-head', { opacity: 0, y: 18, duration: 0.55 })
-          .from(
-            '.timeline-connector-bar',
-            { scaleX: 0, transformOrigin: 'left center', duration: 0.6, ease: 'power2.inOut' },
-            '-=0.2'
-          )
-          .from(
-            '.move-item',
-            {
-              opacity: 0,
-              y: 20,
-              stagger: 0.12,
-              duration: 0.6,
-            },
-            '-=0.3'
-          );
-
-        // Experience (Live Simulator)
-        const expTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#experience',
-            start: 'top 75%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power3.out' },
-        });
-
-        expTl
-          .from('.experience-head', { opacity: 0, y: 18, duration: 0.55 })
-          .from(
-            '.experience-tab-btn',
-            {
-              opacity: 0,
-              x: -14,
-              stagger: 0.08,
-              duration: 0.45,
-            },
-            '-=0.25'
-          )
-          .from(
-            '.experience-stage-card',
-            {
-              opacity: 0,
-              y: 24,
-              duration: 0.65,
-            },
-            '-=0.35'
-          );
-
-        // Practice Tracks
-        const tracksTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#tracks',
-            start: 'top 80%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power2.out' },
-        });
-
-        tracksTl
-          .from('.tracks-head', { opacity: 0, y: 18, duration: 0.55 })
-          .from(
-            '.track-row',
-            {
-              opacity: 0,
-              y: 16,
-              stagger: 0.07,
-              duration: 0.45,
-            },
-            '-=0.25'
-          );
-
-        // Report Scorecard
-        const reportTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#report',
-            start: 'top 80%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power3.out' },
-        });
-
-        reportTl
-          .from('.report-head', { opacity: 0, y: 18, duration: 0.55 })
-          .from(
-            '.report-card-container',
-            {
-              opacity: 0,
-              y: 22,
-              duration: 0.6,
-            },
-            '-=0.3'
-          );
-
-        // FAQ Section
-        const faqTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#faq',
-            start: 'top 82%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power2.out' },
-        });
-
-        faqTl
-          .from('.faq-head', { opacity: 0, y: 18, duration: 0.5 })
-          .from('.faq-row', { opacity: 0, y: 14, stagger: 0.08, duration: 0.45 }, '-=0.25');
-
-        // Warm Cream Footer Entrance
-        const footerTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: '#footer',
-            start: 'top 85%',
-            toggleActions: 'play none none reverse',
-          },
-          defaults: { ease: 'power3.out' },
-        });
-
-        footerTl
-          .from('.footer-cta-head', { opacity: 0, y: 18, duration: 0.55 })
-          .from('.footer-col', { opacity: 0, y: 14, stagger: 0.08, duration: 0.5 }, '-=0.3');
-      });
-
-      // Mobile Responsive Suite (< 768px)
-      mm.add('(max-width: 767px) and (prefers-reduced-motion: no-preference)', () => {
-        gsap.from('.hero-line-inner', {
-          yPercent: 100,
-          duration: 0.65,
-          stagger: 0.09,
-          ease: 'power3.out',
-        });
-        gsap.from('.hero-preview-frame', {
-          opacity: 0,
-          y: 18,
-          duration: 0.55,
-          delay: 0.2,
-        });
-
-        ['#capabilities', '#how-it-works', '#experience', '#tracks', '#report', '#faq', '#footer'].forEach(
-          (id) => {
-            gsap.from(id, {
-              scrollTrigger: {
-                trigger: id,
-                start: 'top 88%',
-                toggleActions: 'play none none reverse',
-              },
-              opacity: 0,
-              y: 16,
-              duration: 0.5,
-              ease: 'power2.out',
-            });
-          }
-        );
-      });
-    }, containerRef);
-
-    return () => ctx.revert();
-  }, []);
-
-  // Smooth anchor navigation offset for sticky header
-  const scrollToSection = (id) => {
-    setMobileMenuOpen(false);
-    const element = document.getElementById(id);
-    if (element) {
-      const navHeight = 72;
-      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-      window.scrollTo({
-        top: elementPosition - navHeight,
-        behavior: 'smooth',
-      });
-    }
-  };
-
-  const currentHero = heroSessions[heroIdx];
-  const currentMode = experienceModes[modeIdx];
-  const currentReport = performanceReports[reportIdx];
+  const tracks = practiceTracks.filter((t) => t.cats.includes(cat));
+  const report = performanceReports[reportIdx];
 
   return (
-    <div
-      ref={containerRef}
-      className="min-h-screen bg-bg-canvas text-text-primary font-body selection:bg-[#FF6B35] selection:text-white overflow-x-clip"
-    >
+    <div className="min-h-screen bg-bg-canvas text-text-primary font-body overflow-x-clip">
       <SEOHead
         title="Evalix — Practice Technical & Voice Interviews with AI"
         description="Practice AI voice mock interviews, scan your PDF resume against job descriptions, and take timed technical MCQ assessments."
         canonicalUrl="https://interview-ai-ten-psi.vercel.app/"
       />
+      <a href="#how-it-works" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[90] key key--sm">
+        Skip to how it works
+      </a>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          PHASE 1 — NAVBAR (Refined Editorial Header, Generous Link Spacing)
-         ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ═══ Top corner marks (no navbar — navigation lives in the dock) ═══ */}
       <header
-        className={`sticky top-0 z-50 w-full transition-colors duration-200 border-b border-border-subtle ${
-          scrolled ? 'bg-bg-canvas/95 backdrop-blur-md shadow-xs' : 'bg-bg-canvas'
-        }`}
+        className={cn(
+          'fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 sm:px-8 h-[72px] transition-[background,backdrop-filter] duration-500',
+          scrolled && 'bg-bg-canvas/70 backdrop-blur-xl'
+        )}
       >
-        <div
-          className={`max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12 flex items-center justify-between transition-all duration-200 ${
-            scrolled ? 'h-16' : 'h-20'
-          }`}
-        >
-          {/* Left: Brand */}
-          <div className="flex items-baseline gap-2.5">
-            <Link
-              to="/"
-              className="text-2xl font-display font-bold tracking-[-0.04em] text-text-primary hover:text-[#FF6B35] transition-colors"
-            >
-              Evalix
-            </Link>
-            <span className="hidden sm:inline-block font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-              STUDIO
-            </span>
-          </div>
-
-          {/* Center: Primary Links with Generous Spacing */}
-          <nav aria-label="Primary Navigation" className="hidden lg:flex items-center gap-9">
-            {[
-              { label: 'Capabilities', target: 'capabilities', num: '01' },
-              { label: 'How It Works', target: 'how-it-works', num: '02' },
-              { label: 'Experience', target: 'experience', num: '03' },
-              { label: 'Tracks', target: 'tracks', num: '04' },
-              { label: 'Report', target: 'report', num: '05' },
-              { label: 'FAQ', target: 'faq', num: '06' },
-            ].map((item) => (
-              <button
-                key={item.target}
-                type="button"
-                onClick={() => scrollToSection(item.target)}
-                className="group inline-flex items-baseline gap-1.5 py-2 text-sm font-display font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-              >
-                <span className="font-mono text-[10px] text-text-muted group-hover:text-[#FF6B35] transition-colors">
-                  {item.num}
-                </span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* Right: Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="inline-flex items-center justify-center min-w-[40px] min-h-[40px] border border-border-subtle bg-bg-surface/60 text-text-secondary hover:text-text-primary hover:border-text-primary transition-colors cursor-pointer"
-              aria-label="Toggle color theme"
-            >
-              {theme === 'light' ? <FiMoon size={15} /> : <FiSun size={15} />}
-            </button>
-
-            <SignedIn>
-              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  to="/dashboard"
-                  className="hidden sm:inline-flex items-center gap-2 px-4.5 min-h-[40px] bg-[#151515] text-[#F4F0E8] dark:bg-[#F4F0E8] dark:text-[#151515] font-display font-semibold text-xs uppercase tracking-[0.12em] hover:bg-[#FF6B35] hover:text-white dark:hover:bg-[#FF6B35] dark:hover:text-white transition-colors"
-                >
-                  <span>Dashboard</span>
-                  <FiArrowUpRight size={14} />
-                </Link>
-              </motion.div>
-              <div className="pl-1 flex items-center">
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </SignedIn>
-
-            <SignedOut>
-              <Link
-                to="/login"
-                className="hidden sm:inline-flex items-center px-3 min-h-[40px] text-xs font-mono uppercase tracking-[0.12em] text-text-secondary hover:text-text-primary transition-colors"
-              >
-                Sign In
-              </Link>
-              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-                <Link
-                  to="/register"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-4.5 min-h-[40px] bg-[#151515] text-[#F4F0E8] dark:bg-[#FF6B35] dark:text-white font-display font-semibold text-xs uppercase tracking-[0.12em] hover:bg-[#FF6B35] hover:text-white transition-colors"
-                >
-                  <span>Start Interview</span>
-                  <FiArrowUpRight size={14} />
-                </Link>
-              </motion.div>
-            </SignedOut>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden inline-flex items-center justify-center min-w-[42px] min-h-[42px] border border-border-subtle bg-bg-surface text-text-primary cursor-pointer"
-              aria-label="Toggle navigation menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <FiX size={18} /> : <FiMenu size={18} />}
-            </button>
-          </div>
+        <Link to="/" className="flex items-center gap-2" aria-label="Evalix home">
+          <EvalixMark size={26} />
+          <span className="font-display text-[21px] tracking-[-0.05em]">Evalix</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <XPPill className="hidden sm:inline-flex" />
+          <button type="button" onClick={toggleTheme} aria-label="Toggle color theme" className="key key--sm key--icon !w-10">
+            {theme === 'light' ? <Moon className="size-4" /> : <Sun className="size-4" />}
+          </button>
+          <SignedOut>
+            <Link to="/login" className="key key--sm">Sign in</Link>
+          </SignedOut>
+          <SignedIn>
+            <Link to="/dashboard" className="key key--sm hidden sm:inline-flex">Dashboard</Link>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
-
-        {/* Mobile Drawer */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.22, ease: 'easeInOut' }}
-              className="lg:hidden border-t border-border-subtle bg-bg-canvas overflow-hidden"
-            >
-              <div className="max-w-[1380px] mx-auto px-5 py-5 divide-y divide-border-subtle">
-                <div className="pb-3 space-y-1">
-                  {[
-                    { label: 'Capabilities', target: 'capabilities', num: '01' },
-                    { label: 'How It Works', target: 'how-it-works', num: '02' },
-                    { label: 'Experience', target: 'experience', num: '03' },
-                    { label: 'Tracks', target: 'tracks', num: '04' },
-                    { label: 'Report', target: 'report', num: '05' },
-                    { label: 'FAQ', target: 'faq', num: '06' },
-                  ].map((item) => (
-                    <button
-                      key={item.target}
-                      type="button"
-                      onClick={() => scrollToSection(item.target)}
-                      className="w-full py-2 flex items-baseline justify-between text-left font-display text-base font-bold text-text-primary hover:text-[#FF6B35] transition-colors cursor-pointer"
-                    >
-                      <span>{item.label}</span>
-                      <span className="font-mono text-xs text-text-muted">{item.num}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="pt-4 flex flex-col sm:flex-row gap-2.5">
-                  <SignedIn>
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 bg-[#151515] text-[#F4F0E8] font-display font-semibold text-xs uppercase tracking-[0.14em]"
-                    >
-                      <span>Open Dashboard</span>
-                      <FiArrowRight size={14} />
-                    </Link>
-                  </SignedIn>
-                  <SignedOut>
-                    <Link
-                      to="/register"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 bg-[#FF6B35] text-white font-display font-semibold text-xs uppercase tracking-[0.14em]"
-                    >
-                      <span>Start Interview</span>
-                      <FiArrowRight size={14} />
-                    </Link>
-                    <Link
-                      to="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="w-full min-h-[44px] inline-flex items-center justify-center border border-border-subtle bg-bg-surface text-text-primary font-display font-semibold text-xs uppercase tracking-[0.14em]"
-                    >
-                      Sign In
-                    </Link>
-                  </SignedOut>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
+      <ScrollRuler sections={NAV.map((n) => ({ id: n.target, label: n.label }))} />
+
+      <Dock
+        links={[
+          ...NAV.map((n) => ({ label: n.label, onClick: () => scrollToId(n.target) })),
+          { label: isMotionOff() ? 'Turn motion on' : 'Reduce motion', onClick: toggleMotion },
+        ]}
+        help={
+          <>
+            <p className="font-display text-xl text-text-primary tracking-[-0.03em] mb-2">What is Evalix?</p>
+            Practice technical interviews out loud with Shristi, an AI interviewer. Pick a role, answer by voice or text, and get a
+            rubric score with a model answer for every question. Free to start.
+          </>
+        }
+      />
+
       <main id="main-content">
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 2 — HERO & PRODUCT PREVIEW (Refined Asymmetric Composition)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section id="hero" className="relative pt-8 pb-14 lg:pt-12 lg:pb-20 border-b border-border-subtle">
-          <div className="hero-content-wrap max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            {/* Eyebrow metadata */}
-            <div className="hero-eyebrow flex items-center justify-between pb-5 mb-8 border-b border-border-subtle font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#FF6B35]" />
-                <span>EVALIX STUDIO / AI INTERVIEW EXPERIENCE</span>
-              </div>
-              <span className="hidden sm:inline">VOICE &bull; RESUME &bull; RUBRIC</span>
+        {/* ═══ HERO — fog over an isometric practice campus ═══ */}
+        <section ref={heroRef} id="hero" className="relative h-[100svh] min-h-[720px] flex flex-col items-center justify-center overflow-hidden">
+          <motion.div className="absolute inset-0" style={{ y: sceneY }}>
+            <div className="absolute inset-0 [--iso-scale:0.62] [--iso-y:80%] sm:[--iso-scale:0.9] md:[--iso-scale:1.25] md:[--iso-y:74%]">
+              <IsoScene />
             </div>
+          </motion.div>
 
-            {/* Display Headline */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end mb-10 lg:mb-12">
-              <div className="lg:col-span-8">
-                <h1 className="font-display font-bold uppercase tracking-[-0.045em] text-text-primary text-[clamp(2.9rem,7.2vw,6.8rem)] leading-[0.92]">
-                  <span className="block overflow-hidden pb-1">
-                    <span className="hero-line-inner block">THE INTERVIEW</span>
+          <motion.div style={{ y: titleY, opacity: titleO }} className="relative z-10 -mt-[18vh] px-5 text-center">
+            <h1 className="heading-hero text-text-primary">
+              {[
+                <>The interview is a <span className="serif italic text-[#1D9E4B] tracking-[-0.03em]">skill.</span></>,
+                <>
+                  Train it.
+                  <span className="inline-flex ml-3 sm:ml-4 align-middle -translate-y-[0.1em]">
+                    <Speaker size="md" />
                   </span>
-                  <span className="block overflow-hidden pb-1">
-                    <span className="hero-line-inner block">
-                      IS A{' '}
-                      <span className="hero-accent-word inline-block font-serif-editorial italic font-normal text-[#FF6B35] pr-1">
-                        SKILL.
-                      </span>
-                    </span>
-                  </span>
-                  <span className="block overflow-hidden pb-1">
-                    <span className="hero-line-inner block">TRAIN IT.</span>
-                  </span>
-                </h1>
-              </div>
+                </>,
+              ].map((line, i) => (
+                <span key={i} className="block overflow-hidden pb-[0.08em]">
+                  <motion.span
+                    className="block"
+                    initial={{ y: '105%' }}
+                    animate={{ y: '0%' }}
+                    transition={{ duration: 1.1, ease: EASE_OUT, delay: 0.15 + i * 0.12 }}
+                  >
+                    {line}
+                  </motion.span>
+                </span>
+              ))}
+            </h1>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.55 }}
+              className="mt-6 text-lg text-text-secondary max-w-md mx-auto text-pretty"
+            >
+              Practice out loud with Shristi — an AI interviewer that listens, probes, and scores every answer.
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: EASE_OUT, delay: 0.75 }}
+              className="mt-8 flex flex-col items-center gap-3"
+            >
+              <HoldKey
+                label="Hold to answer"
+                doneLabel="That's the feeling"
+                onComplete={() => {
+                  setGreeted(true);
+                  awardXP('hero-hold', 50, 'You found your voice');
+                }}
+              />
+              <AnimatePresence>
+                {greeted && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6, ease: EASE_OUT }}
+                    className="max-w-xs rounded-[16px] bg-bg-surface px-4 py-3 text-[15px] text-text-secondary shadow-md"
+                  >
+                    <span className="text-text-primary">Shristi:</span> “Nice. Every session starts just like that — now let's make the answer count.”
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </motion.div>
 
-              {/* Supporting Copy & CTAs */}
-              <div className="lg:col-span-4 lg:pb-2 space-y-4">
-                <p className="hero-subtext text-base sm:text-lg text-text-secondary leading-snug">
-                  Practice out loud with AI. Get better with every answer.
-                </p>
+          <motion.button
+            type="button"
+            onClick={() => scrollToId('capabilities')}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="absolute bottom-[120px] z-10 inline-flex items-center gap-2 text-[15px] text-text-secondary cursor-pointer"
+          >
+            <span className="relative inline-flex h-7 w-[18px] justify-center rounded-full ring-[1.5px] ring-[rgba(15,15,15,0.35)]">
+              <motion.span className="mt-1.5 h-1.5 w-[3px] rounded-full bg-text-secondary" animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1.6 }} />
+            </span>
+            Scroll down
+          </motion.button>
+        </section>
 
-                <div className="flex flex-wrap gap-2.5 pt-1">
-                  <SignedIn>
-                    <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} className="hero-cta-btn">
-                      <Link
-                        to="/live-interview"
-                        className="px-6 min-h-[48px] bg-[#FF6B35] text-white font-display font-bold text-xs uppercase tracking-[0.14em] inline-flex items-center gap-2 hover:bg-[#151515] transition-colors"
-                      >
-                        <span>START INTERVIEW</span>
-                        <FiArrowRight size={15} />
-                      </Link>
-                    </motion.div>
-                  </SignedIn>
-                  <SignedOut>
-                    <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} className="hero-cta-btn">
-                      <Link
-                        to="/register"
-                        className="px-6 min-h-[48px] bg-[#FF6B35] text-white font-display font-bold text-xs uppercase tracking-[0.14em] inline-flex items-center gap-2 hover:bg-[#151515] transition-colors"
-                      >
-                        <span>START INTERVIEW</span>
-                        <FiArrowRight size={15} />
-                      </Link>
-                    </motion.div>
-                  </SignedOut>
+        {/* ═══ CAPABILITIES — why.zero-style sky stage ═══ */}
+        <SkyScene id="capabilities">
+          <div className="relative text-center px-5 -mt-10">
+            <p className="font-display text-[clamp(1.4rem,1rem+1.2vw,2rem)] leading-tight tracking-[-0.035em] text-[#1C4839]">
+              Four ways to practice every round. All in one room.
+            </p>
+          </div>
+          <TopicArc />
+          <div className="relative max-w-[1200px] mx-auto px-5 pb-28 sm:pb-36 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {capabilities.map((c, i) => (
+              <motion.div
+                key={c.title}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ duration: 0.8, ease: EASE_OUT, delay: i * 0.06 }}
+                className="rounded-[22px] glass shadow-md p-5 sm:p-6"
+              >
+                <span className="inline-flex size-10 items-center justify-center rounded-[13px] bg-white text-[#1C4839] shadow-[var(--shadow-key)]">
+                  <c.icon className="size-[18px]" />
+                </span>
+                <h3 className="mt-5 font-display text-xl tracking-[-0.03em] text-[#0F0F0F]">{c.title}</h3>
+                <p className="mt-1 text-[15px] text-[#3F4240] leading-snug">{c.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </SkyScene>
 
-                  <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }} className="hero-cta-btn">
-                    <button
-                      type="button"
-                      onClick={() => scrollToSection('tracks')}
-                      className="px-5 min-h-[48px] border border-border-subtle bg-bg-surface text-text-primary font-display font-bold text-xs uppercase tracking-[0.14em] inline-flex items-center gap-1.5 hover:border-text-primary transition-colors cursor-pointer"
-                    >
-                      <span>EXPLORE TRACKS</span>
-                      <span className="font-mono text-[11px]">&darr;</span>
-                    </button>
-                  </motion.div>
-                </div>
-              </div>
-            </div>
+        {/* ═══ TRACKS — carousel with category tabs ═══ */}
+        <section id="tracks" className="py-28 sm:py-36">
+          <Say>We train you for the toughest rounds.</Say>
 
-            {/* Refined Integrated Product Visual (Thin Surrounding Frame, Balanced Contrast) */}
-            <div className="hero-preview-frame border border-border-subtle bg-[#161616] text-[#F4F0E8] shadow-sm">
-              {/* Top Studio Meta Bar */}
-              <div className="px-5 sm:px-6 py-3 border-b border-[#262626] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-[#C7F36B]" />
-                  <span className="font-mono text-xs uppercase tracking-[0.14em] text-white font-semibold">
-                    SHRISTI AI // {currentHero.role}
-                  </span>
-                </div>
-
-                {/* Session Pill Selector */}
-                <div className="flex items-center gap-1.5 font-mono text-xs">
-                  {heroSessions.map((s, idx) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setHeroIdx(idx)}
-                      className={`px-2.5 py-1 text-[11px] uppercase tracking-wider transition-colors cursor-pointer ${
-                        heroIdx === idx
-                          ? 'bg-[#FF6B35] text-white font-bold'
-                          : 'bg-[#222222] text-[#B5AFA6] hover:text-white'
-                      }`}
-                    >
-                      {s.track}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Workspace Content */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentHero.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.18 }}
-                  className="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+          <div className="mt-10 flex justify-center px-4">
+            <div className="flex gap-1 overflow-x-auto no-scrollbar" role="tablist" aria-label="Track categories">
+              {trackCategories.map((c) => (
+                <button
+                  key={c}
+                  role="tab"
+                  type="button"
+                  aria-selected={cat === c}
+                  onClick={() => { setCat(c); awardXP('explore-tracks', 10, 'Explorer — browsing tracks'); }}
+                  className={cn(
+                    'relative shrink-0 h-10 px-4 rounded-full text-[15px] tracking-[-0.01em] transition-colors cursor-pointer',
+                    cat === c ? 'text-text-primary' : 'text-text-muted hover:text-text-primary'
+                  )}
                 >
-                  {/* Left 8 Cols: Prompt & Spoken Transcript */}
-                  <div className="lg:col-span-8 space-y-4">
-                    <div className="p-4 bg-[#1E1E1E] border-l-2 border-[#FF6B35] space-y-1">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#B5AFA6] block">
-                        CURRENT QUESTION
-                      </span>
-                      <p className="font-display font-semibold text-base sm:text-lg text-white leading-snug">
-                        &ldquo;{currentHero.question}&rdquo;
-                      </p>
-                    </div>
+                  {c}
+                  {cat === c && <motion.span layoutId="catLine" className="absolute left-4 right-4 -bottom-0.5 h-[2px] rounded-full bg-text-primary" />}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    <div className="p-4 bg-[#1A1A1A] border border-[#262626] space-y-1.5">
-                      <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
-                        <span className="text-[#C7F36B]">CANDIDATE RESPONSE</span>
-                        <span className="text-[#B5AFA6]">MIC ACTIVE</span>
-                      </div>
-                      <p className="text-sm text-[#E5E0D8] leading-relaxed">
-                        &ldquo;{currentHero.candidateTranscript}&rdquo;
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right 4 Cols: Live Signals & Metrics */}
-                  <div className="lg:col-span-4 p-4 bg-[#1A1A1A] border border-[#262626] space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#262626] pb-2">
-                      <div className="flex items-center gap-2">
-                        <EvalixOrb state="listening" size="sm" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#B5AFA6]">
-                          RUBRIC EVALUATION
+          <div className="mt-10 overflow-x-auto no-scrollbar" data-lenis-prevent-wheel>
+            <div className="flex gap-4 px-5 sm:px-[max(20px,calc((100vw-1240px)/2))] pb-4 w-max">
+              <AnimatePresence mode="popLayout">
+                {tracks.map((t, i) => (
+                  <motion.div
+                    key={t.title}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.5, ease: EASE_OUT, delay: i * 0.05 }}
+                  >
+                    <Link
+                      to={t.route}
+                      className={cn(
+                        'group relative flex h-[440px] w-[290px] sm:w-[320px] flex-col justify-between overflow-hidden rounded-[22px] bg-gradient-to-b p-5 shadow-md transition-transform duration-500 hover:-translate-y-1',
+                        t.wash
+                      )}
+                    >
+                      <div className="flex items-start justify-between">
+                        {t.badge ? (
+                          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-white text-[13px] shadow-[var(--shadow-key)]">
+                            <t.badge.icon className="size-3.5 text-[#1D9E4B]" /> {t.badge.label}
+                          </span>
+                        ) : <span />}
+                        <span className="size-10 rounded-full bg-white/80 inline-flex items-center justify-center transition-transform duration-500 group-hover:rotate-45">
+                          <ArrowUpRight className="size-4" />
                         </span>
                       </div>
-                      <WaveformBar active />
-                    </div>
-
-                    <div className="space-y-3 font-mono text-xs">
-                      {currentHero.metrics.map((m) => (
-                        <div key={m.label} className="space-y-1">
-                          <div className="flex justify-between">
-                            <span className="text-[#B5AFA6]">{m.label}</span>
-                            <span className="text-white font-bold">{m.score}/10</span>
-                          </div>
-                          <div className="h-1 bg-[#262626]">
-                            <div
-                              className="h-full transition-all duration-300"
-                              style={{ width: `${m.bar}%`, backgroundColor: m.accent }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-2 border-t border-[#262626]">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#B5AFA6] block mb-1.5">
-                        DETECTED CONCEPTS
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {currentHero.signals.map((sig) => (
-                          <span
-                            key={sig}
-                            className="px-2 py-0.5 bg-[#222222] border border-[#333333] font-mono text-[10px] text-[#F4F0E8]"
-                          >
-                            {sig}
-                          </span>
-                        ))}
+                      <div className="flex flex-1 items-center justify-center">
+                        <motion.div whileHover={{ scale: 1.06 }} transition={{ type: 'spring', stiffness: 240, damping: 18 }}>
+                          <EvalixOrb state={t.orb} size="xl" />
+                        </motion.div>
                       </div>
-                    </div>
-                  </div>
-                </motion.div>
+                      <div>
+                        <p className="serif italic text-[17px] leading-snug text-text-secondary mb-4">“{t.question}”</p>
+                        <h3 className="font-display text-2xl tracking-[-0.035em]">{t.title}</h3>
+                        <div className="mt-3 flex gap-1.5">
+                          {t.topics.map((tp) => (
+                            <span key={tp} className="h-7 px-2.5 inline-flex items-center rounded-full bg-white/85 text-xs text-text-secondary">{tp}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                ))}
               </AnimatePresence>
             </div>
           </div>
         </section>
 
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 3 — CAPABILITIES STRIP (Compact, 4 Balanced Columns)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section
-          id="capabilities"
-          aria-label="Capabilities"
-          className="bg-bg-elevated/40 border-b border-border-subtle"
-        >
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border-subtle">
-              {capabilitiesStrip.map((item) => (
-                <div
-                  key={item.num}
-                  className="capability-col py-6 sm:px-6 first:sm:pl-0 last:sm:pr-0 space-y-1 group"
-                >
-                  <div className="flex items-center justify-between font-mono text-[11px] text-text-muted">
-                    <span>/{item.num}</span>
-                    <span className="text-[#FF6B35] opacity-0 group-hover:opacity-100 transition-opacity">
-                      &bull;
-                    </span>
-                  </div>
-                  <h2 className="font-display font-bold text-base sm:text-lg tracking-[-0.03em] text-text-primary">
-                    {item.title}
-                  </h2>
-                  <p className="text-sm text-text-secondary leading-snug">
-                    {item.desc}
-                  </p>
+        {/* ═══ HOW IT WORKS — hand-drawn timeline ═══ */}
+        <section id="how-it-works" className="relative py-28 sm:py-36 bg-wall">
+          <Say>Learn the interview by doing it.</Say>
+
+          <div className="relative max-w-[1200px] mx-auto mt-20 px-5">
+            <DrawPath
+              className="absolute left-[38px] sm:left-[58px] top-0 h-full w-[60px] text-text-primary"
+              viewBox="0 0 60 1000"
+              d="M30 0 C 58 140, 4 260, 30 400 S 56 640, 30 760 S 6 900, 30 1000"
+            />
+            <div className="space-y-24 sm:space-y-32">
+              {steps.map((s, i) => (
+                <div key={s.title} className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center pl-16 sm:pl-24">
+                  <span className="absolute left-[26px] sm:left-[46px] top-2 lg:top-1/2 lg:-translate-y-1/2 size-6 rounded-full bg-bg-surface ring-1 ring-line shadow-sm flex items-center justify-center">
+                    <span className="size-2 rounded-full bg-[#1D9E4B]" />
+                  </span>
+                  <motion.div
+                    className="lg:col-span-5"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: '-80px' }}
+                    transition={{ duration: 0.9, ease: EASE_OUT }}
+                  >
+                    <span className="font-mono text-xs text-text-muted">0{i + 1}</span>
+                    <h3 className="mt-2 font-display text-[clamp(1.7rem,1.2rem+1.4vw,2.6rem)] leading-[1.02] tracking-[-0.045em]">
+                      {s.title} <Speaker size="sm" className="ml-1 -translate-y-1" state={i % 2 ? 'listening' : 'speaking'} />
+                    </h3>
+                    <p className="mt-3 text-[17px] text-text-secondary leading-relaxed max-w-sm">{s.body}</p>
+                  </motion.div>
+                  <motion.div
+                    className="lg:col-span-7"
+                    initial={{ opacity: 0, y: 40, rotate: i % 2 ? 1.5 : -1.5 }}
+                    whileInView={{ opacity: 1, y: 0, rotate: 0 }}
+                    viewport={{ once: true, margin: '-80px' }}
+                    transition={{ duration: 1, ease: EASE_OUT }}
+                  >
+                    <StepMock kind={s.mock} />
+                  </motion.div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 4 — HOW IT WORKS (Connected Journey Timeline)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section
-          id="how-it-works"
-          className="py-16 lg:py-24 bg-bg-canvas border-b border-border-subtle"
-        >
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            {/* Header */}
-            <div className="how-it-works-head max-w-2xl mb-12 space-y-2">
-              <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                HOW IT WORKS
-              </span>
-              <h2 className="font-display font-bold uppercase tracking-[-0.04em] text-3xl sm:text-4xl text-text-primary">
-                THREE MOVES. BETTER ANSWERS.
-              </h2>
-              <p className="text-sm sm:text-base text-text-secondary">
-                Go from a target role to a scored session in minutes.
-              </p>
-            </div>
+        {/* ═══ REPORT — "You practice. We score." ═══ */}
+        <section id="report" className="py-28 sm:py-36">
+          <Say>You practice. We score.</Say>
 
-            {/* Connecting Timeline Bar (Desktop) */}
-            <div className="relative">
-              <div className="hidden md:block absolute top-[28px] left-0 right-0 h-[1.5px] bg-border-subtle">
-                <div className="timeline-connector-bar h-full bg-[#FF6B35] w-full" />
-              </div>
-
-              {/* Three Connected Steps */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 pt-2">
-                {howItWorksMoves.map((m) => (
-                  <div
-                    key={m.num}
-                    className="move-item relative space-y-3 bg-bg-canvas pt-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center w-10 h-10 border border-[#151515] bg-[#151515] text-white dark:bg-[#F4F0E8] dark:text-[#151515] font-mono text-sm font-bold shrink-0">
-                        {m.num}
-                      </span>
-                      <span className="h-[1px] flex-1 bg-border-subtle md:hidden" />
-                    </div>
-
-                    <div className="space-y-1.5 pt-1">
-                      <h3 className="font-display font-bold text-xl text-text-primary">
-                        {m.title}
-                      </h3>
-                      <p className="text-sm sm:text-base text-text-primary font-medium leading-snug">
-                        {m.desc}
-                      </p>
-                      <p className="text-xs text-text-muted leading-relaxed">
-                        {m.detail}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 5 — INTERVIEW EXPERIENCE (Product Demonstration)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section
-          id="experience"
-          className="py-16 lg:py-24 bg-bg-canvas border-b border-border-subtle"
-        >
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            {/* Header */}
-            <div className="experience-head grid grid-cols-1 lg:grid-cols-12 gap-6 items-end mb-10">
-              <div className="lg:col-span-8 space-y-2">
-                <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                  LIVE SIMULATOR
-                </span>
-                <h2 className="font-display font-bold uppercase tracking-[-0.04em] text-3xl sm:text-5xl text-text-primary">
-                  PRACTICE. DON&apos;T JUST PREPARE.
-                </h2>
-              </div>
-              <div className="lg:col-span-4 lg:text-right">
-                <p className="text-sm text-text-secondary">
-                  Spoken technical rounds with live follow-ups. No static scripts.
-                </p>
-              </div>
-            </div>
-
-            {/* Asymmetrical Layout: Left 4-Col Steps + Right 8-Col Interface Preview */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Left Selectable Steps */}
-              <div className="lg:col-span-4 divide-y divide-border-subtle border-y border-border-subtle">
-                {experienceModes.map((exp, idx) => {
-                  const active = modeIdx === idx;
-                  return (
-                    <button
-                      key={exp.id}
-                      type="button"
-                      onClick={() => setModeIdx(idx)}
-                      className={`experience-tab-btn w-full py-5 px-4 text-left transition-colors cursor-pointer ${
-                        active
-                          ? 'bg-bg-surface border-l-3 border-[#FF6B35]'
-                          : 'hover:bg-bg-surface/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between font-mono text-xs mb-1">
-                        <span className={active ? 'text-[#FF6B35] font-bold' : 'text-text-muted'}>
-                          /{exp.num}
-                        </span>
-                        {active && (
-                          <span className="px-2 py-0.5 bg-[#C7F36B] text-[#151515] font-bold text-[10px]">
-                            ACTIVE
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-display font-bold text-lg text-text-primary">
-                        {exp.title}
-                      </h3>
-                      <p className="text-xs text-text-secondary mt-0.5">
-                        {exp.tagline}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Right Interface Preview */}
-              <div className="experience-stage-card lg:col-span-8 border border-border-subtle bg-[#161616] text-[#F4F0E8] shadow-sm">
-                <div className="px-5 sm:px-6 py-3 border-b border-[#262626] flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-[#C7F36B]" />
-                    <span className="font-mono text-xs uppercase tracking-[0.14em] text-white">
-                      {currentMode.badge}
-                    </span>
-                  </div>
-                  <WaveformBar active />
-                </div>
-
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentMode.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.18 }}
-                    className="p-5 sm:p-7 space-y-5"
-                  >
-                    {/* Prompt Box */}
-                    <div className="p-4 bg-[#1E1E1E] border-l-2 border-[#FF6B35] space-y-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <EvalixOrb state={currentMode.orbState} size="sm" />
-                        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#FF6B35]">
-                          SHRISTI (INTERVIEWER)
-                        </span>
-                      </div>
-                      <p className="font-display font-semibold text-base sm:text-lg text-white leading-snug">
-                        {currentMode.question}
-                      </p>
-                    </div>
-
-                    {/* Candidate Response */}
-                    <div className="p-4 bg-[#1A1A1A] border border-[#262626] space-y-1.5">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#C7F36B] block">
-                        CANDIDATE SPOKEN DEFENSE
-                      </span>
-                      <p className="font-serif-editorial italic text-base sm:text-lg text-[#F4F0E8] leading-snug">
-                        {currentMode.transcript}
-                      </p>
-                    </div>
-
-                    {/* Live Evaluation Strip */}
-                    <div className="p-3.5 bg-[#181818] border border-[#262626] flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
-                      <div>
-                        <span className="text-[#B5AFA6] block text-[10px]">VERDICT</span>
-                        <span className="text-white font-bold">{currentMode.verdict}</span>
-                      </div>
-                      <div>
-                        <span className="text-[#B5AFA6] block text-[10px]">RUBRIC SCORE</span>
-                        <span className="text-[#C7F36B] font-bold">{currentMode.score}</span>
-                      </div>
-                      <div className="text-right max-w-xs font-sans text-xs text-[#B5AFA6]">
-                        {currentMode.feedback}
-                      </div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 6 — PRACTICE TRACKS (Editorial Ledger with Hover Interactions)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section
-          id="tracks"
-          className="py-16 lg:py-24 bg-bg-canvas border-b border-border-subtle"
-        >
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="tracks-head max-w-2xl mb-10 space-y-2">
-              <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                PRACTICE TRACKS
-              </span>
-              <h2 className="font-display font-bold uppercase tracking-[-0.04em] text-3xl sm:text-4xl text-text-primary">
-                PICK YOUR CHALLENGE.
-              </h2>
-              <p className="text-sm sm:text-base text-text-secondary">
-                Five focused interview tracks.
-              </p>
-            </div>
-
-            {/* Editorial Rows */}
-            <div className="border-t border-text-primary">
-              {practiceTracks.map((track, idx) => {
-                const isHovered = hoverTrackIdx === idx;
-                return (
-                  <div
-                    key={track.num}
-                    onMouseEnter={() => setHoverTrackIdx(idx)}
-                    className={`track-row border-b border-border-subtle transition-colors duration-150 ${
-                      isHovered ? 'bg-bg-surface' : 'hover:bg-bg-surface/50'
-                    }`}
-                  >
-                    <div className="py-5 sm:py-6 px-3 sm:px-4 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 items-center">
-                      <div className="lg:col-span-1">
-                        <span
-                          className={`font-mono text-xs font-bold ${
-                            isHovered ? 'text-[#FF6B35]' : 'text-text-muted'
-                          }`}
-                        >
-                          /{track.num}
-                        </span>
-                      </div>
-
-                      <div className="lg:col-span-4">
-                        <Link
-                          to={track.route}
-                          className="font-display font-bold text-xl sm:text-2xl text-text-primary hover:text-[#FF6B35] transition-colors"
-                        >
-                          {track.title}
-                        </Link>
-                      </div>
-
-                      <div className="lg:col-span-5 space-y-1.5">
-                        <p className="font-serif-editorial italic text-sm sm:text-base text-text-secondary leading-snug">
-                          &ldquo;{track.question}&rdquo;
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {track.topics.map((t) => (
-                            <span
-                              key={t}
-                              className="px-2 py-0.5 border border-border-subtle font-mono text-[10px] text-text-muted bg-bg-canvas"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="lg:col-span-2 lg:text-right pt-2 lg:pt-0">
-                        <motion.div
-                          whileHover={{ x: 3 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="inline-block"
-                        >
-                          <Link
-                            to={track.route}
-                            className={`inline-flex items-center gap-1.5 px-4 min-h-[40px] font-display font-semibold text-xs uppercase tracking-[0.12em] transition-colors ${
-                              isHovered
-                                ? 'bg-[#151515] text-[#F4F0E8] dark:bg-[#FF6B35] dark:text-white'
-                                : 'border border-border-subtle text-text-primary'
-                            }`}
-                          >
-                            <span>Practice</span>
-                            <FiArrowUpRight size={14} />
-                          </Link>
-                        </motion.div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 7 — PERFORMANCE REPORT (Asymmetric Hierarchy)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section
-          id="report"
-          className="py-16 lg:py-24 bg-bg-canvas border-b border-border-subtle"
-        >
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="report-head grid grid-cols-1 lg:grid-cols-12 gap-6 items-end mb-10">
-              <div className="lg:col-span-7 space-y-2">
-                <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                  SESSION REPORT
-                </span>
-                <h2 className="font-display font-bold uppercase tracking-[-0.04em] text-3xl sm:text-4xl text-text-primary">
-                  KNOW WHAT TO FIX.
-                </h2>
-                <p className="text-sm sm:text-base text-text-secondary">
-                  Actionable rubrics on every answer so you know where you stand.
-                </p>
-              </div>
-
-              {/* Report Tab Selector */}
-              <div className="lg:col-span-5 flex flex-wrap lg:justify-end gap-2">
-                {performanceReports.map((r, idx) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setReportIdx(idx)}
-                    className={`report-tab-btn px-3.5 min-h-[38px] font-mono text-xs uppercase tracking-wider border transition-colors cursor-pointer ${
-                      reportIdx === idx
-                        ? 'bg-[#151515] text-white border-[#151515] dark:bg-[#F4F0E8] dark:text-[#151515]'
-                        : 'bg-bg-surface text-text-secondary border-border-subtle hover:text-text-primary'
-                    }`}
-                  >
-                    {r.code}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Asymmetric Report Presentation */}
-            <div className="report-card-container">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentReport.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.18 }}
-                  className="border border-border-subtle bg-bg-surface p-6 sm:p-8 space-y-6 shadow-xs"
+          <div className="mt-10 flex justify-center">
+            <div className="inline-flex gap-1 p-1 rounded-[16px] bg-bg-elevated" role="tablist" aria-label="Sample reports">
+              {performanceReports.map((r, idx) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={reportIdx === idx}
+                  onClick={() => setReportIdx(idx)}
+                  className={cn(
+                    'h-10 px-4 rounded-[12px] text-[14px] transition-all cursor-pointer',
+                    reportIdx === idx ? 'bg-bg-surface shadow-[var(--shadow-key)] text-text-primary' : 'text-text-muted hover:text-text-primary'
+                  )}
                 >
-                  {/* Question header */}
-                  <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4 border-b border-border-subtle">
-                    <div>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted block">
-                        DIAGNOSTIC SCORECARD // {currentReport.role}
-                      </span>
-                      <h3 className="font-display font-bold text-lg sm:text-xl text-text-primary mt-0.5">
-                        &ldquo;{currentReport.question}&rdquo;
-                      </h3>
-                    </div>
-                    <span className="font-mono text-xs text-[#FF6B35] font-bold">
-                      {currentReport.code}
-                    </span>
-                  </div>
-
-                  {/* Asymmetric 12-Column Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                    {/* Main Score Hero Card (4 Cols) */}
-                    <div className="lg:col-span-4 p-6 bg-[#161616] text-[#F4F0E8] border border-[#262626] flex flex-col justify-between space-y-6">
-                      <div className="space-y-1">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#B5AFA6] block">
-                          PERFORMANCE SCORE
-                        </span>
-                        <div className="flex items-baseline gap-1 pt-1">
-                          <span className="font-display font-bold text-6xl text-[#C7F36B] tracking-tight">
-                            {currentReport.overallScore}
-                          </span>
-                          <span className="font-mono text-lg text-[#B5AFA6]">/100</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 pt-4 border-t border-[#262626] font-mono text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-[#B5AFA6]">Depth</span>
-                          <span className="text-white font-bold">{currentReport.depth}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-[#B5AFA6]">Clarity</span>
-                          <span className="text-white font-bold">{currentReport.clarity}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Supporting Metrics & Improvement Breakdown (8 Cols) */}
-                    <div className="lg:col-span-8 flex flex-col justify-between gap-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {/* What Worked */}
-                        <div className="p-4 bg-bg-canvas border-l-2 border-[#C7F36B] space-y-1">
-                          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted block">
-                            + WHAT WORKED
-                          </span>
-                          <p className="text-xs sm:text-sm text-text-secondary leading-snug">
-                            {currentReport.whatWorked}
-                          </p>
-                        </div>
-
-                        {/* What to Improve */}
-                        <div className="p-4 bg-bg-canvas border-l-2 border-[#FF6B35] space-y-1">
-                          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#FF6B35] font-semibold block">
-                            &Delta; FOCUS FOR NEXT SESSION
-                          </span>
-                          <p className="text-xs sm:text-sm text-text-secondary leading-snug">
-                            {currentReport.whatToImprove}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Reference Model Upgrade */}
-                      <div className="p-4 border border-border-subtle bg-bg-canvas space-y-1">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted block">
-                          REFERENCE MODEL ANSWER UPGRADE
-                        </span>
-                        <p className="font-serif-editorial italic text-sm sm:text-base text-text-primary leading-snug">
-                          &ldquo;{currentReport.modelUpgrade}&rdquo;
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+                  {r.code}
+                </button>
+              ))}
             </div>
+          </div>
+
+          <div className="relative max-w-[1100px] mx-auto mt-14 px-5">
+            {[
+              { t: `Depth ${report.depth}`, c: 'left-0 top-10', d: 0 },
+              { t: `Clarity ${report.clarity}`, c: 'right-0 top-24', d: 0.1 },
+              { t: 'Model answer ready', c: 'left-6 bottom-10', d: 0.2 },
+            ].map((tag) => (
+              <motion.span
+                key={tag.t}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1], delay: tag.d }}
+                className={cn('hidden lg:inline-flex absolute z-10 key key--sm animate-float', tag.c)}
+              >
+                <Check className="size-3.5 text-[#1D9E4B]" /> {tag.t}
+              </motion.span>
+            ))}
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={report.id}
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: EASE_OUT }}
+                className="mx-auto max-w-[760px] rounded-[22px] bg-bg-surface shadow-lg overflow-hidden"
+              >
+                <div className="h-24 bg-[linear-gradient(120deg,#1C4839_0%,#1D9E4B_55%,#2496ED_100%)]" />
+                <div className="px-6 sm:px-8 pb-8 -mt-12">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="rounded-full bg-bg-surface p-1.5 shadow-md">
+                      <ScoreRing value={report.overallScore} size={104} stroke={8} color="#1D9E4B">
+                        <span className="font-display text-3xl tracking-[-0.05em]"><NumberTicker value={report.overallScore} /></span>
+                      </ScoreRing>
+                    </div>
+                    <span className="key key--sm"><FileText className="size-4" /> Full report</span>
+                  </div>
+                  <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.08em] text-text-muted">Scorecard · {report.role}</p>
+                  <h3 className="mt-2 font-display text-[clamp(1.4rem,1rem+1vw,1.9rem)] leading-tight tracking-[-0.035em]">“{report.question}”</h3>
+                  <div className="mt-6 flex gap-5 border-b border-line text-[14px]">
+                    {['Feedback', 'Model answer', 'Transcript'].map((t, i) => (
+                      <span key={t} className={cn('pb-3', i === 0 ? 'text-text-primary border-b-2 border-text-primary -mb-px' : 'text-text-muted')}>{t}</span>
+                    ))}
+                  </div>
+                  <div className="mt-5 grid sm:grid-cols-2 gap-3">
+                    <div className="rounded-[16px] bg-peach p-4">
+                      <p className="text-xs text-[#167A3A] mb-1.5 inline-flex items-center gap-1.5"><Check className="size-3.5" /> What worked</p>
+                      <p className="text-[15px] leading-relaxed">{report.whatWorked}</p>
+                    </div>
+                    <div className="rounded-[16px] bg-butter p-4">
+                      <p className="text-xs text-[#8A6400] mb-1.5">Δ Focus next session</p>
+                      <p className="text-[15px] leading-relaxed">{report.whatToImprove}</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
         </section>
 
-        {/* ═════════════════════════════════════════════════════════════════════
-            PHASE 8 — FAQ (Balanced Two-Column Editorial Layout)
-           ═════════════════════════════════════════════════════════════════════ */}
-        <section id="faq" className="py-16 lg:py-24 bg-bg-canvas border-b border-border-subtle">
-          <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-              {/* Left Column: Eyebrow + Heading + Short Subtitle */}
-              <div className="faq-head lg:col-span-5 space-y-3">
-                <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                  QUESTIONS / ANSWERS
-                </span>
-                <h2 className="font-display font-bold uppercase tracking-[-0.035em] text-3xl sm:text-4xl text-text-primary leading-tight">
-                  GOOD QUESTIONS.
-                  <span className="block">CLEAR ANSWERS.</span>
-                </h2>
-                <p className="text-sm text-text-secondary leading-relaxed max-w-sm">
-                  Everything you need to know about live voice sessions, PDF resume defense, and scoring rubrics.
-                </p>
-              </div>
+        {/* ═══ FAQ ═══ */}
+        <section id="faq" className="py-24 sm:py-32 bg-wall">
+          <Say speaker={false}>Questions, answered.</Say>
+          <div className="max-w-3xl mx-auto mt-12 px-5">
+            <Accordion type="single" collapsible defaultValue="faq-0" className="rounded-[22px] bg-bg-surface shadow-sm px-6 sm:px-8">
+              {faqs.map((f, i) => (
+                <AccordionItem key={f.q} value={`faq-${i}`} className="border-line last:border-b-0">
+                  <AccordionTrigger className="text-lg sm:text-xl font-normal py-6 tracking-[-0.025em] hover:no-underline hover:text-[#1D9E4B]">
+                    {f.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-6 text-base text-text-secondary leading-relaxed">{f.a}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
 
-              {/* Right Column: Numbered Editorial Accordion */}
-              <div className="lg:col-span-7 border-t border-text-primary">
-                {faqs.map((faq, idx) => {
-                  const isOpen = openFaq === idx;
-                  return (
-                    <div key={faq.q} className="faq-row border-b border-border-subtle">
-                      <button
-                        type="button"
-                        onClick={() => setOpenFaq(isOpen ? null : idx)}
-                        aria-expanded={isOpen}
-                        className="w-full py-5 text-left flex items-center justify-between gap-4 cursor-pointer group"
-                      >
-                        <div className="flex items-baseline gap-3">
-                          <span className="font-mono text-xs text-text-muted">0{idx + 1}</span>
-                          <span className="font-display font-semibold text-base sm:text-lg text-text-primary group-hover:text-[#FF6B35] transition-colors">
-                            {faq.q}
-                          </span>
-                        </div>
-                        <span className="text-text-primary shrink-0 transition-transform duration-200">
-                          {isOpen ? <FiMinus size={16} /> : <FiPlus size={16} />}
-                        </span>
-                      </button>
-
-                      <AnimatePresence>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pb-5 pl-7 text-sm text-text-secondary leading-relaxed max-w-2xl">
-                              {faq.a}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        {/* ═══ CLOSER — "Built to get you hired." ═══ */}
+        <section className="py-32 sm:py-44 text-center px-5">
+          <Say
+            words={['Built', 'to', 'get', 'you']}
+            after={
+              <>
+                <motion.span
+                  className="inline-flex align-middle mx-3 -translate-y-[0.08em]"
+                  initial={{ rotate: -12, scale: 0.6, opacity: 0 }}
+                  whileInView={{ rotate: -6, scale: 1, opacity: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, ease: [0.34, 1.56, 0.64, 1], delay: 0.25 }}
+                >
+                  <span className="relative inline-flex h-[1.05em] w-[0.85em] flex-col justify-center gap-[0.08em] rounded-[0.14em] bg-bg-surface p-[0.12em] shadow-md">
+                    <span className="h-[0.06em] w-3/4 rounded-full bg-[rgba(15,15,15,0.2)]" />
+                    <span className="h-[0.06em] w-1/2 rounded-full bg-[rgba(15,15,15,0.12)]" />
+                    <span className="h-[0.06em] w-2/3 rounded-full bg-[rgba(15,15,15,0.12)]" />
+                    <span className="absolute -right-[0.14em] -top-[0.14em] inline-flex size-[0.36em] items-center justify-center rounded-full bg-[#1D9E4B] text-white">
+                      <Check className="size-[0.22em]" strokeWidth={3} />
+                    </span>
+                  </span>
+                </motion.span>
+                <span className="inline-block">hired.</span>
+              </>
+            }
+          />
+          <p className="mt-6 text-[17px] text-text-secondary">Start free. Bring your own Gemini key for unlimited sessions.</p>
+          <div className="mt-9 flex justify-center gap-2.5">
+            <SignedIn>
+              <Link to="/live-interview" className="key key--lg key--green"><Mic className="size-4" /> Start practicing</Link>
+            </SignedIn>
+            <SignedOut>
+              <Link to="/register" className="key key--lg key--green"><Mic className="size-4" /> Start practicing</Link>
+            </SignedOut>
+            <button type="button" onClick={() => scrollToId('tracks')} className="key key--lg hidden sm:inline-flex">
+              <Briefcase className="size-4" /> Browse tracks
+            </button>
           </div>
         </section>
       </main>
 
-      {/* ═════════════════════════════════════════════════════════════════════
-          PHASE 9 — COMPLETE WARM CREAM FOOTER REDESIGN
-         ═════════════════════════════════════════════════════════════════════ */}
-      <footer id="footer" className="bg-[#F4F0E8] dark:bg-[#151515] text-[#151515] dark:text-[#F4F0E8] pt-16 pb-12 transition-colors">
-        <div className="max-w-[1380px] mx-auto px-5 sm:px-8 lg:px-12 space-y-14">
-          {/* A. Closing Call to Action at Top of Footer */}
-          <div className="footer-cta-head pb-14 border-b border-border-subtle grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
-            <div className="lg:col-span-8 space-y-3">
-              <span className="font-mono text-xs uppercase tracking-[0.16em] text-[#FF6B35] block">
-                YOUR NEXT INTERVIEW STARTS HERE.
-              </span>
-              <h2 className="font-display font-bold uppercase tracking-[-0.04em] text-4xl sm:text-6xl text-text-primary leading-[0.92]">
-                READY WHEN{' '}
-                <span className="font-serif-editorial italic font-normal text-[#FF6B35]">
-                  YOU ARE.
-                </span>
-              </h2>
-              <p className="text-base text-text-secondary">
-                &ldquo;One practice session can change your next answer.&rdquo;
-              </p>
-            </div>
+      {/* ═══ FINALE — the campus in full colour, with the footer laid over it ═══ */}
+      <motion.footer
+        id="footer"
+        onViewportEnter={() => awardXP('saw-it-all', 25, 'You made it to the end')}
+        viewport={{ amount: 0.5 }}
+        className="relative h-[86svh] min-h-[620px] overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(80%_70%_at_50%_60%,#E4F3EA_0%,#EEF4F1_45%,var(--bg-canvas)_80%)]" />
+        <div className="absolute inset-x-0 top-0 h-40 z-10 bg-gradient-to-b from-bg-canvas to-transparent" />
+        <div className="absolute inset-0 [--iso-scale:0.8] sm:[--iso-scale:1.05] md:[--iso-scale:1.32] [--iso-y:57%]">
+          <IsoScene vivid />
+        </div>
+        <div className="absolute left-1/2 top-[54%] z-10 -translate-x-1/2 -translate-y-1/2">
+          <SignedOut>
+            <Link to="/register" className="key key--lg key--green tracking-[0.2em] uppercase text-[15px] shadow-[0_0_0_10px_rgba(54,194,103,0.18),0_0_60px_rgba(54,194,103,0.6)]">
+              <MousePointer2 className="size-4" /> Start
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <Link to="/live-interview" className="key key--lg key--green tracking-[0.2em] uppercase text-[15px] shadow-[0_0_0_10px_rgba(54,194,103,0.18),0_0_60px_rgba(54,194,103,0.6)]">
+              <MousePointer2 className="size-4" /> Start
+            </Link>
+          </SignedIn>
+        </div>
 
-            <div className="lg:col-span-4 flex justify-start lg:justify-end">
-              <SignedIn>
-                <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <Link
-                    to="/live-interview"
-                    className="min-h-[50px] px-8 bg-[#FF6B35] text-white font-display font-bold text-xs uppercase tracking-[0.14em] inline-flex items-center gap-3 hover:bg-[#151515] dark:hover:bg-white dark:hover:text-[#151515] transition-colors"
-                  >
-                    <span>START PRACTICING</span>
-                    <FiArrowUpRight size={16} />
-                  </Link>
-                </motion.div>
-              </SignedIn>
-              <SignedOut>
-                <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <Link
-                    to="/register"
-                    className="min-h-[50px] px-8 bg-[#FF6B35] text-white font-display font-bold text-xs uppercase tracking-[0.14em] inline-flex items-center gap-3 hover:bg-[#151515] dark:hover:bg-white dark:hover:text-[#151515] transition-colors"
-                  >
-                    <span>START PRACTICING</span>
-                    <FiArrowUpRight size={16} />
-                  </Link>
-                </motion.div>
-              </SignedOut>
-            </div>
-          </div>
-
-          {/* B. Brand Area & C. Navigation Groups (3 Columns) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10">
-            {/* Brand Statement (5 Cols) */}
-            <div className="footer-col lg:col-span-5 space-y-3">
-              <Link
-                to="/"
-                className="text-3xl font-display font-bold tracking-[-0.04em] text-text-primary block hover:text-[#FF6B35] transition-colors"
-              >
-                Evalix
-              </Link>
-              <p className="text-sm text-text-secondary leading-snug max-w-sm">
-                AI interview practice, built for better answers.
-              </p>
-            </div>
-
-            {/* EXPLORE (2 Cols) */}
-            <div className="footer-col lg:col-span-2 space-y-3">
-              <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-text-muted font-bold">
-                EXPLORE
-              </h3>
-              <ul className="space-y-2 text-xs sm:text-sm text-text-secondary">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('capabilities')}
-                    className="hover:text-text-primary transition-colors cursor-pointer"
-                  >
-                    Capabilities
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('how-it-works')}
-                    className="hover:text-text-primary transition-colors cursor-pointer"
-                  >
-                    How It Works
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('experience')}
-                    className="hover:text-text-primary transition-colors cursor-pointer"
-                  >
-                    Interview Experience
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('faq')}
-                    className="hover:text-text-primary transition-colors cursor-pointer"
-                  >
-                    FAQ
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* PRACTICE (3 Cols) */}
-            <div className="footer-col lg:col-span-3 space-y-3">
-              <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-text-muted font-bold">
-                PRACTICE
-              </h3>
-              <ul className="space-y-2 text-xs sm:text-sm text-text-secondary">
-                <li>
-                  <Link
-                    to="/mock-interview-for-react-developers"
-                    className="hover:text-text-primary transition-colors"
-                  >
-                    Frontend Engineering
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/live-interview"
-                    className="hover:text-text-primary transition-colors"
-                  >
-                    Backend Engineering
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/system-design-mock-interview"
-                    className="hover:text-text-primary transition-colors"
-                  >
-                    System Design
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/resume-based-interview-questions"
-                    className="hover:text-text-primary transition-colors"
-                  >
-                    HR &amp; Behavioral
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* CONNECT (2 Cols) */}
-            <div className="footer-col lg:col-span-2 space-y-3">
-              <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-text-muted font-bold">
-                CONNECT
-              </h3>
-              <ul className="space-y-2 text-xs sm:text-sm text-text-secondary">
-                <li>
-                  <a
-                    href="https://github.com/shubham574/Evalix"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 hover:text-text-primary transition-colors"
-                  >
-                    <FiGithub size={14} />
-                    <span>GitHub</span>
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.linkedin.com/in/shubham-maurya-937511309/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 hover:text-text-primary transition-colors"
-                  >
-                    <FiLinkedin size={14} />
-                    <span>LinkedIn</span>
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="mailto:contact@evalix.ai"
-                    className="inline-flex items-center gap-1.5 hover:text-text-primary transition-colors"
-                  >
-                    <FiMail size={14} />
-                    <span>Contact</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* D. Legal & Copyright Row */}
-          <div className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-[11px] text-text-muted">
-            <p>&copy; 2026 EVALIX. BUILT FOR BETTER INTERVIEWS.</p>
-            <div className="flex items-center gap-4">
-              <span>EDITORIAL TECH</span>
-              <span>&bull;</span>
-              <span>ALL RIGHTS RESERVED</span>
+        <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-[104px] lg:pb-5">
+          <div className="mx-auto max-w-[1320px] flex flex-col sm:flex-row items-center justify-between gap-3 rounded-[18px] glass shadow-md px-4 py-3 text-[13px] text-text-secondary">
+            <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-5 gap-y-1">
+              <Link to="/mock-interview-for-react-developers" className="hover:text-text-primary">Frontend</Link>
+              <Link to="/system-design-mock-interview" className="hover:text-text-primary">System design</Link>
+              <Link to="/resume-based-interview-questions" className="hover:text-text-primary">HR & behavioral</Link>
+              <Link to="/mock-interview-for-freshers" className="hover:text-text-primary">Freshers</Link>
+              <span className="text-text-muted">© 2026 Evalix</span>
+            </nav>
+            <div className="flex items-center gap-3">
+              <a href="https://github.com/shubham574/Evalix" target="_blank" rel="noopener noreferrer" aria-label="GitHub" className="hover:text-text-primary"><FiGithub className="size-4" /></a>
+              <a href="https://www.linkedin.com/in/shubham-maurya-937511309/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="hover:text-text-primary"><FiLinkedin className="size-4" /></a>
+              <a href="mailto:contact@evalix.ai" aria-label="Contact" className="hover:text-text-primary"><FiMail className="size-4" /></a>
             </div>
           </div>
         </div>
-      </footer>
+      </motion.footer>
     </div>
   );
 };

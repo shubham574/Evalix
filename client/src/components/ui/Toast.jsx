@@ -1,50 +1,44 @@
 import { toast } from 'react-hot-toast';
 
+/* Studio toasts — white pill, hairline border, soft shadow. Mirrors the global <Toaster> style in App.jsx. */
+const baseStyle = {
+  background: 'var(--bg-surface)',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '999px',
+  boxShadow: 'var(--shadow-md)',
+  padding: '10px 16px',
+  fontFamily: "'Inter', sans-serif",
+  fontSize: '14px',
+  fontWeight: 500,
+};
+
 export const showSuccess = (message) => {
   toast.success(message, {
-    style: {
-      background: '#151515',
-      color: '#F8F5EF',
-      border: '1.5px solid #C7F36B',
-      borderRadius: '12px',
-      fontFamily: "'Inter', sans-serif",
-      fontSize: '14px',
-      fontWeight: 500,
-    },
+    style: baseStyle,
     iconTheme: {
-      primary: '#C7F36B',
-      secondary: '#151515',
+      primary: '#1F8A4C',
+      secondary: '#FFFFFF',
     },
   });
 };
 
 export const showError = (message) => {
   toast.error(message, {
-    style: {
-      background: '#151515',
-      color: '#F8F5EF',
-      border: '1.5px solid #FF6B35',
-      borderRadius: '12px',
-      fontFamily: "'Inter', sans-serif",
-      fontSize: '14px',
-      fontWeight: 500,
-    },
+    style: baseStyle,
     iconTheme: {
-      primary: '#FF6B35',
-      secondary: '#F8F5EF',
+      primary: '#1D9E4B',
+      secondary: '#FFFFFF',
     },
   });
 };
 
 export const showLoading = (message) => {
   return toast.loading(message, {
-    style: {
-      background: '#151515',
-      color: '#F8F5EF',
-      border: '1.5px solid #333333',
-      borderRadius: '12px',
-      fontFamily: "'Inter', sans-serif",
-      fontSize: '14px',
+    style: baseStyle,
+    iconTheme: {
+      primary: '#1D9E4B',
+      secondary: 'var(--bg-elevated)',
     },
   });
 };

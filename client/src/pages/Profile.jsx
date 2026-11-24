@@ -1,83 +1,130 @@
 import React, { useState } from 'react';
 import { UserProfile } from '@clerk/clerk-react';
-import { FiUser, FiKey, FiSun, FiMoon } from 'react-icons/fi';
+import { FiKey, FiSun, FiMoon, FiUser } from 'react-icons/fi';
+import { motion } from 'motion/react';
 import SEOHead from '../components/common/SEOHead';
-import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import ApiKeyModal from '../components/ui/ApiKeyModal';
 import { useTheme } from '../hooks/useTheme';
+import { PageHeader, Eyebrow, Reveal } from '@/components/studio';
+import { Switch } from '@/components/shadcn/switch';
+import { cn } from '@/lib/utils';
+
+const SPRING = { type: 'spring', stiffness: 300, damping: 26 };
 
 const Profile = () => {
   const { theme, toggleTheme } = useTheme();
   const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const hasCustomKey =
     typeof window !== 'undefined' && Boolean(localStorage.getItem('user_gemini_api_key'));
+  const isDark = theme === 'dark';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <SEOHead title="Profile & Settings — Evalix" />
 
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border-subtle pb-5">
-        <div>
-          <h1 className="heading-page text-text-primary">Profile &amp; Settings</h1>
-          <p className="text-sm sm:text-base text-text-secondary mt-1">
-            Manage your <strong className="text-text-primary font-semibold">Clerk account</strong>, <strong className="text-text-primary font-semibold">color theme</strong>, and <strong className="text-text-primary font-semibold">personal Gemini API key</strong>.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title="Profile &"
+        accent="settings"
+        className="pb-4"
+        description={
+          <>
+            Manage your <strong className="text-text-primary font-medium">Clerk account</strong>,{' '}
+            <strong className="text-text-primary font-medium">color theme</strong>, and{' '}
+            <strong className="text-text-primary font-medium">personal Gemini API key</strong>.
+          </>
+        }
+      />
 
-      {/* Quick Workspace Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-5 border border-border-subtle flex items-center justify-between gap-4">
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block">
-              Theme
+      {/* Quick workspace controls */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Theme */}
+        <motion.div
+          whileHover={{ y: -4 }}
+          transition={SPRING}
+          className="rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm hover:shadow-md transition-shadow p-6 sm:p-7 flex flex-col gap-6"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span className="size-11 rounded-full bg-sky text-[#1D5FAF] dark:text-[#8EC1FF] flex items-center justify-center">
+              {isDark ? <FiMoon size={17} /> : <FiSun size={17} />}
             </span>
-            <h3 className="font-display font-bold text-base text-text-primary mt-0.5">
-              {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+            <label className="inline-flex items-center gap-2.5 cursor-pointer text-[13px] text-text-secondary">
+              <span>Dark</span>
+              <Switch
+                checked={isDark}
+                onCheckedChange={toggleTheme}
+                aria-label={`Switch to ${isDark ? 'Light' : 'Dark'}`}
+              />
+            </label>
+          </div>
+          <div className="space-y-2">
+            <Eyebrow>Theme</Eyebrow>
+            <h3 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary">
+              {isDark ? 'Dark Mode' : 'Light Mode'}
             </h3>
-            <p className="text-xs text-text-secondary mt-0.5">
+            <p className="text-[13px] text-text-secondary leading-relaxed">
               Switch between warm light and dark interface themes.
             </p>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={theme === 'dark' ? FiSun : FiMoon}
-            onClick={toggleTheme}
-          >
-            Switch to {theme === 'dark' ? 'Light' : 'Dark'}
-          </Button>
-        </Card>
+        </motion.div>
 
-        <Card className="p-5 border border-border-subtle flex items-center justify-between gap-4">
-          <div>
-            <span className="text-[11px] font-mono uppercase tracking-wider text-text-muted block">
-              Bring Your Own Key (BYOK)
+        {/* BYOK */}
+        <motion.div
+          whileHover={{ y: -4 }}
+          transition={SPRING}
+          className={cn(
+            'rounded-[28px] border p-6 sm:p-7 flex flex-col gap-6 shadow-sm hover:shadow-md transition-shadow',
+            hasCustomKey ? 'bg-mint border-[#5DAA3A]/15' : 'bg-peach border-[#1D9E4B]/15'
+          )}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span
+              className={cn(
+                'size-11 rounded-full bg-bg-surface shadow-xs flex items-center justify-center',
+                hasCustomKey ? 'text-[#2F6B12] dark:text-[#A8E07E]' : 'text-[#1D9E4B]'
+              )}
+            >
+              <FiKey size={17} />
             </span>
-            <h3 className="font-display font-bold text-base text-text-primary mt-0.5">
+            <Button
+              variant={hasCustomKey ? 'secondary' : 'primary'}
+              size="sm"
+              icon={FiKey}
+              onClick={() => setApiKeyModalOpen(true)}
+            >
+              {hasCustomKey ? 'Update Key' : 'Connect Key'}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            <Eyebrow>Bring your own key (BYOK)</Eyebrow>
+            <h3 className="font-display font-normal tracking-[-0.03em] text-xl text-text-primary">
               {hasCustomKey ? 'Custom Gemini Key Active' : 'Default Shared Quota'}
             </h3>
-            <p className="text-xs text-text-secondary mt-0.5">
-              Connect a free <strong className="text-text-primary font-semibold">Google AI Studio key</strong> for dedicated rate limits.
+            <p className="text-[13px] text-text-secondary leading-relaxed">
+              Connect a free <strong className="text-text-primary font-medium">Google AI Studio key</strong> for dedicated rate limits.
             </p>
           </div>
-          <Button
-            variant={hasCustomKey ? 'secondary' : 'primary'}
-            size="sm"
-            icon={FiKey}
-            onClick={() => setApiKeyModalOpen(true)}
-          >
-            {hasCustomKey ? 'Update Key' : 'Connect Key'}
-          </Button>
-        </Card>
+        </motion.div>
       </div>
 
-      {/* Clerk UserProfile Container */}
-      <div className="rounded-[22px] border border-border-subtle bg-bg-surface p-4 sm:p-6 overflow-x-auto flex justify-center">
-        <UserProfile routing="path" path="/profile" />
-      </div>
+      {/* Clerk UserProfile container */}
+      <Reveal y={16}>
+        <div className="rounded-[32px] border border-border-subtle bg-bg-surface shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-6 sm:px-8 py-5 border-b border-border-subtle">
+            <span className="size-9 rounded-full bg-bg-elevated flex items-center justify-center text-text-secondary">
+              <FiUser size={15} />
+            </span>
+            <div>
+              <Eyebrow>Account</Eyebrow>
+              <p className="font-display font-normal tracking-[-0.02em] text-text-primary mt-1">Your Clerk profile</p>
+            </div>
+          </div>
+          <div className="p-3 sm:p-6 overflow-x-auto flex justify-center">
+            <UserProfile routing="path" path="/profile" />
+          </div>
+        </div>
+      </Reveal>
 
       <ApiKeyModal isOpen={apiKeyModalOpen} onClose={() => setApiKeyModalOpen(false)} />
     </div>

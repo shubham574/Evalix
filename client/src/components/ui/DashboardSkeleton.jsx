@@ -1,53 +1,102 @@
 import React from 'react';
+import { Skeleton } from '@/components/shadcn/skeleton';
+
+/** Mirrors the Dashboard layout: greeting hero + readiness dial, KPI tiles, analytics, activity list. */
+const Bone = ({ className = '', ...props }) => (
+  <Skeleton className={`bg-bg-elevated rounded-full ${className}`} {...props} />
+);
 
 const DashboardSkeleton = () => {
   return (
-    <div className="space-y-8 animate-pulse w-full">
-      {/* ─── Welcome Banner Skeleton ─── */}
-      <div className="bg-bg-surface border border-border-subtle rounded-[24px] p-8 flex flex-col lg:flex-row items-center justify-between gap-8 h-auto lg:h-60 w-full">
-        <div className="w-full max-w-xl flex flex-col gap-4">
-          <div className="h-5 bg-bg-elevated rounded-[8px] w-40" />
-          <div className="h-10 bg-bg-elevated rounded-[10px] w-3/4" />
-          <div className="h-5 bg-bg-elevated rounded-[8px] w-full mb-2" />
+    <div className="space-y-6 sm:space-y-8 w-full" aria-busy="true" aria-label="Loading dashboard">
+      {/* ─── Hero + readiness ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-8 rounded-[32px] bg-bg-surface border border-border-subtle shadow-sm p-6 sm:p-10 space-y-7">
+          <Bone className="h-3 w-44" />
+          <div className="space-y-4">
+            <Skeleton className="h-12 sm:h-16 w-4/5 rounded-[18px] bg-bg-elevated" />
+            <Bone className="h-6 w-64 max-w-full" />
+            <Bone className="h-4 w-full max-w-lg" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[96, 112, 120, 104, 110].map((w) => (
+              <Bone key={w} className="h-9" style={{ width: w }} />
+            ))}
+          </div>
           <div className="flex flex-wrap gap-3">
-            <div className="h-10 bg-bg-elevated rounded-[12px] w-40" />
-            <div className="h-10 bg-bg-elevated rounded-[12px] w-36" />
+            <Bone className="h-13 w-56" />
+            <Bone className="h-13 w-44" />
           </div>
         </div>
-        <div className="hidden lg:flex w-44 h-40 bg-bg-elevated rounded-[18px] shrink-0" />
+        <div className="lg:col-span-4 rounded-[32px] bg-peach border border-[#1D9E4B]/15 p-6 sm:p-8 flex flex-col items-center justify-between gap-6 min-h-[360px]">
+          <div className="w-full flex justify-between">
+            <Skeleton className="h-3 w-28 rounded-full bg-bg-surface/70" />
+            <Skeleton className="h-6 w-20 rounded-full bg-bg-surface/70" />
+          </div>
+          <Skeleton className="size-[184px] rounded-full bg-bg-surface/70" />
+          <Skeleton className="h-4 w-40 rounded-full bg-bg-surface/70" />
+        </div>
       </div>
 
-      {/* ─── 4 Metric Cards Skeleton ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="bg-bg-surface border border-border-subtle rounded-[18px] p-5 flex flex-col justify-between h-28"
-          >
-            <div className="flex justify-between items-center">
-              <div className="h-3 bg-bg-elevated rounded w-24" />
-              <div className="w-9 h-9 bg-bg-elevated rounded-[10px]" />
+      {/* ─── KPI tiles ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm p-6 sm:p-7 space-y-6">
+            <div className="flex justify-between">
+              <div className="space-y-3">
+                <Skeleton className="size-10 rounded-full bg-bg-elevated" />
+                <Bone className="h-3 w-32" />
+              </div>
+              <Bone className="h-6 w-16" />
             </div>
-            <div className="h-7 bg-bg-elevated rounded w-16" />
+            <Skeleton className="h-14 w-24 rounded-[16px] bg-bg-elevated" />
+            <Bone className="h-1.5 w-full" />
           </div>
         ))}
       </div>
 
-      {/* ─── Charts & Recent Sessions Skeleton ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
-        <div className="lg:col-span-7 bg-bg-surface border border-border-subtle rounded-[20px] p-6 h-[340px] flex flex-col">
-          <div className="h-6 bg-bg-elevated rounded w-48 mb-6" />
-          <div className="flex-1 bg-bg-elevated/50 rounded-[14px] w-full" />
+      {/* ─── Analytics ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-8 rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm p-5 sm:p-7 space-y-5">
+          <div className="flex justify-between gap-4">
+            <div className="space-y-3">
+              <Bone className="h-3 w-28" />
+              <Skeleton className="h-8 w-64 max-w-full rounded-[12px] bg-bg-elevated" />
+            </div>
+            <Bone className="h-10 w-32" />
+          </div>
+          <Bone className="h-10 w-72 max-w-full" />
+          <Skeleton className="h-64 sm:h-80 w-full rounded-[22px] bg-bg-elevated/70" />
         </div>
-        <div className="lg:col-span-5 bg-bg-surface border border-border-subtle rounded-[20px] p-6 h-[340px] flex flex-col gap-4">
-          <div className="h-6 bg-bg-elevated rounded w-36 mb-2" />
+        <div className="lg:col-span-4 rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm p-5 sm:p-7 space-y-6">
+          <div className="space-y-3">
+            <Bone className="h-3 w-24" />
+            <Skeleton className="h-6 w-48 rounded-[10px] bg-bg-elevated" />
+          </div>
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center gap-3.5">
-              <div className="w-10 h-10 bg-bg-elevated rounded-[10px] shrink-0" />
-              <div className="flex flex-col gap-2 flex-1">
-                <div className="h-4 bg-bg-elevated rounded w-full" />
-                <div className="h-3 bg-bg-elevated rounded w-1/2" />
+            <div key={i} className="space-y-2.5">
+              <div className="flex justify-between">
+                <Bone className="h-4 w-32" />
+                <Bone className="h-4 w-12" />
               </div>
+              <Bone className="h-1.5 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── Activity list ─── */}
+      <div className="rounded-[28px] bg-bg-surface border border-border-subtle shadow-sm overflow-hidden">
+        <div className="p-5 sm:p-7 border-b border-border-subtle flex flex-wrap justify-between gap-4">
+          <Bone className="h-9 w-72 max-w-full" />
+          <Bone className="h-10 w-56 max-w-full" />
+        </div>
+        <div className="divide-y divide-border-subtle">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="px-5 sm:px-7 py-4 flex items-center gap-5">
+              <Bone className="h-6 w-14 shrink-0" />
+              <Bone className="h-4 flex-1" />
+              <Bone className="hidden sm:block h-4 w-36" />
             </div>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Aura } from '../studio';
 
 const Preloader = ({ onComplete }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -56,20 +57,20 @@ const Preloader = ({ onComplete }) => {
     <AnimatePresence>
       {!isLoaded && (
         <motion.div
-          className="fixed inset-0 z-[9999] bg-[#151515] text-[#F8F5EF] flex flex-col items-center justify-center overflow-hidden"
+          className="fixed inset-0 z-[9999] bg-bg-canvas text-text-primary flex flex-col items-center justify-center overflow-hidden isolate"
           variants={slideUpVariants}
           initial="hidden"
           exit="exit"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <span className="inline-block w-3 h-3 rounded-full bg-[#FF6B35]" />
-            <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#B5AFA6]">
-              AI Interview Arena
-            </span>
+          <Aura intensity={0.85} />
+
+          <div className="relative flex items-center gap-2.5 mb-5 glass shadow-xs rounded-full px-4 py-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#1D9E4B] animate-pulse-soft" />
+            <span className="eyebrow">AI Interview Arena</span>
           </div>
 
           <motion.div
-            className="relative flex items-baseline overflow-hidden px-4"
+            className="relative flex items-baseline overflow-hidden px-4 pb-2"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -78,7 +79,7 @@ const Preloader = ({ onComplete }) => {
             {brandName.split('').map((char, index) => (
               <motion.span
                 key={index}
-                className="text-5xl md:text-7xl font-bold font-display tracking-tight text-[#F8F5EF]"
+                className="text-6xl md:text-8xl font-normal font-display tracking-[-0.05em] text-text-primary"
                 variants={letterVariants}
               >
                 {char}
@@ -86,9 +87,18 @@ const Preloader = ({ onComplete }) => {
             ))}
             <motion.span
               variants={letterVariants}
-              className="w-3.5 h-3.5 rounded-full bg-[#C7F36B] ml-1.5 inline-block"
+              className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-[conic-gradient(from_200deg,#1D9E4B,#8FDDAA,#2496ED,#C7F36B,#1D9E4B)] ml-2 inline-block"
             />
           </motion.div>
+
+          <motion.span
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="relative serif italic text-xl md:text-2xl text-text-secondary mt-1"
+          >
+            practice out loud.
+          </motion.span>
         </motion.div>
       )}
     </AnimatePresence>
