@@ -1,4 +1,4 @@
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const { resolveTargetDifficulty } = require('../templates/interview-template.registry');
 const { GeneratedQuestionsLlmSchema } = require('./question.schema');
 
@@ -250,7 +250,7 @@ const generateQuestionsForBlueprint = async ({
   let modelName = null;
 
   try {
-    const provider = llmProvider || new GeminiExtractionProvider();
+    const provider = llmProvider || createLlmProvider();
     const minimizedFacts = reviewedFacts
       .filter((f) => !f.excludedByCandidate && ['PROJECT', 'EMPLOYMENT', 'SKILL', 'ACHIEVEMENT'].includes(f.factType))
       .slice(0, 20)

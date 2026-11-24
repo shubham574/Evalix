@@ -62,18 +62,31 @@ const createEvaluationRunAndJob = async ({
     bypassOwnership,
   });
 
-  const assembled = await assembleSessionForEvaluation(session._id);
-
   const latestRun = await InterviewEvaluationRun.findOne({
     sessionId: session._id,
   }).sort({ evaluationVersion: -1 });
 
+  // Deduplicate before assembling the session (the outbox sweep calls this repeatedly).
   if (latestRun && !forceNewVersion) {
-    const existingJob = await InterviewEvaluationJob.findOne({
+    let existingJob = await InterviewEvaluationJob.findOne({
       evaluationRunId: latestRun._id,
     }).lean();
+    // The run is created in a transaction and its job right after it. If the process died in
+    // between, the run would wait forever with no job to process it: create the missing job.
+    if (!existingJob && ['QUEUED', 'PARTIALLY_EVALUATED'].includes(latestRun.status)) {
+      existingJob = await jobRepo.createJobIdempotent({
+        sessionId: session._id,
+        evaluationRunId: latestRun._id,
+        idempotencyKey: latestRun.idempotencyKey,
+        status: 'QUEUED',
+        maximumAttempts: env.INTERVIEW_EVALUATION_MAX_ATTEMPTS,
+        nextAttemptAt: new Date(),
+      });
+    }
     return { run: latestRun.toObject(), job: existingJob, deduplicated: true };
   }
+
+  const assembled = await assembleSessionForEvaluation(session._id);
 
   const nextVersion = latestRun ? latestRun.evaluationVersion + 1 : 1;
   const idempotencyKey = buildEvaluationIdempotencyKey({

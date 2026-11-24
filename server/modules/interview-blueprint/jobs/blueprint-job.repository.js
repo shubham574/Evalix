@@ -1,11 +1,11 @@
 const { BlueprintJob } = require('./blueprintJob.model');
+const lease = require('../../common/jobs/lease');
 
-const createJobIdempotent = async (payload) =>
-  BlueprintJob.findOneAndUpdate(
-    { idempotencyKey: payload.idempotencyKey },
-    { $setOnInsert: payload },
-    { upsert: true, new: true }
-  ).lean();
+const createJobIdempotent = async (payload, options = {}) =>
+  lease.createJobIdempotent(BlueprintJob, payload, {
+    ...options,
+    resetSet: { failureStage: null },
+  });
 
 const findLatestJobByIntakeAndUser = async (intakeId, userId) =>
   BlueprintJob.findOne({ intakeId, userId }).sort({ createdAt: -1 }).lean();
@@ -15,13 +15,7 @@ const claimNextJob = async ({ workerId, leaseMs }) => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
 
   return BlueprintJob.findOneAndUpdate(
-    {
-      $or: [
-        { status: 'QUEUED', nextAttemptAt: { $lte: now } },
-        { status: 'RETRY_WAIT', nextAttemptAt: { $lte: now } },
-        { status: 'PROCESSING', leaseExpiresAt: { $lte: now } },
-      ],
-    },
+    lease.claimableFilter(now),
     {
       $set: {
         status: 'PROCESSING',
@@ -33,14 +27,14 @@ const claimNextJob = async ({ workerId, leaseMs }) => {
     },
     {
       sort: { nextAttemptAt: 1, createdAt: 1 },
-      new: true,
+      returnDocument: 'after',
     }
   ).exec();
 };
 
 const markJobCompleted = async (jobId, { blueprintId }) =>
-  BlueprintJob.findByIdAndUpdate(
-    jobId,
+  BlueprintJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'COMPLETED',
@@ -53,12 +47,12 @@ const markJobCompleted = async (jobId, { blueprintId }) =>
         lastErrorMessage: null,
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 
 const markJobRetryWait = async (jobId, { nextAttemptAt, failureStage, errorCode, errorMessage }) =>
-  BlueprintJob.findByIdAndUpdate(
-    jobId,
+  BlueprintJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'RETRY_WAIT',
@@ -71,12 +65,12 @@ const markJobRetryWait = async (jobId, { nextAttemptAt, failureStage, errorCode,
         lastErrorMessage: (errorMessage || '').slice(0, 500),
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 
 const markJobFailed = async (jobId, { failureStage, errorCode, errorMessage }) =>
-  BlueprintJob.findByIdAndUpdate(
-    jobId,
+  BlueprintJob.findOneAndUpdate(
+    lease.fenceFilter(jobId),
     {
       $set: {
         status: 'FAILED',
@@ -88,8 +82,14 @@ const markJobFailed = async (jobId, { failureStage, errorCode, errorMessage }) =
         lastErrorMessage: (errorMessage || '').slice(0, 500),
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
+
+/** Extend the lease of a job this worker still owns; null when the lease was lost. */
+const renewJobLease = (job, leaseMs) => lease.renewLease(BlueprintJob, job, leaseMs);
+
+/** Fail PROCESSING jobs whose lease expired on their final attempt. */
+const recoverExpiredLeases = () => lease.failExhaustedExpiredLeases(BlueprintJob);
 
 module.exports = {
   createJobIdempotent,
@@ -98,4 +98,6 @@ module.exports = {
   markJobCompleted,
   markJobRetryWait,
   markJobFailed,
+  renewJobLease,
+  recoverExpiredLeases,
 };

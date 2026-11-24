@@ -19,7 +19,8 @@ const verifyOwnedIntake = async (intakeId, userId) => {
 
 const requestAnalysis = async (userId, intakeId) => {
   await verifyOwnedIntake(intakeId, userId);
-  const res = await enqueueCandidateAnalysis(intakeId, { userId });
+  // Explicit user request: a previous FAILED job for the same inputs is retried.
+  const res = await enqueueCandidateAnalysis(intakeId, { userId, requeueFailed: true });
   return {
     intakeId: String(intakeId),
     reused: res.reused,

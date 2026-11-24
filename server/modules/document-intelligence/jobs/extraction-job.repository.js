@@ -16,7 +16,7 @@ const createJobIdempotent = async (data, session = null) => {
     { $setOnInsert: data },
     {
       upsert: true,
-      new: true,
+      returnDocument: 'after',
       ...(session ? { session } : {}),
     }
   ).exec();
@@ -60,7 +60,7 @@ const claimNextJob = async ({ workerId, leaseMs, documentType = null }) => {
     },
     {
       sort: { nextAttemptAt: 1, createdAt: 1, _id: 1 },
-      new: true,
+      returnDocument: 'after',
     }
   ).exec();
 };
@@ -84,7 +84,7 @@ const renewJobLease = async (jobId, { workerId, leaseToken, leaseMs, now = new D
     {
       $set: { leaseExpiresAt },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 
@@ -125,7 +125,7 @@ const recoverExpiredLeases = async ({ now = new Date(), limit = 50 } = {}) => {
         },
         $inc: { stateVersion: 1, recoveryCount: 1 },
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).exec();
     if (updated) recoveredCount += 1;
   }
@@ -156,7 +156,7 @@ const markJobCompleted = async (jobId, { extractionId, leaseToken = null }) => {
       },
       $inc: { stateVersion: 1 },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 
@@ -182,7 +182,7 @@ const markJobTerminal = async (jobId, { status, errorCode, errorMessage, leaseTo
       },
       $inc: { stateVersion: 1 },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 
@@ -209,7 +209,7 @@ const markJobRetryWait = async (jobId, { nextAttemptAt, errorCode, errorMessage,
       },
       $inc: { stateVersion: 1 },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 
@@ -244,7 +244,7 @@ const requeueFailedJob = async (jobId, userId, reason) => {
         },
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).exec();
 };
 

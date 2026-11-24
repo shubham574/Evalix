@@ -40,7 +40,7 @@ const markDeleted = async (documentId, userId, session = null) => {
   return CandidateDocument.findOneAndUpdate(
     { _id: documentId, userId },
     { $set: { uploadStatus: 'DELETED' } },
-    { new: true, ...(session ? { session } : {}) }
+    { returnDocument: 'after', ...(session ? { session } : {}) }
   );
 };
 
@@ -48,7 +48,7 @@ const markSecurityStatus = async (documentId, securityStatus, session = null) =>
   return CandidateDocument.findOneAndUpdate(
     { _id: documentId },
     { $set: { securityStatus } },
-    { new: true, ...(session ? { session } : {}) }
+    { returnDocument: 'after', ...(session ? { session } : {}) }
   );
 };
 

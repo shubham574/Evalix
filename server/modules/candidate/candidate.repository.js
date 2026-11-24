@@ -27,7 +27,7 @@ const updateProfileByUserId = async (userId, updates, expectedVersion = null, se
       $inc: { version: 1 },
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
       ...(session ? { session } : {}),
     }
@@ -80,7 +80,7 @@ const updateSkillByIdAndUser = async (skillId, userId, updates) => {
   return CandidateSkill.findOneAndUpdate(
     { _id: skillId, userId },
     { $set: setFields },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
 };
 
@@ -99,7 +99,7 @@ const updateProjectByIdAndUser = async (projectId, userId, updates) =>
   CandidateProject.findOneAndUpdate(
     { _id: projectId, userId },
     { $set: updates },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
 
 const deleteProjectByIdAndUser = async (projectId, userId) =>

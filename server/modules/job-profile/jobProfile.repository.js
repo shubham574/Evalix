@@ -16,7 +16,7 @@ const updateByIdAndUser = async (id, userId, updates, session = null) => {
     { _id: id, userId },
     { $set: updates },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
       ...(session ? { session } : {}),
     }

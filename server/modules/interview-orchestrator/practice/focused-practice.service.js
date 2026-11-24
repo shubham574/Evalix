@@ -1,6 +1,9 @@
 const env = require('../../../config/env');
 const ApiError = require('../../../utils/ApiError');
 
+const toPlain = (value) =>
+  value && typeof value.toObject === 'function' ? value.toObject() : { ...value };
+
 /**
  * Builds an immutable execution snapshot for FOCUSED_SKILL_PRACTICE without mutating
  * the locked InterviewBlueprint.
@@ -66,9 +69,21 @@ const buildFocusedPracticeSnapshot = ({
   const selectedIds = new Set(selectedQuestions.map((q) => q.questionId));
   const selectedStageIds = new Set(selectedQuestions.map((q) => q.stageId).filter(Boolean));
 
-  const stagePlan = Array.isArray(internalBlueprint?.stagePlan)
-    ? internalBlueprint.stagePlan.filter((s) => selectedStageIds.has(s.stageId))
-    : [];
+  // toInternalOrchestratorBlueprint exposes stages as `stages`; accept `stagePlan` too.
+  const sourceStages =
+    Array.isArray(internalBlueprint?.stagePlan) && internalBlueprint.stagePlan.length > 0
+      ? internalBlueprint.stagePlan
+      : Array.isArray(internalBlueprint?.stages)
+      ? internalBlueprint.stages
+      : [];
+  const stagePlan = sourceStages
+    .filter((s) => selectedStageIds.has(s.stageId))
+    .map((s) => {
+      const plain = toPlain(s);
+      return Array.isArray(plain.questionIds)
+        ? { ...plain, questionIds: plain.questionIds.filter((id) => selectedIds.has(id)) }
+        : plain;
+    });
 
   const excludedQuestionIds = allQuestions
     .filter((q) => !selectedIds.has(q.questionId))
@@ -100,20 +115,48 @@ const getEffectiveBlueprintForSession = (session, internalBlueprint) => {
     Array.isArray(session.executionSnapshot.questionPlan) &&
     session.executionSnapshot.questionPlan.length > 0
   ) {
-    return {
-      ...internalBlueprint,
-      stagePlan:
-        Array.isArray(session.executionSnapshot.stagePlan) &&
-        session.executionSnapshot.stagePlan.length > 0
-          ? session.executionSnapshot.stagePlan
-          : internalBlueprint.stagePlan,
-      questionPlan: session.executionSnapshot.questionPlan,
-    };
+    return buildFocusedEffectiveBlueprint(internalBlueprint, session.executionSnapshot);
   }
   return internalBlueprint;
+};
+
+/**
+ * The focused view must expose ONLY the snapshot's questions and the stages that contain
+ * them. Every question lookup (coreQuestions / personalisedQuestions / questionPlan) and
+ * stage iteration (stages / stagePlan) is restricted, so non-focused questions can never
+ * be selected by the stage/question managers.
+ */
+const buildFocusedEffectiveBlueprint = (internalBlueprint, executionSnapshot) => {
+  const questionPlan = executionSnapshot.questionPlan;
+  const selectedIds = new Set(questionPlan.map((q) => q.questionId));
+  const selectedStageIds = new Set(questionPlan.map((q) => q.stageId).filter(Boolean));
+  const keepQuestion = (q) => q && selectedIds.has(q.questionId);
+
+  let stages =
+    Array.isArray(executionSnapshot.stagePlan) && executionSnapshot.stagePlan.length > 0
+      ? executionSnapshot.stagePlan
+      : null;
+  if (!stages) {
+    // Legacy snapshots were saved with an empty stagePlan; derive it from the blueprint.
+    const source =
+      Array.isArray(internalBlueprint.stagePlan) && internalBlueprint.stagePlan.length > 0
+        ? internalBlueprint.stagePlan
+        : internalBlueprint.stages || [];
+    stages = source.filter((s) => selectedStageIds.has(s.stageId));
+  }
+
+  return {
+    ...internalBlueprint,
+    stages,
+    stagePlan: stages,
+    questionPlan,
+    coreQuestions: (internalBlueprint.coreQuestions || []).filter(keepQuestion),
+    personalisedQuestions: (internalBlueprint.personalisedQuestions || []).filter(keepQuestion),
+  };
 };
 
 module.exports = {
   buildFocusedPracticeSnapshot,
   getEffectiveBlueprintForSession,
+  buildFocusedEffectiveBlueprint,
 };

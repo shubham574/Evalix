@@ -1,4 +1,4 @@
-const { GeminiExtractionProvider } = require('../../document-intelligence/providers/llm.provider');
+const { createLlmProvider } = require('../../common/llm/provider-factory');
 const { toLlmMinimizedFacts } = require('../candidate-profile/candidate-facts.service');
 const { SemanticMatcherOutputSchema } = require('../analysis/analysis.schema');
 const { NOT_EVIDENCED_NOTE } = require('./deterministic-matcher');
@@ -60,7 +60,7 @@ const runSemanticMatching = async ({
   let modelName = null;
 
   if (semanticEnabled && facts.length > 0) {
-    const provider = llmProvider || new GeminiExtractionProvider();
+    const provider = llmProvider || createLlmProvider();
     const minimizedFacts = toLlmMinimizedFacts(facts);
     const { systemInstruction, userPrompt } = buildSemanticPrompt({
       unmatchedRequirements,

@@ -99,6 +99,21 @@ const validateAdaptiveProposal = ({
     };
   }
 
+  // Guard 6: The LLM may only end the interview when the plan is exhausted or time is up.
+  // Otherwise the deterministic fallback picks the normal next action.
+  if (
+    action === 'WRAP_UP_INTERVIEW' &&
+    (nextQuestionCandidate || nextStageCandidate) &&
+    !['TIME_EXPIRED', 'CLOSING_SOON'].includes(timeSnapshot?.timeMode)
+  ) {
+    warnings.push('Rejected premature wrap-up: unasked questions or stages remain');
+    return {
+      valid: false,
+      reason: 'Wrap-up not allowed while questions or stages remain',
+      warnings,
+    };
+  }
+
   if (isTerminalStatus(session.status)) {
     return { valid: false, reason: 'Session is already terminal', warnings };
   }

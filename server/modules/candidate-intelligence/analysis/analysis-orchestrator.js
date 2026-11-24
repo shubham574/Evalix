@@ -106,7 +106,7 @@ const makeJobIdempotencyKey = ({
     .update(`${intakeId}|${resumeExtractionId}|${jobDescriptionExtractionId}|${schemaVersion}`)
     .digest('hex');
 
-const enqueueCandidateAnalysis = async (intakeId, { userId = null } = {}) => {
+const enqueueCandidateAnalysis = async (intakeId, { userId = null, requeueFailed = false } = {}) => {
   const { intake, resumeExt, jdExt } = await verifyModule2Readiness(intakeId, userId);
 
   const existingAnalysis = await analysisRepo.findAnalysisBySourceExtractions({
@@ -141,7 +141,7 @@ const enqueueCandidateAnalysis = async (intakeId, { userId = null } = {}) => {
     status: 'QUEUED',
     maximumAttempts: env.CANDIDATE_INTELLIGENCE_MAX_ATTEMPTS,
     nextAttemptAt: new Date(),
-  });
+  }, { requeueFailed });
 
   return {
     reused: false,
@@ -247,7 +247,7 @@ const processAnalysisJob = async (job, { llmProvider = null } = {}) => {
     });
 
     if (existing) {
-      await analysisJobRepo.markJobCompleted(job._id, { analysisId: existing._id });
+      await analysisJobRepo.markJobCompleted(job, { analysisId: existing._id });
       return { status: 'COMPLETED', analysisId: existing._id, cached: true };
     }
 
@@ -360,7 +360,7 @@ const processAnalysisJob = async (job, { llmProvider = null } = {}) => {
       return created;
     });
 
-    await analysisJobRepo.markJobCompleted(job._id, { analysisId: analysisDoc._id });
+    await analysisJobRepo.markJobCompleted(job, { analysisId: analysisDoc._id });
     return { status: 'COMPLETED', analysisId: analysisDoc._id, cached: false };
   } catch (err) {
     const isPermanent =
@@ -369,7 +369,7 @@ const processAnalysisJob = async (job, { llmProvider = null } = {}) => {
 
     if (!isPermanent && job.attemptCount < job.maximumAttempts) {
       const delay = env.CANDIDATE_INTELLIGENCE_RETRY_DELAY_MS * Math.pow(2, Math.max(0, job.attemptCount - 1));
-      await analysisJobRepo.markJobRetryWait(job._id, {
+      await analysisJobRepo.markJobRetryWait(job, {
         nextAttemptAt: new Date(Date.now() + delay),
         errorCode: err.code || err.category || 'TRANSIENT_ERROR',
         errorMessage: err.message,
@@ -377,7 +377,7 @@ const processAnalysisJob = async (job, { llmProvider = null } = {}) => {
       return { status: 'RETRY_WAIT' };
     }
 
-    await analysisJobRepo.markJobFailed(job._id, {
+    await analysisJobRepo.markJobFailed(job, {
       errorCode: err.code || err.category || 'ANALYSIS_FAILED',
       errorMessage: err.message,
     });
